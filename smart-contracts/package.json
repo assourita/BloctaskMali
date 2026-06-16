@@ -1,0 +1,22 @@
+{
+  "name": "blocktask-smart-contracts",
+  "version": "1.0.0",
+  "description": "BlockTask Smart Contracts - Escrow, Reputation, Litigation",
+  "scripts": {
+    "compile": "hardhat compile",
+    "test": "hardhat test",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost",
+    "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
+    "node": "hardhat node",
+    "verify": "hardhat run scripts/verify.js --network sepolia",
+    "export-abi": "hardhat run scripts/export-abi.js"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "@openzeppelin/contracts": "^4.9.3",
+    "hardhat": "^2.19.0"
+  },
+  "dependencies": {
+    "dotenv": "^16.3.1"
+  }
+}

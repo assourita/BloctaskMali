@@ -1,0 +1,530 @@
+[
+  {
+    "model": "missions.category",
+    "pk": "11111111-1111-1111-1111-111111111111",
+    "fields": {
+      "name": "Livraison de colis",
+      "slug": "livraison-colis",
+      "description": "Transport et livraison de colis, paquets, courriers",
+      "icon": "local_shipping",
+      "is_active": true,
+      "order": 1
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "22222222-2222-2222-2222-222222222222",
+    "fields": {
+      "name": "Courses & Achats",
+      "slug": "courses-achats",
+      "description": "Courses au marché, supermarché, achats divers",
+      "icon": "shopping_cart",
+      "is_active": true,
+      "order": 2
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "33333333-3333-3333-3333-333333333333",
+    "fields": {
+      "name": "Transport personne",
+      "slug": "transport-personne",
+      "description": "Déplacement avec chauffeur, taxi, moto-taxi",
+      "icon": "person_pin_circle",
+      "is_active": true,
+      "order": 3
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "44444444-4444-4444-4444-444444444444",
+    "fields": {
+      "name": "Livraison alimentaire",
+      "slug": "livraison-alimentaire",
+      "description": "Repas, plats préparés, courses alimentaires",
+      "icon": "restaurant",
+      "is_active": true,
+      "order": 4
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "55555555-5555-5555-5555-555555555555",
+    "fields": {
+      "name": "Déménagement",
+      "slug": "demenagement",
+      "description": "Transport de meubles, déménagement complet",
+      "icon": "move_to_inbox",
+      "is_active": true,
+      "order": 5
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "66666666-6666-6666-6666-666666666666",
+    "fields": {
+      "name": "Services administratifs",
+      "slug": "services-administratifs",
+      "description": "Démarches administratives, documents, timbres",
+      "icon": "description",
+      "is_active": true,
+      "order": 6
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "77777777-7777-7777-7777-777777777777",
+    "fields": {
+      "name": "Maintenance & Réparation",
+      "slug": "maintenance-reparation",
+      "description": "Petite réparation, bricolage, maintenance",
+      "icon": "build",
+      "is_active": true,
+      "order": 7
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "88888888-8888-8888-8888-888888888888",
+    "fields": {
+      "name": "Livraison urgente",
+      "slug": "livraison-urgente",
+      "description": "Livraison express, moins de 2h",
+      "icon": "flash_on",
+      "is_active": true,
+      "order": 8
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "99999999-9999-9999-9999-999999999999",
+    "fields": {
+      "name": "Nettoyage & Ménage",
+      "slug": "nettoyage-menage",
+      "description": "Ménage, nettoyage, lavage",
+      "icon": "cleaning_services",
+      "is_active": true,
+      "order": 9
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+    "fields": {
+      "name": "Aide à domicile",
+      "slug": "aide-domicile",
+      "description": "Assistance personnes âgées, accompagnement",
+      "icon": "elderly",
+      "is_active": true,
+      "order": 10
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb",
+    "fields": {
+      "name": "Gardiennage",
+      "slug": "gardiennage",
+      "description": "Surveillance maison, garde d'animaux",
+      "icon": "home",
+      "is_active": true,
+      "order": 11
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "cccccccc-cccc-cccc-cccc-cccccccccccc",
+    "fields": {
+      "name": "Livraison médicale",
+      "slug": "livraison-medicale",
+      "description": "Médicaments, analyses, matériel médical",
+      "icon": "local_hospital",
+      "is_active": true,
+      "order": 12
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "dddddddd-dddd-dddd-dddd-dddddddddddd",
+    "fields": {
+      "name": "Covoiturage",
+      "slug": "covoiturage",
+      "description": "Partage de trajet, trajets réguliers",
+      "icon": "emoji_people",
+      "is_active": true,
+      "order": 13
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
+    "fields": {
+      "name": "Bricolage",
+      "slug": "bricolage",
+      "description": "Petits travaux, montage meubles, réparations",
+      "icon": "handyman",
+      "is_active": true,
+      "order": 14
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+    "fields": {
+      "name": "Jardinage",
+      "slug": "jardinage",
+      "description": "Tonte, arrosage, entretien jardin",
+      "icon": "yard",
+      "is_active": true,
+      "order": 15
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "11111111-2222-3333-4444-555555555555",
+    "fields": {
+      "name": "Garde d'enfants",
+      "slug": "garde-enfants",
+      "description": "Babysitting, accompagnement école",
+      "icon": "child_care",
+      "is_active": true,
+      "order": 16
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "22222222-3333-4444-5555-666666666666",
+    "fields": {
+      "name": "Cours particuliers",
+      "slug": "cours-particuliers",
+      "description": "Soutien scolaire, langues, musique",
+      "icon": "school",
+      "is_active": true,
+      "order": 17
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "33333333-4444-5555-6666-777777777777",
+    "fields": {
+      "name": "Technologie",
+      "slug": "technologie",
+      "description": "Dépannage informatique, installation appareils",
+      "icon": "computer",
+      "is_active": true,
+      "order": 18
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "44444444-5555-6666-7777-888888888888",
+    "fields": {
+      "name": "Couture",
+      "slug": "couture",
+      "description": "Retouches, confection vêtements",
+      "icon": "checkroom",
+      "is_active": true,
+      "order": 19
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "55555555-6666-7777-8888-999999999999",
+    "fields": {
+      "name": "Coiffure",
+      "slug": "coiffure",
+      "description": "Coiffure à domicile, tresses, soins",
+      "icon": "content_cut",
+      "is_active": true,
+      "order": 20
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "66666666-7777-8888-9999-aaaaaaaaaaaa",
+    "fields": {
+      "name": "Esthétique",
+      "slug": "esthetique",
+      "description": "Manucure, pédicure, soins beauté",
+      "icon": "spa",
+      "is_active": true,
+      "order": 21
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "77777777-8888-9999-aaaa-bbbbbbbbbbbb",
+    "fields": {
+      "name": "Massage",
+      "slug": "massage",
+      "description": "Massage relaxant, thérapeutique",
+      "icon": "self_improvement",
+      "is_active": true,
+      "order": 22
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "88888888-9999-aaaa-bbbb-cccccccccccc",
+    "fields": {
+      "name": "Photographie",
+      "slug": "photographie",
+      "description": "Photos événements, portraits, produits",
+      "icon": "photo_camera",
+      "is_active": true,
+      "order": 23
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "99999999-aaaa-bbbb-cccc-dddddddddddd",
+    "fields": {
+      "name": "Cuisine",
+      "slug": "cuisine",
+      "description": "Traiteur, préparation repas, événements",
+      "icon": "outdoor_grill",
+      "is_active": true,
+      "order": 24
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+    "fields": {
+      "name": "Sécurité",
+      "slug": "securite",
+      "description": "Agent de sécurité, protection rapprochée",
+      "icon": "security",
+      "is_active": true,
+      "order": 25
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "bbbbbbbb-cccc-dddd-eeee-ffffffffffff",
+    "fields": {
+      "name": "Traduction",
+      "slug": "traduction",
+      "description": "Traduction documents, interprétation",
+      "icon": "translate",
+      "is_active": true,
+      "order": 26
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "cccccccc-dddd-eeee-ffff-111111111111",
+    "fields": {
+      "name": "Rédaction",
+      "slug": "redaction",
+      "description": "Rédaction CV, lettres, contenu web",
+      "icon": "edit",
+      "is_active": true,
+      "order": 27
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "dddddddd-eeee-ffff-1111-222222222222",
+    "fields": {
+      "name": "Comptabilité",
+      "slug": "comptabilite",
+      "description": "Tenue de livres, déclarations fiscales",
+      "icon": "account_balance",
+      "is_active": true,
+      "order": 28
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "eeeeeeee-ffff-1111-2222-333333333333",
+    "fields": {
+      "name": "Conseil juridique",
+      "slug": "conseil-juridique",
+      "description": "Consultation légale, rédaction contrats",
+      "icon": "gavel",
+      "is_active": true,
+      "order": 29
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "ffffffff-1111-2222-3333-444444444444",
+    "fields": {
+      "name": "Divertissement",
+      "slug": "divertissement",
+      "description": "Animation, DJ, musiciens, magiciens",
+      "icon": "music_note",
+      "is_active": true,
+      "order": 30
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "12345678-1234-1234-1234-123456789012",
+    "fields": {
+      "name": "Décor événementiel",
+      "slug": "decor-evenementiel",
+      "description": "Décoration mariage, anniversaire, soirées",
+      "icon": "celebration",
+      "is_active": true,
+      "order": 31
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "23456789-2345-2345-2345-234567890123",
+    "fields": {
+      "name": "Plomberie",
+      "slug": "plomberie",
+      "description": "Réparation fuite, installation sanitaire",
+      "icon": "water_drop",
+      "is_active": true,
+      "order": 32
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "34567890-3456-3456-3456-345678901234",
+    "fields": {
+      "name": "Électricité",
+      "slug": "electricite",
+      "description": "Installation électrique, dépannage",
+      "icon": "electric_bolt",
+      "is_active": true,
+      "order": 33
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "45678901-4567-4567-4567-456789012345",
+    "fields": {
+      "name": "Climatisation",
+      "slug": "climatisation",
+      "description": "Installation, entretien climatiseurs",
+      "icon": "ac_unit",
+      "is_active": true,
+      "order": 34
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "56789012-5678-5678-5678-567890123456",
+    "fields": {
+      "name": "Menuiserie",
+      "slug": "menuiserie",
+      "description": "Fabrication meubles, réparation bois",
+      "icon": "carpenter",
+      "is_active": true,
+      "order": 35
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "67890123-6789-6789-6789-678901234567",
+    "fields": {
+      "name": "Métallerie",
+      "slug": "metallerie",
+      "description": "Soudure, ferronnerie, métal",
+      "icon": "precision_manufacturing",
+      "is_active": true,
+      "order": 36
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "78901234-7890-7890-7890-789012345678",
+    "fields": {
+      "name": "Peinture",
+      "slug": "peinture",
+      "description": "Peinture intérieure, extérieure",
+      "icon": "format_paint",
+      "is_active": true,
+      "order": 37
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "89012345-8901-8901-8901-890123456789",
+    "fields": {
+      "name": "Maçonnerie",
+      "slug": "maconnerie",
+      "description": "Petits travaux maçonnerie, réparation",
+      "icon": "foundation",
+      "is_active": true,
+      "order": 38
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "90123456-9012-9012-9012-901234567890",
+    "fields": {
+      "name": "Carrelage",
+      "slug": "carrelage",
+      "description": "Pose carrelage, réparation sols",
+      "icon": "grid_view",
+      "is_active": true,
+      "order": 39
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "11223344-1122-1122-1122-112233445566",
+    "fields": {
+      "name": "Transport lourd",
+      "slug": "transport-lourd",
+      "description": "Camions, déménagement professionnel",
+      "icon": "local_shipping",
+      "is_active": true,
+      "order": 40
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "22334455-2233-2233-2233-223344556677",
+    "fields": {
+      "name": "Import/Export",
+      "slug": "import-export",
+      "description": "Douane, fret international, logistique",
+      "icon": "flight",
+      "is_active": true,
+      "order": 41
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "33445566-3344-3344-3344-334455667788",
+    "fields": {
+      "name": "Immobilier",
+      "slug": "immobilier",
+      "description": "Visites appartements, état des lieux",
+      "icon": "apartment",
+      "is_active": true,
+      "order": 42
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "44556677-4455-4455-4455-445566778899",
+    "fields": {
+      "name": "Livraison e-commerce",
+      "slug": "livraison-ecommerce",
+      "description": "Livraison colis e-commerce, dropshipping",
+      "icon": "shopping_bag",
+      "is_active": true,
+      "order": 43
+    }
+  },
+  {
+    "model": "missions.category",
+    "pk": "55667788-5566-5566-5566-556677889900",
+    "fields": {
+      "name": "Autre",
+      "slug": "autre",
+      "description": "Autres services non listés",
+      "icon": "more_horiz",
+      "is_active": true,
+      "order": 100
+    }
+  }
+]

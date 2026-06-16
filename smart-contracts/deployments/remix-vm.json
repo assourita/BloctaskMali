@@ -1,0 +1,22 @@
+{
+  "network": "Remix VM (Prague)",
+  "chainId": 11155111,
+  "deployer": "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4",
+  "timestamp": "2026-06-15T15:42:00.000Z",
+  "note": "Deployed via Remix Desktop VM - addresses are local to this Remix session",
+  "contracts": {
+    "EscrowContract": {
+      "address": "0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8",
+      "envKey": "ESCROW_CONTRACT_ADDRESS"
+    },
+    "ReputationContract": {
+      "address": "0xf8e81D47203A594245E36C48e151709F0C19fBe8",
+      "envKey": "REPUTATION_CONTRACT_ADDRESS"
+    },
+    "LitigationContract": {
+      "address": "0xD7ACd2a9FD159E69Bb102A1ca21C9a3e3A5F771B",
+      "envKey": "LITIGATION_CONTRACT_ADDRESS",
+      "constructorArgs": ["0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8"]
+    }
+  }
+}

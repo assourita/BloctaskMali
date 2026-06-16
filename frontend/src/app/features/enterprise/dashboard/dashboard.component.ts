@@ -1,0 +1,804 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { MatCardModule } from '@angular/material/card';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatTableModule } from '@angular/material/table';
+import { MatBadgeModule } from '@angular/material/badge';
+import { MatMenuModule } from '@angular/material/menu';
+
+@Component({
+  selector: 'app-enterprise-dashboard',
+  standalone: true,
+  imports: [
+    CommonModule,
+    RouterModule,
+    MatCardModule,
+    MatButtonModule,
+    MatIconModule,
+    MatChipsModule,
+    MatTableModule,
+    MatBadgeModule,
+    MatMenuModule
+  ],
+  template: `
+    <div class="dashboard-container">
+      <!-- Company Header -->
+      <div class="company-header">
+        <div class="company-info">
+          <div class="logo">🏢</div>
+          <div class="details">
+            <h1>{{ companyName }}</h1>
+            <div class="meta">
+              <mat-chip-listbox>
+                <mat-chip-option color="primary" selected>{{ planType }}</mat-chip-option>
+              </mat-chip-listbox>
+              <span class="employee-count">{{ employeeCount }} employés</span>
+              <span class="missions-count">{{ totalMissions }} missions ce mois</span>
+            </div>
+          </div>
+        </div>
+        <div class="company-actions">
+          <button mat-raised-button color="primary" routerLink="/enterprise/missions">
+            <mat-icon>add</mat-icon>
+            Nouvelle mission
+          </button>
+          <button mat-stroked-button routerLink="/enterprise/employees">
+            <mat-icon>people</mat-icon>
+            Gérer équipe
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Grid -->
+      <div class="stats-grid">
+        <mat-card class="stat-card">
+          <div class="stat-icon in-progress">
+            <mat-icon>local_shipping</mat-icon>
+          </div>
+          <div class="stat-content">
+            <span class="stat-value">{{ activeMissions }}</span>
+            <span class="stat-label">Missions en cours</span>
+          </div>
+        </mat-card>
+
+        <mat-card class="stat-card">
+          <div class="stat-icon completed">
+            <mat-icon>check_circle</mat-icon>
+          </div>
+          <div class="stat-content">
+            <span class="stat-value">{{ completedToday }}</span>
+            <span class="stat-label">Terminées aujourd'hui</span>
+          </div>
+        </mat-card>
+
+        <mat-card class="stat-card">
+          <div class="stat-icon revenue">
+            <mat-icon>account_balance_wallet</mat-icon>
+          </div>
+          <div class="stat-content">
+            <span class="stat-value">{{ monthlyRevenue }} {{ currency }}</span>
+            <span class="stat-label">Dépenses ce mois</span>
+          </div>
+        </mat-card>
+
+        <mat-card class="stat-card">
+          <div class="stat-icon efficiency">
+            <mat-icon>speed</mat-icon>
+          </div>
+          <div class="stat-content">
+            <span class="stat-value">{{ avgCompletionTime }}h</span>
+            <span class="stat-label">Temps moyen</span>
+          </div>
+        </mat-card>
+      </div>
+
+      <!-- Quick Actions -->
+      <div class="quick-actions-bar">
+        <button mat-stroked-button routerLink="/enterprise/tracking">
+          <mat-icon>my_location</mat-icon>
+          Carte en temps réel
+        </button>
+        <button mat-stroked-button routerLink="/enterprise/analytics">
+          <mat-icon>analytics</mat-icon>
+          Rapports
+        </button>
+        <button mat-stroked-button routerLink="/enterprise/finances">
+          <mat-icon>receipt</mat-icon>
+          Facturation
+        </button>
+      </div>
+
+      <!-- Live Map Preview -->
+      <mat-card class="map-card">
+        <mat-card-header>
+          <mat-card-title>Position des agents en temps réel</mat-card-title>
+          <button mat-button color="primary" routerLink="/enterprise/tracking">
+            Voir la carte complète
+          </button>
+        </mat-card-header>
+        <mat-card-content>
+          <div class="map-placeholder">
+            <div class="map-overlay">
+              <div class="agent-marker" *ngFor="let agent of activeAgents" 
+                   [style.left.%]="agent.x" [style.top.%]="agent.y">
+                <div class="marker-icon" [class]="agent.status">
+                  <img [src]="agent.avatar" alt="{{ agent.name }}">
+                </div>
+                <div class="marker-label">{{ agent.name }}</div>
+                <div class="marker-status">{{ getStatusLabel(agent.status) }}</div>
+              </div>
+            </div>
+            <div class="map-info">
+              <span>{{ activeAgents.length }} agents actifs</span>
+              <span>•</span>
+              <span>{{ availableAgents }} disponibles</span>
+            </div>
+          </div>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Active Missions Table -->
+      <mat-card class="missions-table-card">
+        <mat-card-header>
+          <mat-card-title>Missions en cours</mat-card-title>
+          <div class="table-actions">
+            <button mat-button routerLink="/enterprise/missions">
+              <mat-icon>list</mat-icon>
+              Voir tout
+            </button>
+          </div>
+        </mat-card-header>
+        <mat-card-content>
+          <table class="missions-table">
+            <thead>
+              <tr>
+                <th>Mission</th>
+                <th>Assigné à</th>
+                <th>Statut</th>
+                <th>Localisation</th>
+                <th>Progression</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr *ngFor="let mission of activeMissionsList">
+                <td>
+                  <div class="mission-cell">
+                    <strong>{{ mission.title }}</strong>
+                    <span class="subtitle">{{ mission.client }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="employee-cell">
+                    <img [src]="mission.employee.avatar" alt="" class="avatar">
+                    <span>{{ mission.employee.name }}</span>
+                  </div>
+                </td>
+                <td>
+                  <mat-chip-listbox>
+                    <mat-chip-option [color]="getMissionStatusColor(mission.status)" selected>
+                      {{ getMissionStatusLabel(mission.status) }}
+                    </mat-chip-option>
+                  </mat-chip-listbox>
+                </td>
+                <td>
+                  <div class="location-cell">
+                    <mat-icon>location_on</mat-icon>
+                    <span>{{ mission.currentLocation }}</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="progress-cell">
+                    <div class="progress-bar">
+                      <div class="progress-fill" [style.width.%]="mission.progress"></div>
+                    </div>
+                    <span>{{ mission.progress }}%</span>
+                  </div>
+                </td>
+                <td>
+                  <div class="actions-cell">
+                    <button mat-icon-button [matMenuTriggerFor]="menu">
+                      <mat-icon>more_vert</mat-icon>
+                    </button>
+                    <mat-menu #menu="matMenu">
+                      <button mat-menu-item (click)="trackMission(mission)">
+                        <mat-icon>gps_fixed</mat-icon>
+                        <span>Suivre</span>
+                      </button>
+                      <button mat-menu-item (click)="contactEmployee(mission.employee)">
+                        <mat-icon>chat</mat-icon>
+                        <span>Contacter</span>
+                      </button>
+                      <button mat-menu-item (click)="reassignMission(mission)">
+                        <mat-icon>swap_horiz</mat-icon>
+                        <span>Réassigner</span>
+                      </button>
+                    </mat-menu>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </mat-card-content>
+      </mat-card>
+
+      <!-- Employees & Performance -->
+      <div class="bottom-grid">
+        <mat-card class="employees-card">
+          <mat-card-header>
+            <mat-card-title>Top Performers</mat-card-title>
+            <button mat-button color="primary" routerLink="/enterprise/employees">
+              Voir tout
+            </button>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="employee-list">
+              <div class="employee-item" *ngFor="let emp of topEmployees">
+                <div class="rank">#{{ emp.rank }}</div>
+                <img [src]="emp.avatar" alt="" class="avatar">
+                <div class="employee-info">
+                  <strong>{{ emp.name }}</strong>
+                  <span>{{ emp.missions }} missions • {{ emp.rating }} ⭐</span>
+                </div>
+                <div class="employee-stats">
+                  <span class="earnings">+{{ emp.earnings }} {{ currency }}</span>
+                </div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+
+        <mat-card class="alerts-card">
+          <mat-card-header>
+            <mat-card-title>Alertes & Notifications</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="alert-list">
+              <div class="alert-item" *ngFor="let alert of alerts" [class]="alert.type">
+                <mat-icon>{{ alert.icon }}</mat-icon>
+                <div class="alert-content">
+                  <p>{{ alert.message }}</p>
+                  <span class="time">{{ alert.time }}</span>
+                </div>
+              </div>
+            </div>
+          </mat-card-content>
+        </mat-card>
+      </div>
+    </div>
+  `,
+  styles: [`
+    .dashboard-container {
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+
+    .company-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px;
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+
+      .company-info {
+        display: flex;
+        align-items: center;
+        gap: 20px;
+
+        .logo {
+          font-size: 48px;
+        }
+
+        .details {
+          h1 {
+            margin: 0 0 8px 0;
+            font-size: 24px;
+          }
+
+          .meta {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+
+            span {
+              font-size: 14px;
+              color: #6b7280;
+            }
+          }
+        }
+      }
+
+      .company-actions {
+        display: flex;
+        gap: 12px;
+      }
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 16px;
+    }
+
+    .stat-card {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 20px;
+
+      .stat-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        mat-icon {
+          font-size: 24px;
+          width: 24px;
+          height: 24px;
+        }
+      }
+
+      .stat-icon.in-progress { background: #dbeafe; color: #2563eb; }
+      .stat-icon.completed { background: #d1fae5; color: #059669; }
+      .stat-icon.revenue { background: #fce7f3; color: #db2777; }
+      .stat-icon.efficiency { background: #fef3c7; color: #d97706; }
+
+      .stat-content {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .stat-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1f2937;
+      }
+
+      .stat-label {
+        font-size: 14px;
+        color: #6b7280;
+      }
+    }
+
+    .quick-actions-bar {
+      display: flex;
+      gap: 12px;
+    }
+
+    .map-card {
+      mat-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .map-placeholder {
+        height: 300px;
+        background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
+        border-radius: 12px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .map-overlay {
+        position: absolute;
+        inset: 0;
+      }
+
+      .agent-marker {
+        position: absolute;
+        transform: translate(-50%, -50%);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+      }
+
+      .marker-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        overflow: hidden;
+        border: 3px solid;
+
+        img {
+          width: 100%;
+          height: 100%;
+          object-fit: cover;
+        }
+
+        &.active { border-color: #059669; }
+        &.busy { border-color: #d97706; }
+        &.available { border-color: #2563eb; }
+      }
+
+      .marker-label {
+        font-size: 12px;
+        font-weight: 500;
+        background: rgba(0,0,0,0.7);
+        color: white;
+        padding: 2px 8px;
+        border-radius: 4px;
+      }
+
+      .marker-status {
+        font-size: 10px;
+        color: #6b7280;
+        background: white;
+        padding: 2px 6px;
+        border-radius: 4px;
+      }
+
+      .map-info {
+        position: absolute;
+        bottom: 16px;
+        left: 16px;
+        background: white;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        display: flex;
+        gap: 12px;
+      }
+    }
+
+    .missions-table-card {
+      mat-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .missions-table {
+        width: 100%;
+        border-collapse: collapse;
+
+        th {
+          text-align: left;
+          padding: 12px 16px;
+          font-size: 12px;
+          font-weight: 600;
+          text-transform: uppercase;
+          color: #6b7280;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        td {
+          padding: 16px;
+          border-bottom: 1px solid #e5e7eb;
+        }
+
+        .mission-cell {
+          display: flex;
+          flex-direction: column;
+
+          strong {
+            font-weight: 500;
+          }
+
+          .subtitle {
+            font-size: 12px;
+            color: #9ca3af;
+          }
+        }
+
+        .employee-cell {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+
+          .avatar {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+          }
+        }
+
+        .location-cell {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          color: #6b7280;
+          font-size: 14px;
+
+          mat-icon {
+            font-size: 16px;
+            width: 16px;
+            height: 16px;
+          }
+        }
+
+        .progress-cell {
+          display: flex;
+          align-items: center;
+          gap: 12px;
+
+          .progress-bar {
+            flex: 1;
+            height: 6px;
+            background: #e5e7eb;
+            border-radius: 3px;
+            overflow: hidden;
+          }
+
+          .progress-fill {
+            height: 100%;
+            background: #3b82f6;
+            border-radius: 3px;
+          }
+
+          span {
+            font-size: 12px;
+            font-weight: 500;
+            min-width: 36px;
+          }
+        }
+      }
+    }
+
+    .bottom-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+    }
+
+    .employees-card {
+      mat-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 16px;
+      }
+
+      .employee-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .employee-item {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px;
+        background: #f9fafb;
+        border-radius: 8px;
+
+        .rank {
+          width: 28px;
+          height: 28px;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background: #f59e0b;
+          color: white;
+          border-radius: 50%;
+          font-size: 12px;
+          font-weight: 700;
+        }
+
+        .avatar {
+          width: 40px;
+          height: 40px;
+          border-radius: 50%;
+        }
+
+        .employee-info {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+
+          strong {
+            font-weight: 500;
+          }
+
+          span {
+            font-size: 12px;
+            color: #6b7280;
+          }
+        }
+
+        .earnings {
+          font-weight: 600;
+          color: #059669;
+        }
+      }
+    }
+
+    .alerts-card {
+      .alert-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .alert-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 12px;
+        border-radius: 8px;
+
+        mat-icon {
+          font-size: 20px;
+          width: 20px;
+          height: 20px;
+        }
+
+        .alert-content {
+          flex: 1;
+
+          p {
+            margin: 0 0 4px 0;
+            font-size: 14px;
+          }
+
+          .time {
+            font-size: 12px;
+            color: #9ca3af;
+          }
+        }
+
+        &.warning { background: #fef3c7; color: #92400e; }
+        &.info { background: #dbeafe; color: #1e40af; }
+        &.success { background: #d1fae5; color: #065f46; }
+        &.urgent { background: #fee2e2; color: #991b1b; }
+      }
+    }
+
+    @media (max-width: 1024px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .bottom-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .company-header {
+        flex-direction: column;
+        gap: 20px;
+
+        .company-actions {
+          flex-direction: column;
+          width: 100%;
+        }
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .quick-actions-bar {
+        flex-direction: column;
+      }
+
+      .missions-table-card {
+        overflow-x: auto;
+      }
+    }
+  `]
+})
+export class EnterpriseDashboardComponent implements OnInit {
+  // Company Info
+  companyName = 'QuickDelivery CI';
+  planType = 'Business Pro';
+  employeeCount = 24;
+  totalMissions = 156;
+  currency = 'FCFA';
+  
+  // Stats
+  activeMissions = 8;
+  completedToday = 12;
+  monthlyRevenue = 8750;
+  avgCompletionTime = 2.3;
+  
+  // Agents on Map
+  activeAgents = [
+    { name: 'Kouamé', avatar: 'assets/images/agent1.jpg', status: 'active', x: 25, y: 35 },
+    { name: 'Awa', avatar: 'assets/images/agent2.jpg', status: 'busy', x: 55, y: 45 },
+    { name: 'Moussa', avatar: 'assets/images/agent3.jpg', status: 'available', x: 75, y: 25 },
+    { name: 'Fatou', avatar: 'assets/images/agent4.jpg', status: 'active', x: 40, y: 65 },
+    { name: 'Yves', avatar: 'assets/images/agent5.jpg', status: 'available', x: 65, y: 70 }
+  ];
+  availableAgents = 2;
+  
+  // Active Missions
+  activeMissionsList = [
+    {
+      id: 1,
+      title: 'Livraison express - Zone 4',
+      client: 'Client: ABC Corp',
+      employee: { name: 'Kouamé B.', avatar: 'assets/images/agent1.jpg' },
+      status: 'in_progress',
+      currentLocation: 'Marcory',
+      progress: 65
+    },
+    {
+      id: 2,
+      title: 'Course urgent - Plateau',
+      client: 'Client: TechStart',
+      employee: { name: 'Awa D.', avatar: 'assets/images/agent2.jpg' },
+      status: 'assigned',
+      currentLocation: 'Plateau',
+      progress: 15
+    },
+    {
+      id: 3,
+      title: 'Documents - Treichville',
+      client: 'Client: Global SA',
+      employee: { name: 'Moussa K.', avatar: 'assets/images/agent3.jpg' },
+      status: 'in_progress',
+      currentLocation: 'Treichville',
+      progress: 80
+    }
+  ];
+  
+  // Top Employees
+  topEmployees = [
+    { rank: 1, name: 'Kouamé B.', avatar: 'assets/images/agent1.jpg', missions: 42, rating: 4.9, earnings: 1250 },
+    { rank: 2, name: 'Awa D.', avatar: 'assets/images/agent2.jpg', missions: 38, rating: 4.8, earnings: 980 },
+    { rank: 3, name: 'Moussa K.', avatar: 'assets/images/agent3.jpg', missions: 35, rating: 4.7, earnings: 890 }
+  ];
+  
+  // Alerts
+  alerts = [
+    { type: 'urgent', icon: 'error', message: 'Fatou D. en retard sur sa mission', time: '5 min' },
+    { type: 'warning', icon: 'schedule', message: 'Mission #2343 expire dans 30 min', time: '10 min' },
+    { type: 'info', icon: 'check_circle', message: 'Kouamé B. a complété sa mission', time: '15 min' },
+    { type: 'success', icon: 'trending_up', message: 'Objectif journalier atteint!', time: '1h' }
+  ];
+  
+  ngOnInit(): void {}
+  
+  getStatusLabel(status: string): string {
+    const labels: { [key: string]: string } = {
+      'active': 'En mission',
+      'busy': 'Occupé',
+      'available': 'Disponible'
+    };
+    return labels[status] || status;
+  }
+  
+  getMissionStatusColor(status: string): string {
+    const colors: { [key: string]: string } = {
+      'in_progress': 'accent',
+      'assigned': 'warn'
+    };
+    return colors[status] || 'primary';
+  }
+  
+  getMissionStatusLabel(status: string): string {
+    const labels: { [key: string]: string } = {
+      'in_progress': 'En cours',
+      'assigned': 'Assignée'
+    };
+    return labels[status] || status;
+  }
+  
+  trackMission(mission: any): void {
+    console.log('Tracking mission:', mission);
+  }
+  
+  contactEmployee(employee: any): void {
+    console.log('Contacting employee:', employee);
+  }
+  
+  reassignMission(mission: any): void {
+    console.log('Reassigning mission:', mission);
+  }
+}

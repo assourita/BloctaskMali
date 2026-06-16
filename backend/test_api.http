@@ -1,0 +1,240 @@
+### BlockTask API Tests
+### VS Code: Install REST Client extension to use this file
+
+### ============= AUTHENTICATION =============
+
+### Register a new user (Client)
+POST http://localhost:8000/api/users/register/
+Content-Type: application/json
+
+{
+  "username": "testclient",
+  "email": "client@test.com",
+  "password": "TestPass123!",
+  "password_confirm": "TestPass123!",
+  "first_name": "Test",
+  "last_name": "Client",
+  "user_type": "client",
+  "phone_number": "+2250102030405"
+}
+
+### Register a new user (Provider)
+POST http://localhost:8000/api/users/register/
+Content-Type: application/json
+
+{
+  "username": "testprovider",
+  "email": "provider@test.com",
+  "password": "TestPass123!",
+  "password_confirm": "TestPass123!",
+  "first_name": "Test",
+  "last_name": "Provider",
+  "user_type": "provider",
+  "phone_number": "+2250506070809"
+}
+
+### Login (JWT Token)
+POST http://localhost:8000/api/auth/token/
+Content-Type: application/json
+
+{
+  "email": "client@test.com",
+  "password": "TestPass123!"
+}
+
+### Refresh Token
+POST http://localhost:8000/api/auth/token/refresh/
+Content-Type: application/json
+
+{
+  "refresh": "eyJ0eXAiOiJKV1QiLCJhbGciOiJIUzI1NiJ9..."
+}
+
+### ============= USERS =============
+
+### Get Current User Profile
+GET http://localhost:8000/api/users/me/
+Authorization: Bearer {{token}}
+
+### Update Profile
+PATCH http://localhost:8000/api/users/me/
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "first_name": "Updated",
+  "phone_number": "+2251112131415"
+}
+
+### ============= CATEGORIES =============
+
+### List All Categories
+GET http://localhost:8000/api/categories/
+
+### Get Category Detail
+GET http://localhost:8000/api/categories/livraison/
+
+### ============= MISSIONS =============
+
+### List All Missions (with filters)
+GET http://localhost:8000/api/missions/?status=open&ordering=-created_at
+
+### Get Available Missions (for providers)
+GET http://localhost:8000/api/missions/available/
+Authorization: Bearer {{provider_token}}
+
+### Get My Missions (as client)
+GET http://localhost:8000/api/missions/my_missions/
+Authorization: Bearer {{client_token}}
+
+### Create New Mission
+POST http://localhost:8000/api/missions/
+Content-Type: application/json
+Authorization: Bearer {{client_token}}
+
+{
+  "title": "Livraison colis urgent",
+  "description": "Livraison d'un colis important avant 18h",
+  "category": 1,
+  "pickup_address": "Cocody, Abidjan",
+  "pickup_latitude": 5.3520,
+  "pickup_longitude": -4.0083,
+  "delivery_address": "Plateau, Abidjan",
+  "delivery_latitude": 5.3206,
+  "delivery_longitude": -4.0161,
+  "pickup_contact_name": "Amadou",
+  "pickup_contact_phone": "+2250102030405",
+  "delivery_contact_name": "Fatou",
+  "delivery_contact_phone": "+2250506070809",
+  "budget": 50.00,
+  "currency": "USDT",
+  "deadline": "2026-06-12T18:00:00Z",
+  "estimated_duration": 60,
+  "requires_vehicle": true,
+  "requires_photo": true,
+  "requires_signature": true
+}
+
+### Get Mission Detail
+GET http://localhost:8000/api/missions/1/
+Authorization: Bearer {{token}}
+
+### Apply to Mission (as provider)
+POST http://localhost:8000/api/missions/1/apply/
+Content-Type: application/json
+Authorization: Bearer {{provider_token}}
+
+{
+  "proposed_price": 45.00,
+  "estimated_duration": 45,
+  "cover_message": "Je peux réaliser cette mission rapidement avec mon scooter",
+  "proposed_deadline": "2026-06-12T17:30:00Z"
+}
+
+### Accept Application (as client)
+POST http://localhost:8000/api/missions/1/accept_application/
+Content-Type: application/json
+Authorization: Bearer {{client_token}}
+
+{
+  "application_id": 1
+}
+
+### Start Mission (as provider)
+POST http://localhost:8000/api/missions/1/start/
+Authorization: Bearer {{provider_token}}
+
+### Submit Proof (as provider)
+POST http://localhost:8000/api/missions/1/submit_proof/
+Content-Type: application/json
+Authorization: Bearer {{provider_token}}
+
+{
+  "proofs": [
+    {
+      "type": "photo",
+      "url": "https://storage.blocktask.io/proofs/photo1.jpg",
+      "location": "5.3206,-4.0161"
+    }
+  ]
+}
+
+### Validate Mission (as client)
+POST http://localhost:8000/api/missions/1/validate/
+Authorization: Bearer {{client_token}}
+
+### Complete Mission
+POST http://localhost:8000/api/missions/1/complete/
+Authorization: Bearer {{token}}
+
+### Cancel Mission
+POST http://localhost:8000/api/missions/1/cancel/
+Content-Type: application/json
+Authorization: Bearer {{client_token}}
+
+{
+  "reason": "Mission annulée - changement de plans"
+}
+
+### Open Dispute
+POST http://localhost:8000/api/missions/1/dispute/
+Content-Type: application/json
+Authorization: Bearer {{client_token}}
+
+{
+  "reason": "MISSION_NOT_COMPLETED",
+  "description": "Le prestataire n'a pas complété la mission correctement"
+}
+
+### Get Mission Applications (as client)
+GET http://localhost:8000/api/missions/1/applications/
+Authorization: Bearer {{client_token}}
+
+### Get Mission Stats
+GET http://localhost:8000/api/missions/stats/
+Authorization: Bearer {{token}}
+
+### ============= APPLICATIONS =============
+
+### List My Applications (as provider)
+GET http://localhost:8000/api/applications/my_applications/
+Authorization: Bearer {{provider_token}}
+
+### Withdraw Application
+POST http://localhost:8000/api/applications/1/withdraw/
+Authorization: Bearer {{provider_token}}
+
+### ============= BOOKMARKS =============
+
+### Toggle Bookmark
+POST http://localhost:8000/api/bookmarks/toggle/
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+  "mission_id": 1,
+  "notes": "Mission intéressante pour demain",
+  "alert_enabled": true
+}
+
+### List Bookmarks
+GET http://localhost:8000/api/bookmarks/
+Authorization: Bearer {{token}}
+
+### ============= ADMIN =============
+
+### Django Admin
+GET http://localhost:8000/admin/
+
+### API Schema
+GET http://localhost:8000/api/schema/
+
+### ============= TEST WORKFLOW =============
+# 1. Register client and provider
+# 2. Login as client and create mission
+# 3. Login as provider and apply
+# 4. Client accepts application
+# 5. Provider starts mission
+# 6. Provider submits proof
+# 7. Client validates mission
+# 8. Payment released via blockchain

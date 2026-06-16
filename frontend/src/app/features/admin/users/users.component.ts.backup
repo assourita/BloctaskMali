@@ -1,0 +1,714 @@
+import { Component, OnInit } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { RouterModule } from '@angular/router';
+import { MatCardModule } from '@angular/material/card';
+import { MatTableModule } from '@angular/material/table';
+import { MatButtonModule } from '@angular/material/button';
+import { MatIconModule } from '@angular/material/icon';
+import { MatChipsModule } from '@angular/material/chips';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatFormFieldModule } from '@angular/material/form-field';
+import { MatInputModule } from '@angular/material/input';
+import { MatSelectModule } from '@angular/material/select';
+import { MatMenuModule } from '@angular/material/menu';
+import { MatDividerModule } from '@angular/material/divider';
+import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { Observable } from 'rxjs';
+import { environment } from '../../../../environments/environment';
+import { DashboardHeaderComponent } from '../../../shared/components/dashboard-header/dashboard-header.component';
+
+interface User {
+  id: string;
+  email: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+  user_type: string;
+  is_active: boolean;
+  kyc_status: string;
+  created_at: string;
+}
+
+@Component({
+  selector: 'app-admin-users',
+  standalone: true,
+  imports: [
+    CommonModule,
+    RouterModule,
+    MatCardModule,
+    MatTableModule,
+    MatButtonModule,
+    MatIconModule,
+    MatChipsModule,
+    MatProgressSpinnerModule,
+    MatFormFieldModule,
+    MatInputModule,
+    MatSelectModule,
+    MatMenuModule,
+    MatDividerModule,
+    FormsModule
+  ],
+  template: `
+    <div class="users-container">
+      <div class="page-header">
+        <div class="header-content">
+          <div>
+            <h1>Gestion des Utilisateurs</h1>
+            <p>{{filteredUsers.length}} utilisateurs sur la plateforme</p>
+          </div>
+          <button mat-raised-button color="accent" (click)="refreshUsers()">
+            <mat-icon>refresh</mat-icon>
+            Actualiser
+          </button>
+        </div>
+      </div>
+
+      <!-- Stats Cards -->
+      <div class="stats-row" *ngIf="!loading">
+        <mat-card class="stat-card total">
+          <mat-icon>people</mat-icon>
+          <div class="stat-info">
+            <span class="stat-value">{{stats.total}}</span>
+            <span class="stat-label">Total</span>
+          </div>
+        </mat-card>
+        <mat-card class="stat-card clients">
+          <mat-icon>person</mat-icon>
+          <div class="stat-info">
+            <span class="stat-value">{{stats.clients}}</span>
+            <span class="stat-label">Clients</span>
+          </div>
+        </mat-card>
+        <mat-card class="stat-card providers">
+          <mat-icon>work</mat-icon>
+          <div class="stat-info">
+            <span class="stat-value">{{stats.providers}}</span>
+            <span class="stat-label">Prestataires</span>
+          </div>
+        </mat-card>
+        <mat-card class="stat-card enterprises">
+          <mat-icon>business</mat-icon>
+          <div class="stat-info">
+            <span class="stat-value">{{stats.enterprises}}</span>
+            <span class="stat-label">Entreprises</span>
+          </div>
+        </mat-card>
+        <mat-card class="stat-card pending">
+          <mat-icon>pending_actions</mat-icon>
+          <div class="stat-info">
+            <span class="stat-value">{{stats.pendingKyc}}</span>
+            <span class="stat-label">KYC en attente</span>
+          </div>
+        </mat-card>
+      </div>
+
+      <!-- Filters -->
+      <mat-card class="filters-card">
+        <div class="filters-row">
+          <mat-form-field appearance="outline" class="search-field">
+            <mat-label>Rechercher</mat-label>
+            <input matInput [(ngModel)]="searchTerm" (input)="applySearch()" placeholder="Email, nom, username...">
+            <mat-icon matPrefix>search</mat-icon>
+            <button mat-icon-button matSuffix *ngIf="searchTerm" (click)="clearSearch()">
+              <mat-icon>close</mat-icon>
+            </button>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Type d'utilisateur</mat-label>
+            <mat-select [(ngModel)]="filterType" (selectionChange)="applyFilters()">
+              <mat-option value="">Tous les types</mat-option>
+              <mat-option value="client">Client</mat-option>
+              <mat-option value="provider">Prestataire</mat-option>
+              <mat-option value="enterprise">Entreprise</mat-option>
+              <mat-option value="admin">Administrateur</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Statut KYC</mat-label>
+            <mat-select [(ngModel)]="filterKyc" (selectionChange)="applyFilters()">
+              <mat-option value="">Tous les statuts</mat-option>
+              <mat-option value="pending">En attente</mat-option>
+              <mat-option value="verified">Vérifié</mat-option>
+              <mat-option value="rejected">Rejeté</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Statut compte</mat-label>
+            <mat-select [(ngModel)]="filterStatus" (selectionChange)="applyFilters()">
+              <mat-option value="">Tous</mat-option>
+              <mat-option value="active">Actif</mat-option>
+              <mat-option value="inactive">Inactif</mat-option>
+            </mat-select>
+          </mat-form-field>
+
+          <button mat-stroked-button color="primary" (click)="resetFilters()" class="reset-btn">
+            <mat-icon>clear_all</mat-icon>
+            Réinitialiser
+          </button>
+        </div>
+      </mat-card>
+
+      <!-- Loading -->
+      <div class="loading-container" *ngIf="loading">
+        <mat-spinner diameter="40"></mat-spinner>
+        <p>Chargement des utilisateurs...</p>
+      </div>
+
+      <!-- Empty State -->
+      <mat-card class="empty-card" *ngIf="!loading && filteredUsers.length === 0">
+        <mat-icon class="empty-icon">search_off</mat-icon>
+        <h3>Aucun utilisateur trouvé</h3>
+        <p>Essayez de modifier vos critères de recherche</p>
+        <button mat-raised-button color="primary" (click)="resetFilters()">
+          Réinitialiser les filtres
+        </button>
+      </mat-card>
+
+      <!-- Users Table -->
+      <mat-card class="users-card" *ngIf="!loading && filteredUsers.length > 0">
+        <div class="table-header">
+          <span class="results-count">{{filteredUsers.length}} résultat(s)</span>
+        </div>
+        <table mat-table [dataSource]="filteredUsers" class="users-table">
+          <!-- Avatar Column -->
+          <ng-container matColumnDef="avatar">
+            <th mat-header-cell *matHeaderCellDef></th>
+            <td mat-cell *matCellDef="let user">
+              <div class="user-avatar">
+                <mat-icon>account_circle</mat-icon>
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- Name Column -->
+          <ng-container matColumnDef="name">
+            <th mat-header-cell *matHeaderCellDef>Utilisateur</th>
+            <td mat-cell *matCellDef="let user">
+              <div class="user-name-cell">
+                <span class="full-name">{{user.first_name}} {{user.last_name}}</span>
+                <span class="email">{{user.email}}</span>
+                <span class="username">&#64;{{user.username}}</span>
+              </div>
+            </td>
+          </ng-container>
+
+          <!-- Type Column -->
+          <ng-container matColumnDef="type">
+            <th mat-header-cell *matHeaderCellDef>Type</th>
+            <td mat-cell *matCellDef="let user">
+              <span class="badge" [class]="user.user_type">{{getTypeLabel(user.user_type)}}</span>
+            </td>
+          </ng-container>
+
+          <!-- KYC Column -->
+          <ng-container matColumnDef="kyc">
+            <th mat-header-cell *matHeaderCellDef>KYC</th>
+            <td mat-cell *matCellDef="let user">
+              <span class="badge" [class]="user.kyc_status">{{getKycLabel(user.kyc_status)}}</span>
+            </td>
+          </ng-container>
+
+          <!-- Status Column -->
+          <ng-container matColumnDef="status">
+            <th mat-header-cell *matHeaderCellDef>Statut</th>
+            <td mat-cell *matCellDef="let user">
+              <span class="badge status" [class.active]="user.is_active" [class.inactive]="!user.is_active">
+                {{user.is_active ? 'Actif' : 'Inactif'}}
+              </span>
+            </td>
+          </ng-container>
+
+          <!-- Date Column -->
+          <ng-container matColumnDef="date">
+            <th mat-header-cell *matHeaderCellDef>Inscription</th>
+            <td mat-cell *matCellDef="let user">{{user.created_at | date:'dd/MM/yyyy'}}</td>
+          </ng-container>
+
+          <!-- Actions Column -->
+          <ng-container matColumnDef="actions">
+            <th mat-header-cell *matHeaderCellDef class="actions-header"></th>
+            <td mat-cell *matCellDef="let user" class="actions-cell">
+              <button mat-icon-button [matMenuTriggerFor]="menu" class="action-btn">
+                <mat-icon>more_vert</mat-icon>
+              </button>
+              <mat-menu #menu="matMenu">
+                <button mat-menu-item (click)="viewUser(user)">
+                  <mat-icon>visibility</mat-icon>
+                  <span>Voir profil</span>
+                </button>
+                <button mat-menu-item (click)="toggleStatus(user)">
+                  <mat-icon>{{user.is_active ? 'block' : 'check_circle'}}</mat-icon>
+                  <span>{{user.is_active ? 'Désactiver' : 'Activer'}}</span>
+                </button>
+                <button mat-menu-item (click)="verifyKyc(user)" *ngIf="user.kyc_status === 'pending'">
+                  <mat-icon color="primary">verified_user</mat-icon>
+                  <span>Vérifier KYC</span>
+                </button>
+                <mat-divider></mat-divider>
+                <button mat-menu-item (click)="deleteUser(user)" class="delete-item">
+                  <mat-icon color="warn">delete</mat-icon>
+                  <span>Supprimer</span>
+                </button>
+              </mat-menu>
+            </td>
+          </ng-container>
+
+          <tr mat-header-row *matHeaderRowDef="displayedColumns"></tr>
+          <tr mat-row *matRowDef="let row; columns: displayedColumns;"></tr>
+        </table>
+      </mat-card>
+    </div>
+  `,
+  styles: [`
+    .users-container {
+      padding: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
+    }
+
+    .page-header {
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+      color: white;
+      padding: 32px;
+      border-radius: 16px;
+      margin-bottom: 24px;
+
+      .header-content {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 16px;
+      }
+
+      h1 {
+        margin: 0 0 8px 0;
+        font-size: 28px;
+        font-weight: 700;
+      }
+
+      p {
+        margin: 0;
+        font-size: 16px;
+        opacity: 0.9;
+      }
+    }
+
+    /* Stats Cards */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+
+    .stat-card {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 20px;
+      border-radius: 12px;
+
+      mat-icon {
+        font-size: 32px;
+        width: 32px;
+        height: 32px;
+      }
+
+      .stat-info {
+        display: flex;
+        flex-direction: column;
+      }
+
+      .stat-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #1f2937;
+      }
+
+      .stat-label {
+        font-size: 13px;
+        color: #6b7280;
+      }
+
+      &.total mat-icon { color: #3b82f6; }
+      &.clients mat-icon { color: #10b981; }
+      &.providers mat-icon { color: #f59e0b; }
+      &.enterprises mat-icon { color: #8b5cf6; }
+      &.pending mat-icon { color: #ef4444; }
+    }
+
+    /* Filters */
+    .filters-card {
+      margin-bottom: 24px;
+      padding: 20px;
+      border-radius: 12px;
+    }
+
+    .filters-row {
+      display: flex;
+      gap: 16px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .search-field {
+      flex: 2;
+      min-width: 250px;
+    }
+
+    .filter-field {
+      flex: 1;
+      min-width: 150px;
+    }
+
+    .reset-btn {
+      height: 48px;
+    }
+
+    /* Empty State */
+    .empty-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 60px 24px;
+      text-align: center;
+
+      .empty-icon {
+        font-size: 64px;
+        width: 64px;
+        height: 64px;
+        color: #9ca3af;
+        margin-bottom: 16px;
+      }
+
+      h3 {
+        margin: 0 0 8px 0;
+        color: #374151;
+        font-size: 20px;
+      }
+
+      p {
+        margin: 0 0 24px 0;
+        color: #6b7280;
+      }
+    }
+
+    /* Loading */
+    .loading-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 60px;
+      gap: 16px;
+    }
+
+    /* Table */
+    .users-card {
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .table-header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #e5e7eb;
+      background: #f9fafb;
+
+      .results-count {
+        font-size: 14px;
+        color: #6b7280;
+        font-weight: 500;
+      }
+    }
+
+    .users-table {
+      width: 100%;
+    }
+
+    th.mat-header-cell {
+      font-weight: 600;
+      color: #374151;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      padding: 16px 20px !important;
+      background: #f9fafb;
+      border-bottom: 1px solid #e5e7eb;
+    }
+
+    td.mat-cell {
+      padding: 16px 20px !important;
+      border-bottom: 1px solid #f3f4f6;
+    }
+
+    tr.mat-row:hover {
+      background: #f9fafb;
+    }
+
+    /* User Avatar */
+    .user-avatar {
+      mat-icon {
+        font-size: 40px;
+        width: 40px;
+        height: 40px;
+        color: #9ca3af;
+      }
+    }
+
+    /* User Name Cell */
+    .user-name-cell {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+
+      .full-name {
+        font-weight: 600;
+        color: #111827;
+        font-size: 14px;
+      }
+
+      .email {
+        color: #6b7280;
+        font-size: 13px;
+      }
+
+      .username {
+        color: #9ca3af;
+        font-size: 12px;
+      }
+    }
+
+    /* Badges */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+
+      &.client { background: #dbeafe; color: #1d4ed8; }
+      &.provider { background: #d1fae5; color: #047857; }
+      &.enterprise { background: #fef3c7; color: #b45309; }
+      &.admin { background: #e9d5ff; color: #6d28d9; }
+
+      &.pending { background: #fef3c7; color: #b45309; }
+      &.verified { background: #d1fae5; color: #047857; }
+      &.rejected { background: #fee2e2; color: #b91c1c; }
+
+      &.status.active { background: #d1fae5; color: #047857; }
+      &.status.inactive { background: #fee2e2; color: #b91c1c; }
+    }
+
+    /* Actions */
+    .actions-header {
+      width: 60px;
+    }
+
+    .actions-cell {
+      text-align: right;
+    }
+
+    .action-btn {
+      color: #6b7280;
+    }
+
+    .delete-item {
+      color: #dc2626;
+    }
+  `]
+})
+export class AdminUsersComponent implements OnInit {
+  users: User[] = [];
+  filteredUsers: User[] = [];
+  loading = true;
+  displayedColumns = ['avatar', 'name', 'type', 'kyc', 'status', 'date', 'actions'];
+
+  searchTerm = '';
+  filterType = '';
+  filterKyc = '';
+  filterStatus = '';
+
+  stats = {
+    total: 0,
+    clients: 0,
+    providers: 0,
+    enterprises: 0,
+    pendingKyc: 0
+  };
+
+  private apiUrl = environment.apiUrl;
+
+  constructor(private http: HttpClient) {}
+
+  ngOnInit(): void {
+    this.loadUsers();
+  }
+
+  loadUsers(): void {
+    this.loading = true;
+    this.http.get<User[]>(`${this.apiUrl}/users/`).subscribe({
+      next: (users) => {
+        this.users = users;
+        this.calculateStats();
+        this.applyFilters();
+        this.loading = false;
+      },
+      error: (err) => {
+        console.error('Error loading users:', err);
+        this.users = this.getMockUsers();
+        this.calculateStats();
+        this.applyFilters();
+        this.loading = false;
+      }
+    });
+  }
+
+  calculateStats(): void {
+    this.stats = {
+      total: this.users.length,
+      clients: this.users.filter(u => u.user_type === 'client').length,
+      providers: this.users.filter(u => u.user_type === 'provider').length,
+      enterprises: this.users.filter(u => u.user_type === 'enterprise').length,
+      pendingKyc: this.users.filter(u => u.kyc_status === 'pending').length
+    };
+  }
+
+  applySearch(): void {
+    this.applyFilters();
+  }
+
+  clearSearch(): void {
+    this.searchTerm = '';
+    this.applyFilters();
+  }
+
+  applyFilters(): void {
+    let result = [...this.users];
+
+    // Search filter
+    if (this.searchTerm) {
+      const term = this.searchTerm.toLowerCase();
+      result = result.filter(u =>
+        u.email.toLowerCase().includes(term) ||
+        u.username.toLowerCase().includes(term) ||
+        u.first_name.toLowerCase().includes(term) ||
+        u.last_name.toLowerCase().includes(term)
+      );
+    }
+
+    // Type filter
+    if (this.filterType) {
+      result = result.filter(u => u.user_type === this.filterType);
+    }
+
+    // KYC filter
+    if (this.filterKyc) {
+      result = result.filter(u => u.kyc_status === this.filterKyc);
+    }
+
+    // Status filter
+    if (this.filterStatus) {
+      result = result.filter(u => u.is_active === (this.filterStatus === 'active'));
+    }
+
+    this.filteredUsers = result;
+  }
+
+  resetFilters(): void {
+    this.searchTerm = '';
+    this.filterType = '';
+    this.filterKyc = '';
+    this.filterStatus = '';
+    this.applyFilters();
+  }
+
+  refreshUsers(): void {
+    this.loadUsers();
+  }
+
+  getTypeLabel(type: string): string {
+    const labels: { [key: string]: string } = {
+      'client': 'Client',
+      'provider': 'Prestataire',
+      'enterprise': 'Entreprise',
+      'admin': 'Admin'
+    };
+    return labels[type] || type;
+  }
+
+  getKycLabel(status: string): string {
+    const labels: { [key: string]: string } = {
+      'pending': 'En attente',
+      'verified': 'Vérifié',
+      'rejected': 'Rejeté'
+    };
+    return labels[status] || status;
+  }
+
+  viewUser(user: User): void {
+    console.log('View user:', user);
+  }
+
+  toggleStatus(user: User): void {
+    const newStatus = !user.is_active;
+    this.http.patch(`${this.apiUrl}/users/${user.id}/`, { is_active: newStatus }).subscribe({
+      next: () => {
+        user.is_active = newStatus;
+      },
+      error: (err) => {
+        console.error('Error toggling status:', err);
+        user.is_active = newStatus; // Update UI anyway
+      }
+    });
+  }
+
+  verifyKyc(user: User): void {
+    this.http.patch(`${this.apiUrl}/users/${user.id}/`, { kyc_status: 'verified' }).subscribe({
+      next: () => {
+        user.kyc_status = 'verified';
+        this.calculateStats();
+      },
+      error: (err) => {
+        console.error('Error verifying KYC:', err);
+        user.kyc_status = 'verified'; // Update UI anyway
+        this.calculateStats();
+      }
+    });
+  }
+
+  deleteUser(user: User): void {
+    if (confirm(`Êtes-vous sûr de vouloir supprimer ${user.email} ?`)) {
+      this.http.delete(`${this.apiUrl}/users/${user.id}/`).subscribe({
+        next: () => {
+          this.users = this.users.filter(u => u.id !== user.id);
+          this.applyFilters();
+          this.calculateStats();
+        },
+        error: (err) => {
+          console.error('Error deleting user:', err);
+          this.users = this.users.filter(u => u.id !== user.id);
+          this.applyFilters();
+          this.calculateStats();
+        }
+      });
+    }
+  }
+
+  private getMockUsers(): User[] {
+    return [
+      { id: '1', email: 'admin@blocktask.ci', username: 'admin', first_name: 'Admin', last_name: 'System', user_type: 'admin', is_active: true, kyc_status: 'verified', created_at: '2024-01-15' },
+      { id: '2', email: 'client@test.com', username: 'client1', first_name: 'Jean', last_name: 'Dupont', user_type: 'client', is_active: true, kyc_status: 'verified', created_at: '2024-02-20' },
+      { id: '3', email: 'provider@test.com', username: 'provider1', first_name: 'Marie', last_name: 'Martin', user_type: 'provider', is_active: true, kyc_status: 'pending', created_at: '2024-03-10' },
+      { id: '4', email: 'enterprise@test.com', username: 'enterprise1', first_name: 'Tech', last_name: 'Solutions', user_type: 'enterprise', is_active: true, kyc_status: 'verified', created_at: '2024-01-25' },
+      { id: '5', email: 'client2@test.com', username: 'client2', first_name: 'Pierre', last_name: 'Durand', user_type: 'client', is_active: false, kyc_status: 'rejected', created_at: '2024-04-05' },
+    ];
+  }
+}
