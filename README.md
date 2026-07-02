@@ -1,274 +1,302 @@
-# BlockTask - Plateforme Décentralisée de Délégation de Tâches
+# BlockTask
 
-BlockTask est une plateforme complète permettant la délégation sécurisée de tâches physiques entre particuliers et entreprises, utilisant la blockchain Ethereum pour garantir la confiance via des smart contracts escrow.
+Plateforme hybride de délégation de tâches physiques entre particuliers et entreprises — paiements Mobile Money, escrow blockchain, KYC et suivi GPS en temps réel.
 
-**Marché cible** : **Mali** (phase 1) — FCFA, NINA, Orange Money / Moov Money, Bamako. Extension UEMOA prévue ultérieurement.
+**Marché cible (phase 1)** : Mali — FCFA, NINA, Orange Money / Moov Money, Bamako. Extension UEMOA prévue.
+
+| Web (Angular) | Mobile (Expo) | API (Django) | Blockchain (Solidity) |
+|:---:|:---:|:---:|:---:|
+| Client · Prestataire · Entreprise · Admin | iOS & Android | REST + WebSockets | Escrow · Réputation · Litiges |
+
+---
+
+## Sommaire
+
+- [Architecture](#architecture)
+- [Fonctionnalités](#fonctionnalités)
+- [Démarrage rapide](#démarrage-rapide)
+- [Configuration](#configuration)
+- [Tests](#tests)
+- [Déploiement](#déploiement)
+- [Technologies](#technologies)
+- [Roadmap](#roadmap)
+
+---
 
 ## Architecture
 
 ```
-blocktask_myself/
-├── backend/                 # Django REST API
+blocktask/
+├── backend/                 # Django REST API + WebSockets
 │   ├── apps/
-│   │   ├── users/          # Authentification, profils, KYC
-│   │   ├── missions/       # Gestion des missions
-│   │   ├── escrow/         # Blockchain, paiements, cautions
-│   │   ├── reputation/     # Système de score algorithmique
-│   │   ├── disputes/       # Gestion des litiges
-│   │   ├── tracking/       # GPS temps réel
-│   │   ├── proofs/         # Preuves d'exécution
-│   │   ├── enterprises/    # Gestion entreprises B2B
-│   │   ├── notifications/  # Push, SMS, Email
-│   │   ├── analytics/      # Statistiques et rapports
-│   │   └── common/         # Utilitaires partagés
-│   ├── config/             # Configuration Django
-│   ├── manage.py
-│   └── requirements.txt
+│   │   ├── users/           # Auth JWT, KYC, rôles doubles, entreprises
+│   │   ├── missions/        # Missions, candidatures, sollicitations, catégories
+│   │   ├── escrow/          # Cautions, blockchain, sync événements
+│   │   ├── payments/        # Mobile Money (Orange / Moov)
+│   │   ├── reputation/      # Score algorithmique 0–100
+│   │   ├── disputes/        # Litiges et arbitrage
+│   │   ├── tracking/        # GPS temps réel (Channels)
+│   │   ├── proofs/          # Photos, QR, signatures
+│   │   ├── enterprises/     # Employés, affectations B2B
+│   │   ├── notifications/   # Push, email, in-app
+│   │   ├── analytics/       # Statistiques
+│   │   └── common/          # Config marché Afrique, paramètres plateforme
+│   ├── tests/               # Pytest (flux MVP, KYC, entreprise…)
+│   └── manage.py
 │
-├── frontend/               # Angular 17 (web)
-│   └── ...
+├── frontend/                # Angular 17 — application web
+│   └── src/app/features/
+│       ├── client/          # Création missions, paiements, litiges
+│       ├── provider/        # Missions, caution, preuves, revenus
+│       ├── enterprise/      # Employés, finances, sollicitations
+│       ├── admin/           # KYC, utilisateurs, blockchain
+│       └── landing/         # Page publique, annuaire prestataires
 │
-├── mobile/                 # React Native / Expo (clients & prestataires)
-│   ├── app/                # Écrans Expo Router
-│   └── src/                # API, contexte auth, composants
+├── mobile/                  # React Native / Expo SDK 52
+│   ├── app/                 # Écrans Expo Router (tabs + stacks)
+│   └── src/api/             # Client HTTP, auth, missions, sollicitations
 │
-└── smart-contracts/        # Contrats Solidity
+└── smart-contracts/         # Solidity ^0.8.20 (Sepolia)
     ├── EscrowContract.sol
     ├── ReputationContract.sol
-    ├── LitigationContract.sol
-    └── README.md
+    └── LitigationContract.sol
 ```
 
-##  Démarrage Rapide
+### Flux métier principal
+
+```mermaid
+flowchart LR
+    A[Création mission] --> B[Financement escrow / MM]
+    B --> C[Candidature ou sollicitation]
+    C --> D[Dépôt caution prestataire]
+    D --> E[Exécution + GPS + preuves]
+    E --> F[Validation client]
+    F --> G[Paiement + réputation]
+```
+
+---
+
+## Fonctionnalités
+
+### Authentification & profils
+
+- Inscription / connexion JWT avec refresh token rotatif
+- Connexion Google, réinitialisation mot de passe, vérification email
+- Rôles doubles : un compte peut être **client** et **prestataire**
+- KYC (NINA, pièce d'identité, selfie) avec revue admin
+- Complétion de profil guidée avant accès plateforme
+- Profils publics prestataires et entreprises (landing)
+
+### Missions
+
+- 40+ catégories avec **règles métier** (caution, exigences, valeur marchandise)
+- Workflow complet : création → financement → candidature → caution → exécution → validation
+- **Sollicitations** : client ou entreprise invite un prestataire spécifique
+- Candidatures, assignation employé (entreprise), expiration automatique
+- Aperçu caution dynamique selon catégorie et budget
+- Géolocalisation et missions disponibles à proximité
+
+### Paiements & cautions
+
+- **Mobile Money** (Orange Money, Moov Money) — sandbox et production
+- Alimentation caution via débit MM (pas de crédit manuel)
+- Escrow hybride : base de données + smart contracts Ethereum
+- Historique paiements, finances entreprise, revenus prestataire
+
+### Preuves, suivi & confiance
+
+- Upload photos / vidéos, signatures, validation QR
+- Tracking GPS temps réel (WebSocket)
+- Système de réputation (score, niveaux Bronze → Platine)
+- Litiges avec preuves et arbitrage admin
+- Évaluations post-mission
+
+### Espaces utilisateurs
+
+| Espace | Principales actions |
+|--------|---------------------|
+| **Client** | Créer missions, solliciter, payer, suivre GPS, valider, noter |
+| **Prestataire** | Postuler, déposer caution, exécuter, soumettre preuves, revenus |
+| **Entreprise** | Gérer employés, missions reçues, finances, sollicitations B2B |
+| **Admin** | KYC, utilisateurs, litiges, blockchain, analytics, paramètres |
+
+### Applications
+
+| Plateforme | Stack | État |
+|------------|-------|------|
+| **Web** | Angular 17 + Material | MVP fonctionnel |
+| **Mobile** | Expo 52 + TypeScript | MVP fonctionnel (client & prestataire) |
+| **API** | Django 4.2 + DRF + Channels | MVP fonctionnel |
+| **Contrats** | Solidity + Sepolia | Déployés (testnet) |
+
+---
+
+## Démarrage rapide
 
 ### Prérequis
+
 - Python 3.11+
 - Node.js 18+
-- PostgreSQL (optionnel, SQLite par défaut)
-- Redis (pour WebSockets et Celery)
-- MetaMask ou wallet Web3
+- Redis (WebSockets, optionnel en dev)
+- PostgreSQL (optionnel — SQLite par défaut)
+- Expo Go (pour tester le mobile)
 
-### Backend Django
+### 1. Backend
 
 ```bash
 cd backend
-
-# Créer l'environnement virtuel
 python -m venv venv
 
 # Windows
 venv\Scripts\activate
-
-# Linux/Mac
+# Linux / macOS
 source venv/bin/activate
 
-# Installer les dépendances
 pip install -r requirements.txt
-
-# Créer la base de données
+cp .env.example .env          # puis éditez les variables
 python manage.py migrate
-
-# Créer un super utilisateur
 python manage.py createsuperuser
-
-# Lancer le serveur
-python manage.py runserver
+python manage.py runserver 0.0.0.0:8000
 ```
 
-### Frontend Angular
+> Utilisez `0.0.0.0:8000` pour que le mobile (émulateur ou téléphone) puisse joindre l'API.
+
+**Utilisateurs de test** (optionnel) :
+
+```bash
+python create_test_users.py
+```
+
+### 2. Frontend web
 
 ```bash
 cd frontend
-
-# Installer les dépendances
 npm install
-
-# Lancer le serveur de développement
 ng serve
-
-# Build production
-ng build --configuration production
 ```
 
-##  Fonctionnalités Implémentées
+Application disponible sur `http://localhost:4200`.
 
-### Backend (Django)
+### 3. Application mobile
 
- **Users App**
-- Modèle User personnalisé avec JWT
-- Profils Prestataire, Entreprise, Employé
-- KYC avec vérification d'identité (NINA / ID nationale — Mali, Niger, Guinée…)
-- Wallet blockchain connexion
-- Historique de connexion et sécurité
-
- **Missions App**
-- Création et gestion de missions
-- Système de candidatures
-- Workflow complet (création → validation)
-- Géolocalisation (PostGIS)
-- Catégories et filtres
-
-**Reputation App**
-- Algorithme de score (0-100)
-- Historique des changements
-- Niveaux (Bronze → Platine)
-- Pénalités et bonus
-
- **Disputes App**
-- Ouverture de litiges
-- Soumission de preuves
-- Système d'arbitrage
-- Appels de décisions
-
- **Proofs App**
-- Photos, vidéos, signatures
-- Validation QR Code
-- Analyse automatique (OCR, fraude)
-- Checklist des preuves
-
- **Enterprises App**
-- Gestion des employés
-- Affectation des missions
-- Contrats et facturation
-- Analytics B2B
-
-### Frontend (Angular)
-
- **Structure**
-- Angular 17 avec Material Design
-- Guards d'authentification
-- Interceptors HTTP
-- Routing lazy-loaded
-
- **Services**
-- AuthService (JWT, login, register)
-- Web3Service (MetaMask, contrats)
-- API Services (REST)
-
- **Composants**
-- Header avec wallet connect
-- Routing par rôle (client/provider/enterprise/admin)
-
-##  Intégration Blockchain
-
-### Smart Contracts
-Les contrats Solidity existants dans `smart-contracts/` :
-- **EscrowContract** : Gestion des fonds en escrow
-- **ReputationContract** : Scores et réputation
-- **LitigationContract** : Arbitrage des litiges
-
-### Web3 Integration
-```typescript
-// Exemple d'utilisation
-const web3Service = inject(Web3Service);
-
-// Connecter wallet
-await web3Service.connectWallet();
-
-// Créer mission on-chain
-const result = await web3Service.createMissionOnChain(
-  missionHash,
-  deadline,
-  amount
-);
+```bash
+cd mobile
+npm install
+cp .env.example .env          # EXPO_PUBLIC_API_URL=http://VOTRE_IP:8000/api
+npm start
 ```
 
-##  Espaces Utilisateurs
+| Environnement | URL API par défaut |
+|---------------|-------------------|
+| Android émulateur | `http://10.0.2.2:8000/api` |
+| iOS simulateur | `http://localhost:8000/api` |
+| Téléphone physique | `http://192.168.x.x:8000/api` (IP locale du PC) |
 
-###  Client
-- Dashboard avec statistiques
-- Création de missions (avec options avancées)
-- Suivi GPS temps réel
-- Gestion des paiements
-- Système de litiges
-- Évaluations
+Scannez le QR code avec **Expo Go** (SDK 52) ou lancez `npm run android` / `npm run ios`.
 
-###  Prestataire
-- Dashboard avec solde et missions
-- Recherche de missions (carte style Uber)
-- Gestion de la caution
-- Soumission de preuves
-- Suivi des revenus
-- Réputation et niveaux
+### 4. Docker (optionnel)
 
-###  Entreprise (B2B)
-- Dashboard opérationnel
-- Gestion des employés
-- Affectation manuelle/automatique
-- Carte GPS de tous les agents
-- Analytics et rapports
-- Facturation centralisée
+```bash
+docker compose up --build
+```
 
-###  Admin
-- Dashboard global
-- Validation KYC
-- Gestion des litiges
-- Supervision blockchain
-- Analytics avancés
-- Configuration système
-
-##  Sécurité
-
-- **JWT** avec refresh tokens
-- **2FA** supporté
-- **ReentrancyGuard** sur les smart contracts
-- **Pattern Checks-Effects-Interactions**
-- **Audit** des actions admin
-- **Hash bcrypt** pour les mots de passe
-
-##  Technologies Utilisées
-
-### Backend
-- Django 4.2 + DRF
-- SimpleJWT pour l'auth
-- Web3.py pour blockchain
-- Celery + Redis pour tâches async
-- PostgreSQL + PostGIS
-- Firebase pour notifications push
-
-### Frontend
-- Angular 17
-- Angular Material
-- Ethers.js / Web3.js
-- RxJS pour la réactivité
-- Leaflet pour les cartes
-- Chart.js pour les graphiques
-
-### Blockchain
-- Solidity ^0.8.20
-- OpenZeppelin Contracts
-- Sepolia Testnet (dev)
-- Ethereum Mainnet (prod)
-
-##  Prochaines Étapes
-
-### Backend
-- [ ] Finaliser les views des missions
-- [ ] Implémenter les tâches Celery
-- [ ] Ajouter les tests unitaires
-- [ ] Configurer les notifications push
-- [ ] Intégration complète Web3
-
-### Frontend
-- [ ] Créer les composants de login/register
-- [ ] Implémenter le dashboard client
-- [ ] Créer le formulaire de mission
-- [ ] Intégrer la carte GPS
-- [ ] Ajouter les composants de preuves
-- [ ] Tests E2E avec Cypress
-
-### Smart Contracts
-- [ ] Finaliser `executeDecision()` dans LitigationContract
-- [ ] Ajouter la connexion entre contrats
-- [ ] Déployer sur Sepolia
-- [ ] Auditer les contrats
-
-
-
-##  Licence
-
-MIT License - Voir le fichier LICENSE pour plus de détails.
+Services : backend `8000`, frontend `4200`, PostgreSQL `5432`, Redis `6379`.
 
 ---
 
-**Note importante** : Ce projet est fourni à des fins éducatives et de prototype. Pour une utilisation en production, un audit de sécurité complet est requis.
+## Configuration
+
+Copiez `backend/.env.example` vers `backend/.env`. Variables principales :
+
+| Variable | Description |
+|----------|-------------|
+| `SECRET_KEY` | Clé secrète Django |
+| `REDIS_URL` | Redis pour WebSockets |
+| `ETHEREUM_RPC_URL` | RPC Sepolia (Alchemy / Infura) |
+| `ESCROW_CONTRACT_ADDRESS` | Adresse contrat escrow déployé |
+| `MOBILE_MONEY_SANDBOX` | `true` pour les tests sans vrai débit |
+| `ORANGE_MONEY_*` / `MOOV_MONEY_*` | Identifiants opérateurs |
+| `RESEND_API_KEY` / `SENDGRID_API_KEY` | Envoi d'emails |
+| `FRONTEND_URL` | URL du frontend (liens email) |
+
+Voir aussi `mobile/.env.example` pour l'URL de l'API mobile.
+
+---
+
+## Tests
+
+```bash
+cd backend
+pytest
+```
+
+Suites disponibles :
+
+- `test_mvp_flow.py` — parcours bout-en-bout MVP
+- `test_dual_roles.py` — rôles client / prestataire
+- `test_enterprise_flow.py` — flux entreprise
+- `test_mission_expiry.py` — expiration missions
+- `test_profile_completion.py` — complétion profil / KYC
+
+---
+
+## Déploiement
+
+Le projet est configuré pour **Railway** (`railway.json`) avec collectstatic au runtime.
+
+**Smart contracts** : voir `smart-contracts/DEPLOY_SEPOLIA.md` et `smart-contracts/README_MALI.md`.
+
+Après déploiement des contrats :
+
+```bash
+python update_contracts.py
+```
+
+---
+
+## Technologies
+
+| Couche | Technologies |
+|--------|-------------|
+| **Backend** | Django 4.2, DRF, SimpleJWT, Channels, Web3.py, Celery, Redis |
+| **Frontend** | Angular 17, Angular Material, RxJS, Leaflet, Chart.js |
+| **Mobile** | Expo 52, React Native, Expo Router, TypeScript |
+| **Blockchain** | Solidity ^0.8.20, OpenZeppelin, Sepolia testnet |
+| **Paiements** | Orange Money, Moov Money (API REST) |
+| **Base de données** | PostgreSQL + PostGIS (prod), SQLite (dev) |
+
+---
+
+## Roadmap
+
+### En cours / à renforcer
+
+- [ ] Notifications push Firebase (mobile)
+- [ ] Tâches Celery planifiées en production
+- [ ] Tests E2E Cypress (web)
+- [ ] Audit sécurité smart contracts
+- [ ] Extension marchés UEMOA (Sénégal, Côte d'Ivoire…)
+
+### Réalisé (MVP)
+
+- [x] Auth JWT, Google, reset password, vérification email
+- [x] KYC avec revue admin et blocage plateforme
+- [x] Missions, candidatures, sollicitations, catégories avec règles
+- [x] Cautions via Mobile Money
+- [x] GPS temps réel (WebSocket)
+- [x] Preuves (photo, QR, signature)
+- [x] Litiges et réputation
+- [x] Espaces client, prestataire, entreprise, admin (web)
+- [x] Application mobile Expo (client & prestataire)
+- [x] Intégration blockchain Sepolia
+- [x] Tests pytest flux métier
+
+---
+
+## Licence
+
+MIT License — voir le fichier [LICENSE](LICENSE) pour plus de détails.
+
+---
+
+> **Note** : Projet à visée éducative et prototype. Un audit de sécurité complet est requis avant toute mise en production.
