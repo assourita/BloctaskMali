@@ -4,7 +4,7 @@ BlockTask est une plateforme complète permettant la délégation sécurisée de
 
 **Marché cible** : **Mali** (phase 1) — FCFA, NINA, Orange Money / Moov Money, Bamako. Extension UEMOA prévue ultérieurement.
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 blocktask_myself/
@@ -39,7 +39,7 @@ blocktask_myself/
     └── README.md
 ```
 
-## 🚀 Démarrage Rapide
+##  Démarrage Rapide
 
 ### Prérequis
 - Python 3.11+
@@ -90,43 +90,43 @@ ng serve
 ng build --configuration production
 ```
 
-## 📋 Fonctionnalités Implémentées
+##  Fonctionnalités Implémentées
 
 ### Backend (Django)
 
-✅ **Users App**
+ **Users App**
 - Modèle User personnalisé avec JWT
 - Profils Prestataire, Entreprise, Employé
 - KYC avec vérification d'identité (NINA / ID nationale — Mali, Niger, Guinée…)
 - Wallet blockchain connexion
 - Historique de connexion et sécurité
 
-✅ **Missions App**
+ **Missions App**
 - Création et gestion de missions
 - Système de candidatures
 - Workflow complet (création → validation)
 - Géolocalisation (PostGIS)
 - Catégories et filtres
 
-✅ **Reputation App**
+**Reputation App**
 - Algorithme de score (0-100)
 - Historique des changements
 - Niveaux (Bronze → Platine)
 - Pénalités et bonus
 
-✅ **Disputes App**
+ **Disputes App**
 - Ouverture de litiges
 - Soumission de preuves
 - Système d'arbitrage
 - Appels de décisions
 
-✅ **Proofs App**
+ **Proofs App**
 - Photos, vidéos, signatures
 - Validation QR Code
 - Analyse automatique (OCR, fraude)
 - Checklist des preuves
 
-✅ **Enterprises App**
+ **Enterprises App**
 - Gestion des employés
 - Affectation des missions
 - Contrats et facturation
@@ -134,22 +134,22 @@ ng build --configuration production
 
 ### Frontend (Angular)
 
-✅ **Structure**
+ **Structure**
 - Angular 17 avec Material Design
 - Guards d'authentification
 - Interceptors HTTP
 - Routing lazy-loaded
 
-✅ **Services**
+ **Services**
 - AuthService (JWT, login, register)
 - Web3Service (MetaMask, contrats)
 - API Services (REST)
 
-✅ **Composants**
+ **Composants**
 - Header avec wallet connect
 - Routing par rôle (client/provider/enterprise/admin)
 
-## 🔗 Intégration Blockchain
+##  Intégration Blockchain
 
 ### Smart Contracts
 Les contrats Solidity existants dans `smart-contracts/` :
@@ -173,9 +173,9 @@ const result = await web3Service.createMissionOnChain(
 );
 ```
 
-## 📱 Espaces Utilisateurs
+##  Espaces Utilisateurs
 
-### 👤 Client
+###  Client
 - Dashboard avec statistiques
 - Création de missions (avec options avancées)
 - Suivi GPS temps réel
@@ -183,7 +183,7 @@ const result = await web3Service.createMissionOnChain(
 - Système de litiges
 - Évaluations
 
-### 🏃 Prestataire
+###  Prestataire
 - Dashboard avec solde et missions
 - Recherche de missions (carte style Uber)
 - Gestion de la caution
@@ -191,7 +191,7 @@ const result = await web3Service.createMissionOnChain(
 - Suivi des revenus
 - Réputation et niveaux
 
-### 🏢 Entreprise (B2B)
+###  Entreprise (B2B)
 - Dashboard opérationnel
 - Gestion des employés
 - Affectation manuelle/automatique
@@ -199,7 +199,7 @@ const result = await web3Service.createMissionOnChain(
 - Analytics et rapports
 - Facturation centralisée
 
-### 👨‍💼 Admin
+###  Admin
 - Dashboard global
 - Validation KYC
 - Gestion des litiges
@@ -207,7 +207,7 @@ const result = await web3Service.createMissionOnChain(
 - Analytics avancés
 - Configuration système
 
-## 🔐 Sécurité
+##  Sécurité
 
 - **JWT** avec refresh tokens
 - **2FA** supporté
@@ -216,7 +216,7 @@ const result = await web3Service.createMissionOnChain(
 - **Audit** des actions admin
 - **Hash bcrypt** pour les mots de passe
 
-## 🛠️ Technologies Utilisées
+##  Technologies Utilisées
 
 ### Backend
 - Django 4.2 + DRF
@@ -240,7 +240,7 @@ const result = await web3Service.createMissionOnChain(
 - Sepolia Testnet (dev)
 - Ethereum Mainnet (prod)
 
-## 📚 Prochaines Étapes
+##  Prochaines Étapes
 
 ### Backend
 - [ ] Finaliser les views des missions
@@ -263,11 +263,9 @@ const result = await web3Service.createMissionOnChain(
 - [ ] Déployer sur Sepolia
 - [ ] Auditer les contrats
 
-## 👥 Contribution
 
-Ce projet a été structuré par Master MrMaiga avec l'aide de l'IA Cascade.
 
-## 📝 Licence
+##  Licence
 
 MIT License - Voir le fichier LICENSE pour plus de détails.
 
