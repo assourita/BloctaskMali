@@ -80,6 +80,40 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
           </div>
         </div>
 
+        <mat-card class="section-card enterprise-progress" *ngIf="showEnterpriseProgress()">
+          <mat-card-header>
+            <mat-card-title><mat-icon>business</mat-icon> Suivi entreprise prestataire</mat-card-title>
+          </mat-card-header>
+          <mat-card-content>
+            <div class="ep-steps">
+              <div class="ep-step done">
+                <mat-icon>check_circle</mat-icon>
+                <span>Mission acceptée par l'entreprise</span>
+              </div>
+              <div class="ep-step" [class.done]="mission.deposit_paid">
+                <mat-icon>{{ mission.deposit_paid ? 'check_circle' : 'hourglass_empty' }}</mat-icon>
+                <span>Caution entreprise {{ mission.deposit_paid ? 'déposée' : 'en attente' }}</span>
+              </div>
+              <div class="ep-step" [class.done]="!!mission.executing_employee">
+                <mat-icon>{{ mission.executing_employee ? 'check_circle' : 'hourglass_empty' }}</mat-icon>
+                <span>
+                  <ng-container *ngIf="mission.executing_employee; else noEmployee">
+                    Employé assigné : {{ mission.executing_employee.first_name }} {{ mission.executing_employee.last_name }}
+                  </ng-container>
+                  <ng-template #noEmployee>Assignation employé en cours</ng-template>
+                </span>
+              </div>
+              <div class="ep-step" [class.done]="mission.status === 'in_progress' || mission.status === 'submitted' || mission.status === 'completed'">
+                <mat-icon>{{ ['in_progress','submitted','completed'].includes(mission.status) ? 'check_circle' : 'hourglass_empty' }}</mat-icon>
+                <span>Mission démarrée sur le terrain</span>
+              </div>
+            </div>
+            <p class="ep-hint" *ngIf="mission.deposit_paid && !mission.executing_employee">
+              L'entreprise prépare l'assignation d'un agent. Vous serez notifié au démarrage.
+            </p>
+          </mat-card-content>
+        </mat-card>
+
         <mat-card class="expiry-alert" *ngIf="showExpiryDecision()">
           <mat-card-content>
             <div class="expiry-alert-inner">
@@ -431,6 +465,11 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
     .section-card { margin-bottom: 20px; border-radius: 12px; }
     .section-card mat-card-title { display: flex; align-items: center; gap: 8px; font-size: 16px; }
     .section-card mat-card-title mat-icon { color: #6C5CE7; }
+    .enterprise-progress .ep-steps { display: flex; flex-direction: column; gap: 10px; }
+    .ep-step { display: flex; align-items: center; gap: 10px; color: #94a3b8; font-size: 14px; padding: 8px 12px; border-radius: 8px; background: #f9fafb; }
+    .ep-step.done { color: #059669; background: #ecfdf5; }
+    .ep-step mat-icon { font-size: 20px; width: 20px; height: 20px; }
+    .ep-hint { margin: 12px 0 0; font-size: 13px; color: #64748b; }
 
     .route { background: #f9fafb; border-radius: 12px; padding: 16px; }
     .route-point { display: flex; gap: 12px; }
@@ -599,7 +638,13 @@ export class MissionDetailComponent implements OnInit {
   }
 
   showChat(): boolean {
-    return !!this.mission?.provider && ['accepted', 'in_progress', 'submitted', 'completed'].includes(this.mission?.status || '');
+    return !!this.mission?.provider && ['in_progress', 'submitted', 'disputed', 'completed'].includes(this.mission?.status || '');
+  }
+
+  showEnterpriseProgress(): boolean {
+    if (!this.mission?.provider) return false;
+    const isEnterprise = !!(this.mission.counterparty?.enterprise_name);
+    return isEnterprise && ['accepted', 'in_progress', 'submitted'].includes(this.mission.status || '');
   }
 
   showProviderContact(): boolean {

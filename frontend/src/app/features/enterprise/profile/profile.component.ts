@@ -12,6 +12,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { EnterpriseService, EnterpriseProfile } from '../../../core/services/enterprise.service';
 import { ProfileOnboardingBarComponent } from '../../../shared/components/profile-onboarding-bar/profile-onboarding-bar.component';
 import { KycVerificationComponent } from '../../../shared/components/kyc-verification/kyc-verification.component';
+import { TwoFactorSettingsComponent } from '../../../shared/components/two-factor-settings/two-factor-settings.component';
 import { environment } from '../../../../environments/environment';
 
 @Component({
@@ -20,7 +21,7 @@ import { environment } from '../../../../environments/environment';
   imports: [
     CommonModule, ReactiveFormsModule,
     MatTabsModule, MatButtonModule, MatIconModule, MatSnackBarModule, MatDividerModule,
-    ProfileOnboardingBarComponent, KycVerificationComponent,
+    ProfileOnboardingBarComponent, KycVerificationComponent, TwoFactorSettingsComponent,
   ],
   template: `
     <div class="profile-container" *ngIf="user" [class.has-onboarding-bar]="showOnboarding">
@@ -124,6 +125,36 @@ import { environment } from '../../../../environments/environment';
             </form>
           </div>
         </mat-tab>
+
+        <mat-tab label="Sécurité">
+          <div class="tab-content">
+            <h3 class="section-title"><mat-icon>lock</mat-icon> Changer le mot de passe</h3>
+            <form [formGroup]="pwdForm" (ngSubmit)="changePassword()">
+              <div class="form-grid">
+                <div class="field-wrap">
+                  <label class="field-label">Mot de passe actuel</label>
+                  <input class="field-input" type="password" formControlName="old_password"/>
+                </div>
+                <div class="field-wrap">
+                  <label class="field-label">Nouveau mot de passe</label>
+                  <input class="field-input" type="password" formControlName="new_password"/>
+                </div>
+                <div class="field-wrap">
+                  <label class="field-label">Confirmer</label>
+                  <input class="field-input" type="password" formControlName="new_password_confirm"/>
+                </div>
+              </div>
+              <div class="form-actions">
+                <button mat-raised-button color="warn" type="submit" [disabled]="pwdForm.invalid || savingPwd">
+                  <mat-icon>lock_reset</mat-icon> {{ savingPwd ? 'Modification...' : 'Modifier' }}
+                </button>
+              </div>
+            </form>
+
+            <mat-divider class="section-divider"></mat-divider>
+            <app-two-factor-settings></app-two-factor-settings>
+          </div>
+        </mat-tab>
       </mat-tab-group>
 
       <app-profile-onboarding-bar
@@ -179,6 +210,8 @@ import { environment } from '../../../../environments/environment';
     .field-wrap.field-missing .field-input { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.12); }
     .field-wrap.field-missing::after { content: 'À compléter'; display: block; font-size: 11px; color: #dc2626; margin-top: 4px; font-weight: 600; }
     .form-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
+    .section-title { display: flex; align-items: center; gap: 8px; font-size: 16px; font-weight: 700; margin: 0 0 16px; color: #1f2937; }
+    .section-divider { margin: 24px 0; }
     @media (max-width: 600px) { .form-grid { grid-template-columns: 1fr; } }
   `],
 })
@@ -189,8 +222,10 @@ export class EnterpriseProfileComponent implements OnInit {
   enterpriseProfile: EnterpriseProfile | null = null;
   companyForm!: FormGroup;
   accountForm!: FormGroup;
+  pwdForm!: FormGroup;
   savingCompany = false;
   savingAccount = false;
+  savingPwd = false;
   showOnboarding = false;
   missingFields: string[] = [];
   activeTabIndex = 0;
@@ -222,6 +257,12 @@ export class EnterpriseProfileComponent implements OnInit {
       last_name: [''],
       phone_number: [''],
     });
+
+    this.pwdForm = this.fb.group({
+      old_password: ['', Validators.required],
+      new_password: ['', [Validators.required, Validators.minLength(8)]],
+      new_password_confirm: ['', Validators.required],
+    }, { validators: this.passwordMatchValidator });
 
     this.loadProfile();
 
@@ -313,6 +354,29 @@ export class EnterpriseProfileComponent implements OnInit {
       error: () => {
         this.savingAccount = false;
         this.snack.open('Erreur enregistrement', 'Fermer', { duration: 3000 });
+      },
+    });
+  }
+
+  private passwordMatchValidator(group: FormGroup) {
+    const pwd = group.get('new_password')?.value;
+    const confirm = group.get('new_password_confirm')?.value;
+    return pwd && confirm && pwd !== confirm ? { mismatch: true } : null;
+  }
+
+  changePassword(): void {
+    if (this.pwdForm.invalid) return;
+    this.savingPwd = true;
+    this.http.post(`${this.apiUrl}/users/change-password/`, this.pwdForm.value, { headers: this.h() }).subscribe({
+      next: () => {
+        this.savingPwd = false;
+        this.pwdForm.reset();
+        this.snack.open('Mot de passe modifié', 'Fermer', { duration: 3000 });
+      },
+      error: (err) => {
+        this.savingPwd = false;
+        const msg = err.error?.old_password?.[0] || err.error?.detail || 'Erreur lors du changement';
+        this.snack.open(msg, 'Fermer', { duration: 4000 });
       },
     });
   }

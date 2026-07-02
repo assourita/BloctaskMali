@@ -7,11 +7,16 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import {
   EnterpriseService,
   EnterpriseEmployee,
   EmployeeAssignment,
 } from '../../../core/services/enterprise.service';
+import {
+  EmployeeDetailPanelComponent,
+  EmployeeDetailDialogResult,
+} from './employee-detail-panel.component';
 
 const ROLE_LABELS: Record<string, string> = {
   agent: 'Agent terrain',
@@ -30,7 +35,7 @@ type PageTab = 'employees' | 'assignments';
   imports: [
     CommonModule, FormsModule,
     MatCardModule, MatButtonModule, MatIconModule, MatChipsModule,
-    MatProgressSpinnerModule, MatSnackBarModule,
+    MatProgressSpinnerModule, MatSnackBarModule, MatDialogModule,
   ],
   template: `
     <div class="page-container">
@@ -88,7 +93,8 @@ type PageTab = 'employees' | 'assignments';
         <div class="loading" *ngIf="loading"><mat-spinner diameter="36"></mat-spinner></div>
 
         <div class="emp-grid" *ngIf="!loading">
-          <mat-card class="emp-card clickable" *ngFor="let e of filteredEmployees" (click)="selectEmployee(e)">
+          <mat-card class="emp-card clickable" *ngFor="let e of filteredEmployees"
+            [class.selected]="selectedId === e.id" (click)="openEmployeePanel(e)">
             <div class="emp-avatar">{{ e.first_name[0] }}{{ e.last_name[0] }}</div>
             <div class="emp-info">
               <h3>{{ e.first_name }} {{ e.last_name }}</h3>
@@ -99,55 +105,6 @@ type PageTab = 'employees' | 'assignments';
           </mat-card>
           <p class="empty" *ngIf="!filteredEmployees.length">Aucun employé pour ce filtre</p>
         </div>
-
-        <mat-card class="detail-card" *ngIf="selectedEmployee">
-          <div class="detail-header">
-            <h2>{{ selectedEmployee.first_name }} {{ selectedEmployee.last_name }}</h2>
-            <button mat-icon-button (click)="closeDetail()" title="Fermer"><mat-icon>close</mat-icon></button>
-          </div>
-          <mat-chip [class]="selectedEmployee.is_active ? 'active' : 'inactive'" class="detail-chip">
-            {{ selectedEmployee.is_active ? 'Actif' : 'Inactif' }}
-          </mat-chip>
-
-          <div class="form-grid" *ngIf="detailEditing">
-            <input class="field" [(ngModel)]="detailForm.first_name" placeholder="Prénom *" />
-            <input class="field" [(ngModel)]="detailForm.last_name" placeholder="Nom *" />
-            <input class="field" [(ngModel)]="detailForm.email" placeholder="Email" readonly />
-            <input class="field" [(ngModel)]="detailForm.phone" placeholder="Téléphone" />
-            <input class="field" [(ngModel)]="detailForm.position" placeholder="Poste" />
-            <select class="field" [(ngModel)]="detailForm.role">
-              <option value="agent">Agent terrain</option>
-              <option value="manager">Manager</option>
-              <option value="admin">Administrateur</option>
-              <option value="hr">Ressources humaines</option>
-              <option value="accountant">Comptable</option>
-            </select>
-          </div>
-
-          <div class="detail-info" *ngIf="!detailEditing">
-            <p><strong>Email :</strong> {{ selectedEmployee.email }}</p>
-            <p><strong>Téléphone :</strong> {{ selectedEmployee.phone || '—' }}</p>
-            <p><strong>Poste :</strong> {{ selectedEmployee.position || '—' }}</p>
-            <p><strong>Rôle :</strong> {{ roleLabel(selectedEmployee.role) }}</p>
-            <p><strong>Missions :</strong> {{ selectedEmployee.missions_completed }} terminée(s)</p>
-          </div>
-
-          <div class="detail-actions">
-            <ng-container *ngIf="detailEditing">
-              <button mat-raised-button color="primary" (click)="saveDetail()" [disabled]="saving">Enregistrer</button>
-              <button mat-button (click)="detailEditing = false">Annuler</button>
-            </ng-container>
-            <ng-container *ngIf="!detailEditing">
-              <button mat-raised-button color="primary" (click)="startEditDetail()"><mat-icon>edit</mat-icon> Modifier</button>
-              <button mat-stroked-button (click)="toggleActive(selectedEmployee)">
-                {{ selectedEmployee.is_active ? 'Désactiver' : 'Activer' }}
-              </button>
-              <button mat-stroked-button color="warn" (click)="removeEmployee(selectedEmployee)">
-                <mat-icon>delete</mat-icon> Supprimer
-              </button>
-            </ng-container>
-          </div>
-        </mat-card>
       </ng-container>
 
       <ng-container *ngIf="pageTab === 'assignments'">
@@ -183,15 +140,9 @@ type PageTab = 'employees' | 'assignments';
     .loading { display: flex; justify-content: center; padding: 40px; }
     .emp-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
     .emp-card { padding: 20px; display: flex; align-items: flex-start; gap: 16px; }
-    .emp-card.clickable { cursor: pointer; transition: box-shadow 0.15s; }
+    .emp-card.clickable { cursor: pointer; transition: box-shadow 0.15s, border-color 0.15s; border: 2px solid transparent; }
     .emp-card.clickable:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.08); }
-    .detail-card { padding: 24px; margin-top: 20px; }
-    .detail-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
-      h2 { margin: 0; font-size: 20px; }
-    }
-    .detail-chip { margin-bottom: 16px; }
-    .detail-info p { margin: 0 0 8px; color: #374151; font-size: 14px; }
-    .detail-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 20px; }
+    .emp-card.selected { border-color: #3CB371; box-shadow: 0 4px 14px rgba(60,179,113,0.15); }
     mat-chip.active { background: #d1fae5 !important; color: #065f46 !important; }
     mat-chip.inactive { background: #f3f4f6 !important; color: #6b7280 !important; }
     .emp-avatar { width: 48px; height: 48px; border-radius: 50%; background: #3CB371; color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; }
@@ -213,16 +164,15 @@ export class EnterpriseEmployeesComponent implements OnInit {
   loading = true;
   saving = false;
   showForm = false;
-  selectedEmployee: EnterpriseEmployee | null = null;
-  detailEditing = false;
+  selectedId: string | null = null;
   filter: EmployeeFilter = 'all';
   pageTab: PageTab = 'employees';
   form = { first_name: '', last_name: '', email: '', phone: '', position: '', role: 'agent' };
-  detailForm = { first_name: '', last_name: '', email: '', phone: '', position: '', role: 'agent' };
 
   constructor(
     private enterpriseService: EnterpriseService,
     private snack: MatSnackBar,
+    private dialog: MatDialog,
   ) {}
 
   ngOnInit(): void { this.load(); }
@@ -251,14 +201,7 @@ export class EnterpriseEmployeesComponent implements OnInit {
   load(): void {
     this.loading = true;
     this.enterpriseService.getEmployees().subscribe({
-      next: (e) => {
-        this.employees = e;
-        if (this.selectedEmployee) {
-          const fresh = e.find((x) => x.id === this.selectedEmployee!.id);
-          if (fresh) this.selectedEmployee = fresh;
-          else this.closeDetail();
-        }
-      },
+      next: (e) => { this.employees = e; },
     });
     this.enterpriseService.getAssignments().subscribe({
       next: (a) => { this.assignments = a; this.loading = false; },
@@ -267,32 +210,30 @@ export class EnterpriseEmployeesComponent implements OnInit {
   }
 
   openCreateForm(): void {
-    this.closeDetail();
+    this.selectedId = null;
     this.form = { first_name: '', last_name: '', email: '', phone: '', position: '', role: 'agent' };
     this.showForm = true;
   }
 
-  selectEmployee(e: EnterpriseEmployee): void {
+  openEmployeePanel(e: EnterpriseEmployee, editing = false): void {
     this.showForm = false;
-    this.selectedEmployee = e;
-    this.detailEditing = false;
-    this.detailForm = {
-      first_name: e.first_name,
-      last_name: e.last_name,
-      email: e.email,
-      phone: e.phone || '',
-      position: e.position || '',
-      role: e.role || 'agent',
-    };
-  }
-
-  closeDetail(): void {
-    this.selectedEmployee = null;
-    this.detailEditing = false;
-  }
-
-  startEditDetail(): void {
-    this.detailEditing = true;
+    this.selectedId = e.id;
+    const ref = this.dialog.open(EmployeeDetailPanelComponent, {
+      width: '520px',
+      maxWidth: '95vw',
+      panelClass: 'employee-detail-dialog',
+      data: { employee: e, editing },
+    });
+    ref.afterClosed().subscribe((result?: EmployeeDetailDialogResult) => {
+      if (!result || result.action === 'close') return;
+      if (result.action === 'save' && result.payload) {
+        this.saveEmployeeUpdate(e, result.payload);
+      } else if (result.action === 'toggle') {
+        this.toggleActive(e);
+      } else if (result.action === 'delete') {
+        this.removeEmployee(e);
+      }
+    });
   }
 
   cancelForm(): void {
@@ -322,14 +263,11 @@ export class EnterpriseEmployeesComponent implements OnInit {
     });
   }
 
-  saveDetail(): void {
-    if (!this.selectedEmployee) return;
+  saveEmployeeUpdate(e: EnterpriseEmployee, payload: Partial<EnterpriseEmployee>): void {
     this.saving = true;
-    this.enterpriseService.updateEmployee(this.selectedEmployee.id, this.detailForm).subscribe({
-      next: (updated) => {
+    this.enterpriseService.updateEmployee(e.id, payload).subscribe({
+      next: () => {
         this.saving = false;
-        this.selectedEmployee = updated;
-        this.detailEditing = false;
         this.snack.open('Employé mis à jour', 'Fermer', { duration: 3000 });
         this.load();
       },
@@ -343,9 +281,8 @@ export class EnterpriseEmployeesComponent implements OnInit {
   toggleActive(e: EnterpriseEmployee): void {
     const next = !e.is_active;
     this.enterpriseService.updateEmployee(e.id, { is_active: next }).subscribe({
-      next: (updated) => {
+      next: () => {
         this.snack.open(next ? 'Employé réactivé' : 'Employé désactivé', 'Fermer', { duration: 2500 });
-        if (this.selectedEmployee?.id === e.id) this.selectedEmployee = updated;
         this.load();
       },
       error: (err) => this.snack.open(err.error?.detail || 'Erreur', 'Fermer', { duration: 4000 }),
@@ -357,7 +294,7 @@ export class EnterpriseEmployeesComponent implements OnInit {
     this.enterpriseService.deactivateEmployee(e.id).subscribe({
       next: () => {
         this.snack.open('Employé supprimé', 'Fermer', { duration: 3000 });
-        this.closeDetail();
+        this.selectedId = null;
         this.load();
       },
       error: (err) => this.snack.open(err.error?.detail || 'Erreur', 'Fermer', { duration: 4000 }),

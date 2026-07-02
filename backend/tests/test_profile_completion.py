@@ -36,13 +36,28 @@ def kyc_complete_user(db):
     )
 
 
+@pytest.fixture
+def incomplete_client_user(db):
+    return User.objects.create_user(
+        username='incomplete_client',
+        email='incomplete@test.ml',
+        password='testpass123',
+        user_type='client',
+        first_name='Incomplete',
+        last_name='Client',
+        phone_number='+22370009999',
+        city='Bamako',
+        address='Rue test',
+    )
+
+
 @pytest.mark.django_db
-def test_profile_incomplete_without_kyc(client_user):
-    missing = get_profile_missing_fields(client_user)
+def test_profile_incomplete_without_kyc(incomplete_client_user):
+    missing = get_profile_missing_fields(incomplete_client_user)
     assert 'nina' in missing
     assert 'phone_verified' in missing
     assert 'id_card_front' in missing
-    assert not is_profile_complete(client_user)
+    assert not is_profile_complete(incomplete_client_user)
 
 
 @pytest.mark.django_db

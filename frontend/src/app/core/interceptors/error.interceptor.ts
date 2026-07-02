@@ -41,14 +41,8 @@ export class ErrorInterceptor implements HttpInterceptor {
             if (Array.isArray(val) && val[0]) message = String(val[0]);
           }
         } else if (error.status === 401) {
-          message = 'Votre session a expiré ou le token est invalide. Veuillez vous reconnecter.';
-          this.authService.logout();
-          this.router.navigate(['/login'], { 
-            queryParams: { 
-              message: 'session_expired',
-              returnUrl: this.router.url 
-            }
-          });
+          // Géré par TokenRefreshInterceptor (refresh JWT puis retry)
+          return throwError(() => error);
         } else if (error.status === 403) {
           message = 'Accès non autorisé';
         } else if (error.status === 404) {

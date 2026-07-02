@@ -39,8 +39,8 @@ interface TrendDay { day: string; created: number; completed: number; }
         </mat-card>
         <mat-card class="analytics-card">
           <mat-icon class="card-icon">payments</mat-icon>
-          <h3>Revenus</h3>
-          <p>{{ stats.payments?.total_volume | number:'1.0-0' }} XOF total · {{ stats.payments?.this_month | number:'1.0-0' }} ce mois</p>
+          <h3>Volume paiements</h3>
+          <p>{{ stats.payments?.total_volume | number:'1.0-0' }} XOF · {{ stats.payments?.this_month | number:'1.0-0' }} ce mois</p>
         </mat-card>
         <mat-card class="analytics-card">
           <mat-icon class="card-icon">star</mat-icon>
@@ -48,6 +48,45 @@ interface TrendDay { day: string; created: number; completed: number; }
           <p>Score moyen : {{ stats.reputation?.average_score | number:'1.1-1' }}/100</p>
         </mat-card>
       </div>
+
+      <mat-card class="finance-card" *ngIf="!loading && stats?.finances">
+        <div class="finance-header">
+          <h2><mat-icon>account_balance</mat-icon> Finances plateforme</h2>
+          <span class="sandbox-badge" *ngIf="stats.finances.sandbox_mode">Mode simulation MM</span>
+        </div>
+        <div class="finance-grid">
+          <div class="finance-item highlight">
+            <span class="label">Revenus plateforme (frais 5 %)</span>
+            <strong>{{ stats.finances.platform_fees_total | number:'1.0-0' }} XOF</strong>
+            <small>{{ stats.finances.platform_fees_this_month | number:'1.0-0' }} XOF ce mois</small>
+          </div>
+          <div class="finance-item">
+            <span class="label">Fonds escrow bloqués</span>
+            <strong>{{ stats.finances.escrow_locked | number:'1.0-0' }} XOF</strong>
+            <small>{{ stats.finances.active_funded_missions }} mission(s) financée(s)</small>
+          </div>
+          <div class="finance-item">
+            <span class="label">Cautions prestataires verrouillées</span>
+            <strong>{{ stats.finances.provider_deposits_locked | number:'1.0-0' }} XOF</strong>
+            <small>{{ stats.finances.provider_deposits_available | number:'1.0-0' }} XOF disponibles</small>
+          </div>
+          <div class="finance-item">
+            <span class="label">Cautions entreprises verrouillées</span>
+            <strong>{{ stats.finances.enterprise_deposits_locked | number:'1.0-0' }} XOF</strong>
+            <small>{{ stats.finances.enterprise_deposits_available | number:'1.0-0' }} XOF disponibles</small>
+          </div>
+          <div class="finance-item total">
+            <span class="label">Total fonds bloqués</span>
+            <strong>{{ stats.finances.total_funds_blocked | number:'1.0-0' }} XOF</strong>
+            <small>{{ stats.finances.active_in_progress_missions }} mission(s) en cours</small>
+          </div>
+          <div class="finance-item">
+            <span class="label">Paiements en attente / échoués</span>
+            <strong>{{ stats.finances.payments_pending }} / {{ stats.finances.payments_failed }}</strong>
+            <small>{{ stats.finances.escrow_transactions_pending }} tx blockchain en attente</small>
+          </div>
+        </div>
+      </mat-card>
 
       <mat-card class="chart-card" *ngIf="!loading">
         <h2>Tendances missions (30 jours)</h2>
@@ -84,6 +123,27 @@ interface TrendDay { day: string; created: number; completed: number; }
     .chart-card { padding: 24px;
       h2 { margin: 0 0 16px 0; color: #1f2937; font-size: 18px; }
       .coming-soon { color: #9ca3af; font-style: italic; text-align: center; padding: 24px; }
+    }
+    .finance-card {
+      padding: 24px; margin-bottom: 24px;
+      .finance-header {
+        display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 20px;
+        h2 { margin: 0; display: flex; align-items: center; gap: 8px; font-size: 18px; color: #1f2937; }
+        .sandbox-badge {
+          background: #fef3c7; color: #92400e; padding: 4px 10px; border-radius: 999px; font-size: 12px; font-weight: 600;
+        }
+      }
+      .finance-grid {
+        display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+      }
+      .finance-item {
+        background: #f9fafb; border-radius: 12px; padding: 16px; border: 1px solid #e5e7eb;
+        .label { display: block; font-size: 12px; color: #6b7280; margin-bottom: 6px; }
+        strong { display: block; font-size: 22px; color: #111827; }
+        small { display: block; margin-top: 6px; color: #9ca3af; font-size: 12px; }
+        &.highlight { background: #ecfdf5; border-color: #a7f3d0; strong { color: #047857; } }
+        &.total { background: #eff6ff; border-color: #bfdbfe; }
+      }
     }
     .trend-table { display: flex; flex-direction: column; gap: 4px; }
     .trend-row {

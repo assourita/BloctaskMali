@@ -6,6 +6,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatCardModule } from '@angular/material/card';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { FormsModule } from '@angular/forms';
@@ -25,226 +26,249 @@ import { formatXOF } from '../../../core/constants/africa.constants';
   imports: [
     CommonModule, RouterModule, FormsModule,
     MatButtonModule, MatIconModule, MatCardModule, MatChipsModule,
-    MatProgressSpinnerModule, MatSnackBarModule, MatFormFieldModule, MatSelectModule,
+    MatProgressSpinnerModule, MatProgressBarModule, MatSnackBarModule, MatFormFieldModule, MatSelectModule,
   ],
   template: `
     <div class="page" *ngIf="!loading && preview">
-      <div class="top-bar">
-        <button mat-button type="button" (click)="goBack()">
+      <div class="page-header">
+        <button mat-button type="button" class="back-btn" (click)="goBack()">
           <mat-icon>arrow_back</mat-icon> Retour
         </button>
-        <span class="status-chip" [class]="preview.solicitation.status">
+        <span class="status-badge" [class]="'status-' + preview.solicitation.status">
           {{ statusLabel(preview.solicitation.status) }}
         </span>
       </div>
 
-      <header class="hero">
+      <div class="hero" [class]="'hero-' + preview.solicitation.status">
+        <div class="hero-top">
+          <span class="category-pill" *ngIf="preview.mission.category?.name">
+            <mat-icon>{{ preview.mission.category?.icon || 'category' }}</mat-icon>
+            {{ preview.mission.category?.name }}
+          </span>
+          <span class="enterprise-pill" *ngIf="preview.workflow?.is_enterprise">
+            <mat-icon>business</mat-icon> Mission entreprise
+          </span>
+        </div>
         <h1>{{ preview.mission.title }}</h1>
-        <p class="budget">{{ formatBudget() }}</p>
-        <p class="deadline" *ngIf="preview.mission.deadline">
-          <mat-icon>schedule</mat-icon> Échéance : {{ preview.mission.deadline | date:'dd/MM/yyyy HH:mm' }}
-        </p>
-      </header>
-
-      <mat-card class="section info-card" *ngIf="preview.solicitation.status === 'pending'">
-        <mat-card-content>
-          <p class="info-text">
-            <mat-icon>info</mat-icon>
-            Après acceptation, vous devrez déposer la caution
-            <ng-container *ngIf="preview.workflow?.is_enterprise">, assigner un employé,</ng-container>
-            puis démarrer la mission.
-          </p>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="section workflow-card" *ngIf="preview.workflow">
-        <mat-card-header><mat-card-title><mat-icon>checklist</mat-icon> Étapes pour démarrer</mat-card-title></mat-card-header>
-        <mat-card-content>
-          <div class="steps">
-            <div class="step" [class.done]="stepDone('accept')" [class.active]="preview.workflow.current_step === 'accept'">
-              <mat-icon>{{ stepDone('accept') ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-              <span>1. Accepter la sollicitation</span>
-            </div>
-            <div class="step" [class.done]="stepDone('deposit')" [class.active]="preview.workflow.current_step === 'deposit'">
-              <mat-icon>{{ stepDone('deposit') ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-              <span>2. Déposer la caution ({{ preview.workflow.required_deposit | number:'1.0-0' }} XOF)</span>
-            </div>
-            <div class="step" *ngIf="preview.workflow.is_enterprise" [class.done]="stepDone('assign_employee')" [class.active]="preview.workflow.current_step === 'assign_employee'">
-              <mat-icon>{{ stepDone('assign_employee') ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-              <span>3. Assigner un employé</span>
-            </div>
-            <div class="step" [class.done]="stepDone('start')" [class.active]="preview.workflow.current_step === 'start'">
-              <mat-icon>{{ stepDone('started') ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
-              <span>{{ preview.workflow.is_enterprise ? '4' : '3' }}. Démarrer la mission</span>
-            </div>
+        <p class="hero-desc" *ngIf="preview.mission.description">{{ preview.mission.description }}</p>
+        <div class="hero-stats">
+          <div class="stat highlight">
+            <span class="stat-label">Budget</span>
+            <span class="stat-value">{{ formatBudget() }}</span>
           </div>
-          <p class="wf-hint" *ngIf="preview.workflow.deposit_required && preview.workflow.deposit_deadline">
-            Caution à déposer avant le {{ preview.workflow.deposit_deadline | date:'dd/MM HH:mm' }}
-          </p>
-          <p class="wf-hint" *ngIf="preview.workflow.deposit_balance != null">
-            Solde caution disponible : {{ preview.workflow.deposit_balance | number:'1.0-0' }} XOF
-          </p>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="section" *ngIf="preview.solicitation.message">
-        <mat-card-header><mat-card-title>Message du client</mat-card-title></mat-card-header>
-        <mat-card-content>
-          <p class="quote">« {{ preview.solicitation.message }} »</p>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="section client-card">
-        <mat-card-header><mat-card-title><mat-icon>person</mat-icon> Client</mat-card-title></mat-card-header>
-        <mat-card-content>
-          <div class="client-row">
-            <div class="avatar">{{ initials(preview.client) }}</div>
-            <div>
-              <h3>{{ preview.client.first_name }} {{ preview.client.last_name }}</h3>
-              <p *ngIf="preview.client.city">{{ preview.client.city }}{{ preview.client.country ? ', ' + preview.client.country : '' }}</p>
-              <mat-chip-set>
-                <mat-chip *ngIf="preview.client.identity_verified" color="primary">Identité vérifiée</mat-chip>
-              </mat-chip-set>
-              <p class="bio" *ngIf="preview.client.bio">{{ preview.client.bio }}</p>
-            </div>
+          <div class="stat" *ngIf="preview.workflow?.required_deposit">
+            <span class="stat-label">Caution requise</span>
+            <span class="stat-value">{{ preview.workflow!.required_deposit | number:'1.0-0' }} XOF</span>
           </div>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="section" *ngIf="preview.mission.description">
-        <mat-card-header><mat-card-title>Description</mat-card-title></mat-card-header>
-        <mat-card-content><p>{{ preview.mission.description }}</p></mat-card-content>
-      </mat-card>
-
-      <mat-card class="section">
-        <mat-card-header><mat-card-title><mat-icon>route</mat-icon> Itinéraire</mat-card-title></mat-card-header>
-        <mat-card-content>
-          <div class="route" *ngIf="preview.mission.pickup_address">
-            <mat-icon>trip_origin</mat-icon>
-            <div>
-              <strong>Retrait</strong>
-              <p>{{ preview.mission.pickup_address }}</p>
-              <a *ngIf="hasCoords('pickup')" [href]="mapsUrl('pickup')" target="_blank" rel="noopener">Ouvrir dans Maps</a>
-            </div>
+          <div class="stat" *ngIf="preview.mission.deadline">
+            <span class="stat-label">Échéance</span>
+            <span class="stat-value">{{ preview.mission.deadline | date:'dd MMM yyyy HH:mm' }}</span>
           </div>
-          <div class="route" *ngIf="preview.mission.delivery_address">
-            <mat-icon>place</mat-icon>
-            <div>
-              <strong>Livraison</strong>
-              <p>{{ preview.mission.delivery_address }}</p>
-              <a *ngIf="hasCoords('delivery')" [href]="mapsUrl('delivery')" target="_blank" rel="noopener">Ouvrir dans Maps</a>
-            </div>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="section" *ngIf="hasRequirements()">
-        <mat-card-header><mat-card-title>Exigences</mat-card-title></mat-card-header>
-        <mat-card-content>
-          <mat-chip-set>
-            <mat-chip *ngIf="req('requires_vehicle')">Véhicule</mat-chip>
-            <mat-chip *ngIf="req('requires_photo')">Photo</mat-chip>
-            <mat-chip *ngIf="req('requires_signature')">Signature</mat-chip>
-            <mat-chip *ngIf="preview.mission.requires_gps_tracking">Suivi GPS</mat-chip>
-            <mat-chip *ngIf="preview.mission.enterprise_only">Entreprise uniquement</mat-chip>
-          </mat-chip-set>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="section" *ngIf="preview.applications.length">
-        <mat-card-header>
-          <mat-card-title>
-            <mat-icon>groups</mat-icon> Candidatures prestataires ({{ preview.applications.length }})
-          </mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="applicant" *ngFor="let app of preview.applications">
-            <div class="applicant-main">
-              <div class="avatar sm">{{ providerInitials(app) }}</div>
-              <div>
-                <strong>{{ app.provider?.first_name }} {{ app.provider?.last_name }}</strong>
-                <p *ngIf="app.provider?.city">{{ app.provider?.city }}</p>
-                <p class="sub" *ngIf="app.provider?.reputation_score != null">
-                  Réputation {{ app.provider?.reputation_score | number:'1.0-0' }}/100
-                  · {{ app.provider?.completed_missions || 0 }} mission(s)
-                </p>
-                <p class="msg" *ngIf="app.message">{{ app.message }}</p>
-              </div>
-            </div>
-            <a mat-stroked-button *ngIf="app.provider?.id" [routerLink]="['/providers', app.provider!.id]">
-              Voir le profil
-            </a>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <mat-card class="section" *ngIf="preview.other_solicitations.length">
-        <mat-card-header>
-          <mat-card-title>Autres sollicitations sur cette mission</mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="other" *ngFor="let o of preview.other_solicitations">
-            <mat-icon>{{ o.target_type === 'enterprise' ? 'business' : 'person' }}</mat-icon>
-            <span>
-              <ng-container *ngIf="o.target_type === 'enterprise'">{{ o.enterprise_name || 'Entreprise' }}</ng-container>
-              <ng-container *ngIf="o.target_type === 'provider'">
-                {{ o.provider?.first_name }} {{ o.provider?.last_name }}
-              </ng-container>
-              — {{ statusLabel(o.status) }}
-            </span>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <div class="action-bar" *ngIf="preview.solicitation.status === 'pending'">
-        <button mat-stroked-button color="warn" (click)="reject()" [disabled]="acting">
-          <mat-icon>close</mat-icon> Refuser
-        </button>
-        <button mat-raised-button color="primary" (click)="accept()" [disabled]="acting">
-          <mat-icon>check_circle</mat-icon> Accepter la sollicitation
-        </button>
+        </div>
       </div>
 
-      <mat-card class="section workflow-actions" *ngIf="preview.solicitation.status === 'accepted' && preview.workflow">
-        <mat-card-content>
-          <div *ngIf="preview.workflow.current_step === 'deposit'">
-            <p>Déposez la caution pour confirmer votre engagement sur cette mission.</p>
-            <button mat-raised-button color="warn" (click)="payDeposit()" [disabled]="acting">
-              <mat-icon>security</mat-icon> Déposer {{ preview.workflow.required_deposit | number:'1.0-0' }} XOF
-            </button>
+      <div class="timeline-card" *ngIf="preview.workflow">
+        <div class="timeline">
+          <div class="tl-step" *ngFor="let s of workflowSteps; let i = index"
+            [class.done]="s.done" [class.active]="s.active">
+            <div class="tl-dot">
+              <mat-icon *ngIf="s.done">check</mat-icon>
+              <span *ngIf="!s.done">{{ i + 1 }}</span>
+            </div>
+            <span class="tl-label">{{ s.label }}</span>
           </div>
+        </div>
+        <mat-progress-bar mode="determinate" [value]="workflowProgress"></mat-progress-bar>
+      </div>
 
-          <div *ngIf="preview.workflow.current_step === 'assign_employee'">
-            <p>Choisissez l'employé qui réalisera la mission sur le terrain.</p>
-            <mat-form-field appearance="outline" class="full-width">
-              <mat-label>Employé</mat-label>
-              <mat-select [(ngModel)]="selectedEmployeeId">
-                <mat-option *ngFor="let e of preview.enterprise_employees || []" [value]="e.id">
-                  {{ e.first_name }} {{ e.last_name }} — {{ e.position || 'Agent' }}
-                </mat-option>
-              </mat-select>
-            </mat-form-field>
-            <button mat-raised-button color="primary" (click)="assignEmployee()" [disabled]="acting || !selectedEmployeeId">
-              <mat-icon>person_add</mat-icon> Assigner et continuer
-            </button>
-          </div>
+      <div class="layout">
+        <div class="main-col">
+          <mat-card class="section info-card" *ngIf="preview.solicitation.status === 'pending'">
+            <mat-card-content>
+              <p class="info-text">
+                <mat-icon>info</mat-icon>
+                Après acceptation, vous devrez déposer la caution
+                <ng-container *ngIf="preview.workflow?.is_enterprise">, assigner un employé,</ng-container>
+                puis démarrer la mission.
+              </p>
+            </mat-card-content>
+          </mat-card>
 
-          <div *ngIf="preview.workflow.current_step === 'start'">
-            <p *ngIf="preview.workflow.is_enterprise && preview.mission.executing_employee">
-              Employé assigné : {{ preview.mission.executing_employee.first_name }}
-              {{ preview.mission.executing_employee.last_name }}
-            </p>
-            <button mat-raised-button color="primary" (click)="startMission()" [disabled]="acting">
-              <mat-icon>play_arrow</mat-icon> Démarrer la mission
-            </button>
-          </div>
+          <mat-card class="section workflow-card" *ngIf="preview.workflow">
+            <mat-card-header><mat-card-title><mat-icon>checklist</mat-icon> Étapes pour démarrer</mat-card-title></mat-card-header>
+            <mat-card-content>
+              <div class="steps">
+                <div class="step" [class.done]="stepDone('accept')" [class.active]="preview.workflow.current_step === 'accept'">
+                  <mat-icon>{{ stepDone('accept') ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                  <span>1. Accepter la sollicitation</span>
+                </div>
+                <div class="step" [class.done]="stepDone('deposit')" [class.active]="preview.workflow.current_step === 'deposit'">
+                  <mat-icon>{{ stepDone('deposit') ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                  <span>2. Déposer la caution ({{ preview.workflow.required_deposit | number:'1.0-0' }} XOF)</span>
+                </div>
+                <div class="step" *ngIf="preview.workflow.is_enterprise" [class.done]="stepDone('assign_employee')" [class.active]="preview.workflow.current_step === 'assign_employee'">
+                  <mat-icon>{{ stepDone('assign_employee') ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                  <span>3. Assigner un employé</span>
+                </div>
+                <div class="step" [class.done]="stepDone('start')" [class.active]="preview.workflow.current_step === 'start'">
+                  <mat-icon>{{ stepDone('started') ? 'check_circle' : 'radio_button_unchecked' }}</mat-icon>
+                  <span>{{ preview.workflow.is_enterprise ? '4' : '3' }}. Démarrer la mission</span>
+                </div>
+              </div>
+              <p class="wf-hint" *ngIf="preview.workflow.deposit_required && preview.workflow.deposit_deadline">
+                Caution à déposer avant le {{ preview.workflow.deposit_deadline | date:'dd/MM HH:mm' }}
+              </p>
+              <p class="wf-hint balance" *ngIf="preview.workflow.deposit_balance != null">
+                <mat-icon>account_balance_wallet</mat-icon>
+                Solde caution disponible : {{ preview.workflow.deposit_balance | number:'1.0-0' }} XOF
+              </p>
+            </mat-card-content>
+          </mat-card>
 
-          <div *ngIf="preview.workflow.current_step === 'started'">
-            <p class="success-msg"><mat-icon>check_circle</mat-icon> Mission démarrée</p>
-            <button mat-stroked-button [routerLink]="missionLink">Voir la mission</button>
-          </div>
-        </mat-card-content>
-      </mat-card>
+          <mat-card class="section" *ngIf="preview.solicitation.message">
+            <mat-card-header><mat-card-title><mat-icon>chat_bubble_outline</mat-icon> Message du client</mat-card-title></mat-card-header>
+            <mat-card-content>
+              <p class="quote">« {{ preview.solicitation.message }} »</p>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="section" *ngIf="preview.mission.description">
+            <mat-card-header><mat-card-title><mat-icon>description</mat-icon> Description complète</mat-card-title></mat-card-header>
+            <mat-card-content><p class="desc">{{ preview.mission.description }}</p></mat-card-content>
+          </mat-card>
+
+          <mat-card class="section">
+            <mat-card-header><mat-card-title><mat-icon>route</mat-icon> Itinéraire</mat-card-title></mat-card-header>
+            <mat-card-content>
+              <div class="route" *ngIf="preview.mission.pickup_address">
+                <div class="route-icon pickup"><mat-icon>trip_origin</mat-icon></div>
+                <div>
+                  <strong>Retrait</strong>
+                  <p>{{ preview.mission.pickup_address }}</p>
+                  <a *ngIf="hasCoords('pickup')" [href]="mapsUrl('pickup')" target="_blank" rel="noopener">Ouvrir dans Maps</a>
+                </div>
+              </div>
+              <div class="route-connector" *ngIf="preview.mission.pickup_address && preview.mission.delivery_address"></div>
+              <div class="route" *ngIf="preview.mission.delivery_address">
+                <div class="route-icon delivery"><mat-icon>place</mat-icon></div>
+                <div>
+                  <strong>Livraison</strong>
+                  <p>{{ preview.mission.delivery_address }}</p>
+                  <a *ngIf="hasCoords('delivery')" [href]="mapsUrl('delivery')" target="_blank" rel="noopener">Ouvrir dans Maps</a>
+                </div>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="section" *ngIf="hasRequirements()">
+            <mat-card-header><mat-card-title><mat-icon>rule</mat-icon> Exigences</mat-card-title></mat-card-header>
+            <mat-card-content>
+              <mat-chip-set>
+                <mat-chip *ngIf="req('requires_vehicle')"><mat-icon>local_shipping</mat-icon> Véhicule</mat-chip>
+                <mat-chip *ngIf="req('requires_photo')"><mat-icon>photo_camera</mat-icon> Photo</mat-chip>
+                <mat-chip *ngIf="req('requires_signature')"><mat-icon>draw</mat-icon> Signature</mat-chip>
+                <mat-chip *ngIf="preview.mission.requires_gps_tracking"><mat-icon>gps_fixed</mat-icon> Suivi GPS</mat-chip>
+                <mat-chip *ngIf="preview.mission.enterprise_only"><mat-icon>business</mat-icon> Entreprise uniquement</mat-chip>
+              </mat-chip-set>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="section" *ngIf="preview.applications.length">
+            <mat-card-header>
+              <mat-card-title><mat-icon>groups</mat-icon> Candidatures ({{ preview.applications.length }})</mat-card-title>
+            </mat-card-header>
+            <mat-card-content>
+              <div class="applicant" *ngFor="let app of preview.applications">
+                <div class="applicant-main">
+                  <div class="avatar sm">{{ providerInitials(app) }}</div>
+                  <div>
+                    <strong>{{ app.provider?.first_name }} {{ app.provider?.last_name }}</strong>
+                    <p *ngIf="app.provider?.city">{{ app.provider?.city }}</p>
+                    <p class="sub" *ngIf="app.provider?.reputation_score != null">
+                      Réputation {{ app.provider?.reputation_score | number:'1.0-0' }}/100
+                      · {{ app.provider?.completed_missions || 0 }} mission(s)
+                    </p>
+                    <p class="msg" *ngIf="app.message">{{ app.message }}</p>
+                  </div>
+                </div>
+                <a mat-stroked-button *ngIf="app.provider?.id" [routerLink]="['/providers', app.provider!.id]">
+                  Voir le profil
+                </a>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </div>
+
+        <aside class="side-col">
+          <mat-card class="side-card client-card">
+            <mat-card-header><mat-card-title><mat-icon>person</mat-icon> Client</mat-card-title></mat-card-header>
+            <mat-card-content>
+              <div class="client-row">
+                <div class="avatar">{{ initials(preview.client) }}</div>
+                <div>
+                  <h3>{{ preview.client.first_name }} {{ preview.client.last_name }}</h3>
+                  <p *ngIf="preview.client.city">{{ preview.client.city }}{{ preview.client.country ? ', ' + preview.client.country : '' }}</p>
+                  <mat-chip-set>
+                    <mat-chip *ngIf="preview.client.identity_verified" color="primary">Identité vérifiée</mat-chip>
+                  </mat-chip-set>
+                  <p class="bio" *ngIf="preview.client.bio">{{ preview.client.bio }}</p>
+                </div>
+              </div>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="side-card action-card" *ngIf="preview.solicitation.status === 'pending'">
+            <mat-card-header><mat-card-title>Actions</mat-card-title></mat-card-header>
+            <mat-card-content class="action-list">
+              <button mat-stroked-button color="warn" class="full-width" (click)="reject()" [disabled]="acting">
+                <mat-icon>close</mat-icon> Refuser
+              </button>
+              <button mat-raised-button color="primary" class="full-width" (click)="accept()" [disabled]="acting">
+                <mat-icon>check_circle</mat-icon> Accepter
+              </button>
+            </mat-card-content>
+          </mat-card>
+
+          <mat-card class="side-card action-card" *ngIf="preview.solicitation.status === 'accepted' && preview.workflow">
+            <mat-card-header><mat-card-title>Prochaine étape</mat-card-title></mat-card-header>
+            <mat-card-content>
+              <div *ngIf="preview.workflow.current_step === 'deposit'">
+                <p>Déposez la caution pour confirmer votre engagement.</p>
+                <button mat-raised-button color="warn" class="full-width" (click)="payDeposit()" [disabled]="acting">
+                  <mat-icon>security</mat-icon> Déposer {{ preview.workflow.required_deposit | number:'1.0-0' }} XOF
+                </button>
+              </div>
+              <div *ngIf="preview.workflow.current_step === 'assign_employee'">
+                <p>Choisissez l'employé sur le terrain.</p>
+                <mat-form-field appearance="outline" class="full-width">
+                  <mat-label>Employé</mat-label>
+                  <mat-select [(ngModel)]="selectedEmployeeId">
+                    <mat-option *ngFor="let e of preview.enterprise_employees || []" [value]="e.id">
+                      {{ e.first_name }} {{ e.last_name }} — {{ e.position || 'Agent' }}
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <button mat-raised-button color="primary" class="full-width" (click)="assignEmployee()" [disabled]="acting || !selectedEmployeeId">
+                  <mat-icon>person_add</mat-icon> Assigner
+                </button>
+              </div>
+              <div *ngIf="preview.workflow.current_step === 'start'">
+                <p *ngIf="preview.workflow.is_enterprise && preview.mission.executing_employee">
+                  Employé : {{ preview.mission.executing_employee.first_name }}
+                  {{ preview.mission.executing_employee.last_name }}
+                </p>
+                <button mat-raised-button color="primary" class="full-width" (click)="startMission()" [disabled]="acting">
+                  <mat-icon>play_arrow</mat-icon> Démarrer la mission
+                </button>
+              </div>
+              <div *ngIf="preview.workflow.current_step === 'started'">
+                <p class="success-msg"><mat-icon>check_circle</mat-icon> Mission démarrée</p>
+                <button mat-stroked-button class="full-width" [routerLink]="missionLink">Voir la mission</button>
+              </div>
+            </mat-card-content>
+          </mat-card>
+        </aside>
+      </div>
     </div>
 
     <div class="loading" *ngIf="loading">
@@ -252,46 +276,94 @@ import { formatXOF } from '../../../core/constants/africa.constants';
     </div>
   `,
   styles: [`
-    .page { max-width: 920px; margin: 0 auto; padding: 24px 24px 100px; }
-    .top-bar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
-    .status-chip { padding: 4px 12px; border-radius: 999px; font-size: 12px; font-weight: 600; }
-    .status-chip.pending { background: #fef3c7; color: #92400e; }
-    .status-chip.accepted { background: #d1fae5; color: #065f46; }
-    .status-chip.rejected, .status-chip.cancelled, .status-chip.expired { background: #f1f5f9; color: #64748b; }
-    .hero h1 { margin: 0 0 8px; font-size: 28px; }
-    .budget { font-size: 22px; font-weight: 700; color: #059669; margin: 0 0 8px; }
-    .deadline { display: flex; align-items: center; gap: 6px; color: #64748b; margin: 0 0 20px; }
-    .section { margin-bottom: 16px; border-radius: 14px; }
-    .quote { font-style: italic; color: #475569; margin: 0; padding: 12px; background: #f8fafc; border-radius: 8px; }
+    .page { max-width: 1200px; margin: 0 auto; padding: 24px 24px 80px; }
+    .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+    .back-btn { color: #4b5563; }
+    .status-badge {
+      padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase;
+    }
+    .status-pending { background: #fef3c7; color: #92400e; }
+    .status-accepted { background: #d1fae5; color: #065f46; }
+    .status-rejected, .status-cancelled, .status-expired { background: #f1f5f9; color: #64748b; }
+
+    .hero {
+      border-radius: 20px; padding: 28px 32px; margin-bottom: 20px; color: #fff;
+      background: linear-gradient(135deg, #059669 0%, #047857 50%, #065f46 100%);
+      box-shadow: 0 8px 32px rgba(5, 150, 105, 0.25);
+    }
+    .hero-accepted { background: linear-gradient(135deg, #6C5CE7 0%, #5b4cdb 100%); box-shadow: 0 8px 32px rgba(108,92,231,0.25); }
+    .hero-pending { background: linear-gradient(135deg, #d97706 0%, #b45309 100%); box-shadow: 0 8px 32px rgba(217,119,6,0.25); }
+    .hero-top { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+    .category-pill, .enterprise-pill {
+      display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px;
+      border-radius: 999px; background: rgba(255,255,255,0.2); font-size: 12px; font-weight: 600;
+    }
+    .hero h1 { margin: 0 0 10px; font-size: 30px; font-weight: 800; line-height: 1.2; }
+    .hero-desc { margin: 0 0 20px; opacity: 0.92; font-size: 15px; line-height: 1.5; max-width: 720px; }
+    .hero-stats { display: flex; flex-wrap: wrap; gap: 12px; }
+    .stat {
+      background: rgba(255,255,255,0.15); border-radius: 12px; padding: 12px 16px; min-width: 140px;
+      backdrop-filter: blur(4px);
+    }
+    .stat.highlight { background: rgba(255,255,255,0.25); }
+    .stat-label { display: block; font-size: 11px; text-transform: uppercase; opacity: 0.85; margin-bottom: 4px; }
+    .stat-value { font-size: 18px; font-weight: 700; }
+
+    .timeline-card {
+      background: #fff; border-radius: 16px; padding: 20px 24px; margin-bottom: 20px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.06); border: 1px solid #e5e7eb;
+    }
+    .timeline { display: flex; justify-content: space-between; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .tl-step { display: flex; flex-direction: column; align-items: center; gap: 8px; flex: 1; min-width: 72px; text-align: center; }
+    .tl-dot {
+      width: 32px; height: 32px; border-radius: 50%; background: #e5e7eb; color: #6b7280;
+      display: flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700;
+    }
+    .tl-step.done .tl-dot { background: #059669; color: #fff; }
+    .tl-step.active .tl-dot { background: #6C5CE7; color: #fff; box-shadow: 0 0 0 4px rgba(108,92,231,0.2); }
+    .tl-label { font-size: 11px; color: #6b7280; font-weight: 500; line-height: 1.3; }
+    .tl-step.done .tl-label, .tl-step.active .tl-label { color: #111827; font-weight: 600; }
+
+    .layout { display: grid; grid-template-columns: 1fr 320px; gap: 20px; align-items: start; }
+    .main-col { display: flex; flex-direction: column; gap: 16px; }
+    .side-col { display: flex; flex-direction: column; gap: 16px; position: sticky; top: 80px; }
+    .section { border-radius: 14px; }
+    .side-card { border-radius: 14px; }
+    .quote { font-style: italic; color: #475569; margin: 0; padding: 14px; background: #f8fafc; border-radius: 10px; border-left: 4px solid #3CB371; }
+    .desc { color: #374151; line-height: 1.6; margin: 0; }
     .client-row { display: flex; gap: 16px; align-items: flex-start; }
     .avatar { width: 56px; height: 56px; border-radius: 50%; background: linear-gradient(135deg, #3CB371, #059669); color: white; display: flex; align-items: center; justify-content: center; font-weight: 700; flex-shrink: 0; }
     .avatar.sm { width: 44px; height: 44px; font-size: 14px; }
     .client-row h3 { margin: 0 0 4px; }
-    .bio { color: #64748b; margin-top: 8px; }
-    .route { display: flex; gap: 12px; margin-bottom: 16px; }
-    .route mat-icon { color: #3CB371; margin-top: 2px; }
+    .bio { color: #64748b; margin-top: 8px; font-size: 13px; }
+    .route { display: flex; gap: 14px; align-items: flex-start; }
+    .route-icon { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .route-icon.pickup { background: #dbeafe; color: #1d4ed8; }
+    .route-icon.delivery { background: #d1fae5; color: #047857; }
+    .route-connector { width: 2px; height: 20px; background: #e5e7eb; margin: 4px 0 4px 17px; }
     .route p { margin: 4px 0; color: #475569; }
-    .route a { font-size: 13px; color: #059669; }
+    .route a { font-size: 13px; color: #059669; font-weight: 600; }
     .applicant { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f1f5f9; }
     .applicant:last-child { border-bottom: none; }
     .applicant-main { display: flex; gap: 12px; flex: 1; }
     .sub, .msg { font-size: 13px; color: #64748b; margin: 4px 0 0; }
-    .other { display: flex; align-items: center; gap: 8px; padding: 8px 0; color: #475569; }
     .steps { display: flex; flex-direction: column; gap: 10px; }
-    .step { display: flex; align-items: center; gap: 10px; color: #94a3b8; font-size: 14px; }
-    .step.done { color: #059669; }
-    .step.active { color: #0f172a; font-weight: 600; }
+    .step { display: flex; align-items: center; gap: 10px; color: #94a3b8; font-size: 14px; padding: 8px 12px; border-radius: 8px; }
+    .step.done { color: #059669; background: #ecfdf5; }
+    .step.active { color: #0f172a; font-weight: 600; background: #f5f3ff; }
     .wf-hint { font-size: 13px; color: #64748b; margin: 12px 0 0; }
-    .workflow-actions p { color: #475569; margin: 0 0 12px; }
-    .full-width { width: 100%; }
-    .success-msg { display: flex; align-items: center; gap: 8px; color: #059669; font-weight: 600; }
+    .wf-hint.balance { display: flex; align-items: center; gap: 6px; color: #059669; font-weight: 600; }
     .info-text { display: flex; align-items: flex-start; gap: 8px; color: #475569; margin: 0; font-size: 14px; line-height: 1.5; }
     .info-text mat-icon { color: #3b82f6; font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
-    .action-bar {
-      position: sticky; bottom: 0; display: flex; justify-content: flex-end; gap: 12px;
-      padding: 16px 0; background: linear-gradient(transparent, #fff 24px);
-    }
+    .action-list { display: flex; flex-direction: column; gap: 10px; }
+    .full-width { width: 100%; }
+    .success-msg { display: flex; align-items: center; gap: 8px; color: #059669; font-weight: 600; }
     .loading { display: flex; justify-content: center; padding: 80px; }
+    @media (max-width: 900px) {
+      .layout { grid-template-columns: 1fr; }
+      .side-col { position: static; }
+      .hero h1 { font-size: 24px; }
+    }
   `],
 })
 export class SolicitationDetailComponent implements OnInit {
@@ -325,6 +397,43 @@ export class SolicitationDetailComponent implements OnInit {
   get missionLink(): string {
     const id = this.preview?.mission?.id;
     return this.scope === 'enterprise' ? `/enterprise/missions` : `/provider/missions/${id}`;
+  }
+
+  get workflowSteps(): { label: string; done: boolean; active: boolean }[] {
+    const w = this.preview?.workflow;
+    if (!w) return [];
+    const steps = w.is_enterprise
+      ? [
+          { key: 'accept', label: 'Acceptée' },
+          { key: 'deposit', label: 'Caution' },
+          { key: 'assign_employee', label: 'Employé' },
+          { key: 'start', label: 'Démarrage' },
+        ]
+      : [
+          { key: 'accept', label: 'Acceptée' },
+          { key: 'deposit', label: 'Caution' },
+          { key: 'start', label: 'Démarrage' },
+        ];
+    const order = w.is_enterprise
+      ? ['accept', 'deposit', 'assign_employee', 'start', 'started']
+      : ['accept', 'deposit', 'start', 'started'];
+    const cur = order.indexOf(w.current_step);
+    return steps.map((s) => {
+      const idx = order.indexOf(s.key);
+      return {
+        label: s.label,
+        done: idx >= 0 && cur > idx,
+        active: w.current_step === s.key,
+      };
+    });
+  }
+
+  get workflowProgress(): number {
+    const steps = this.workflowSteps;
+    if (!steps.length) return 0;
+    const done = steps.filter((s) => s.done).length;
+    const active = steps.some((s) => s.active) ? 0.5 : 0;
+    return Math.round(((done + active) / steps.length) * 100);
   }
 
   load(): void {

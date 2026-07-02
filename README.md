@@ -271,24 +271,25 @@ python update_contracts.py
 
 ### En cours / à renforcer
 
-- [ ] Notifications push Firebase (mobile)
-- [ ] Tâches Celery planifiées en production
+- [ ] Notifications push Firebase (config `FIREBASE_CREDENTIALS_PATH` en prod)
 - [ ] Tests E2E Cypress (web)
 - [ ] Audit sécurité smart contracts
-- [ ] Extension marchés UEMOA (Sénégal, Côte d'Ivoire…)
+- [ ] Extension marchés UEMOA (Sénégal, Côte d'Ivoire…) — config préparée dans `africa_config.py`
 
 ### Réalisé (MVP)
 
-- [x] Auth JWT, Google, reset password, vérification email
+- [x] Auth JWT, Google, reset password, vérification email, **2FA TOTP**
 - [x] KYC avec revue admin et blocage plateforme
 - [x] Missions, candidatures, sollicitations, catégories avec règles
-- [x] Cautions via Mobile Money
+- [x] Cautions via Mobile Money (sandbox sans frais)
 - [x] GPS temps réel (WebSocket)
-- [x] Preuves (photo, QR, signature)
+- [x] Preuves (photo, QR, signature) + **analyse automatique**
 - [x] Litiges et réputation
+- [x] **Chat mission** (client ↔ prestataire, web + mobile)
 - [x] Espaces client, prestataire, entreprise, admin (web)
-- [x] Application mobile Expo (client & prestataire)
-- [x] Intégration blockchain Sepolia
+- [x] Application mobile Expo (client, prestataire, **entreprise**)
+- [x] Intégration blockchain Sepolia + **sync Celery**
+- [x] **CI GitHub Actions** (pytest + build Angular)
 - [x] Tests pytest flux métier
 
 ---

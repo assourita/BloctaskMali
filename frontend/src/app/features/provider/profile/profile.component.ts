@@ -21,6 +21,7 @@ import { PaymentMethodFlowService } from '../../../core/services/payment-method-
 import { MatDialog } from '@angular/material/dialog';
 import { ProfileOnboardingBarComponent } from '../../../shared/components/profile-onboarding-bar/profile-onboarding-bar.component';
 import { KycVerificationComponent } from '../../../shared/components/kyc-verification/kyc-verification.component';
+import { TwoFactorSettingsComponent } from '../../../shared/components/two-factor-settings/two-factor-settings.component';
 import {
   PROVIDER_SKILL_OPTIONS,
   VEHICLE_TYPE_OPTIONS,
@@ -60,6 +61,7 @@ interface ProviderProfile {
     MatSelectModule,
     ProfileOnboardingBarComponent,
     KycVerificationComponent,
+    TwoFactorSettingsComponent,
     RouterLink,
   ],
   template: `
@@ -272,6 +274,9 @@ interface ProviderProfile {
                 </button>
               </div>
             </form>
+
+            <mat-divider class="section-divider"></mat-divider>
+            <app-two-factor-settings></app-two-factor-settings>
 
             <mat-divider class="section-divider"></mat-divider>
 

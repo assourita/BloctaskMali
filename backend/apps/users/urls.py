@@ -14,6 +14,7 @@ urlpatterns = [
     # Profile
     path('me/', views.UserProfileView.as_view(), name='user-profile'),
     path('<uuid:id>/', views.UserDetailView.as_view(), name='user-detail'),
+    path('<uuid:id>/reset-password/', views.AdminResetPasswordView.as_view(), name='admin-reset-password'),
     path('', views.UserListView.as_view(), name='user-list'),
     
     # Provider
@@ -40,6 +41,10 @@ urlpatterns = [
     path('password/reset/', views.PasswordResetRequestView.as_view(), name='password-reset'),
     path('password/reset/validate/', views.PasswordResetValidateView.as_view(), name='password-reset-validate'),
     path('password/reset/confirm/', views.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
+    path('2fa/setup/', views.TwoFactorSetupView.as_view(), name='2fa-setup'),
+    path('2fa/confirm/', views.TwoFactorConfirmView.as_view(), name='2fa-confirm'),
+    path('2fa/disable/', views.TwoFactorDisableView.as_view(), name='2fa-disable'),
+    path('2fa/status/', views.TwoFactorStatusView.as_view(), name='2fa-status'),
     
     # Stats & Actions
     path('stats/', views.get_user_stats, name='user-stats'),

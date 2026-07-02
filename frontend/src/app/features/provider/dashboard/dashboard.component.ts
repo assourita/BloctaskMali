@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -645,6 +645,7 @@ export class ProviderDashboardComponent implements OnInit {
     private snackBar: MatSnackBar,
     private dialog: MatDialog,
     private paymentMethodFlow: PaymentMethodFlowService,
+    private router: Router,
   ) {
     this.currentUser$ = this.authService.currentUser$;
   }
@@ -729,18 +730,45 @@ export class ProviderDashboardComponent implements OnInit {
   }
   
   updateLocation(): void {
-    console.log('Updating location...');
-    // TODO: Geolocation API
+    if (!this.currentMission) return;
+    if (!navigator.geolocation) {
+      this.snackBar.open('Géolocalisation non supportée', 'Fermer', { duration: 3000 });
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        this.http.post(
+          `${environment.apiUrl}/tracking/locations/`,
+          {
+            mission: this.currentMission!.id,
+            location_type: 'provider',
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          },
+          { headers: this.headers() },
+        ).subscribe({
+          next: () => this.snackBar.open('Position envoyée', 'Fermer', { duration: 3000 }),
+          error: () => this.snackBar.open('Erreur envoi GPS', 'Fermer', { duration: 3000 }),
+        });
+      },
+      () => this.snackBar.open('Autorisez la géolocalisation', 'Fermer', { duration: 4000 }),
+    );
   }
-  
+
   submitProof(): void {
-    console.log('Submitting proof...');
-    // TODO: Rediriger vers page de preuves
+    if (!this.currentMission) return;
+    this.router.navigate(['/provider/missions', this.currentMission.id], { fragment: 'proofs-section' });
   }
-  
+
   completeMission(): void {
-    console.log('Completing mission...');
-    // TODO: API call
+    if (!this.currentMission) return;
+    this.missionService.submitProof(this.currentMission.id).subscribe({
+      next: () => {
+        this.snackBar.open('Preuves soumises — en attente de validation client', 'Fermer', { duration: 5000 });
+        this.loadDashboard();
+      },
+      error: (err) => this.snackBar.open(err.error?.error || 'Erreur soumission', 'Fermer', { duration: 4000 }),
+    });
   }
   
   applyToMission(mission: { id: string; title?: string }): void {

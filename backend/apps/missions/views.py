@@ -645,10 +645,15 @@ class MissionViewSet(viewsets.ModelViewSet):
             if not deposit:
                 return Response({'error': 'Impossible de bloquer la caution entreprise'}, status=400)
             from apps.notifications.services import notify_mission_event
+            enterprise_name = enterprise.company_name or enterprise.user.get_full_name() or 'Entreprise'
             notify_mission_event(
                 mission, 'deposit_paid', mission.client,
-                'Caution entreprise reçue',
-                f'L\'entreprise a déposé la caution pour « {mission.title} ». Assignez un employé puis démarrez.',
+                'Caution entreprise déposée',
+                (
+                    f'L\'entreprise « {enterprise_name} » a confirmé son engagement '
+                    f'pour « {mission.title} » en déposant sa caution. '
+                    'Vous serez notifié lorsque la mission démarre.'
+                ),
             )
             return Response({
                 'status': 'Caution entreprise déposée',

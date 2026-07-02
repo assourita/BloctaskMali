@@ -713,7 +713,7 @@ export class ProviderMissionDetailComponent implements OnInit {
   }
 
   showChat(): boolean {
-    return ['accepted', 'in_progress', 'submitted', 'completed'].includes(this.mission?.status || '');
+    return ['in_progress', 'submitted', 'disputed', 'completed'].includes(this.mission?.status || '');
   }
 
   showClientContact(): boolean {

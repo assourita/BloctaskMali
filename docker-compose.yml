@@ -48,11 +48,28 @@ services:
       - DEBUG=True
       - DATABASE_URL=postgres://postgres:postgres@db:5432/blocktask
       - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
       - SECRET_KEY=your-secret-key-change-in-production
     depends_on:
       - db
       - redis
     command: celery -A config worker -l info
+    volumes:
+      - ./backend:/app
+
+  celery-beat:
+    build: ./backend
+    environment:
+      - DEBUG=True
+      - DATABASE_URL=postgres://postgres:postgres@db:5432/blocktask
+      - REDIS_URL=redis://redis:6379
+      - CELERY_BROKER_URL=redis://redis:6379/0
+      - SECRET_KEY=your-secret-key-change-in-production
+    depends_on:
+      - db
+      - redis
+      - celery
+    command: celery -A config beat -l info
     volumes:
       - ./backend:/app
 

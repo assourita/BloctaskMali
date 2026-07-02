@@ -20,6 +20,7 @@ import { AuthService } from '../../../core/services/auth.service';
 import { MALI_COUNTRY } from '../../../core/constants/africa.constants';
 import { ProfileOnboardingBarComponent } from '../../../shared/components/profile-onboarding-bar/profile-onboarding-bar.component';
 import { KycVerificationComponent } from '../../../shared/components/kyc-verification/kyc-verification.component';
+import { TwoFactorSettingsComponent } from '../../../shared/components/two-factor-settings/two-factor-settings.component';
 
 @Component({
   selector: 'app-client-profile',
@@ -31,6 +32,7 @@ import { KycVerificationComponent } from '../../../shared/components/kyc-verific
     MatChipsModule, MatProgressBarModule, MatSelectModule, OverlayModule,
     ProfileOnboardingBarComponent,
     KycVerificationComponent,
+    TwoFactorSettingsComponent,
   ],
   template: `
     <div class="profile-container" [class.has-onboarding-bar]="showOnboarding">
@@ -195,6 +197,9 @@ import { KycVerificationComponent } from '../../../shared/components/kyc-verific
                 </button>
               </div>
             </form>
+
+            <mat-divider class="section-divider"></mat-divider>
+            <app-two-factor-settings></app-two-factor-settings>
 
             <mat-divider class="section-divider"></mat-divider>
 

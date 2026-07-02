@@ -83,6 +83,9 @@ class MissionProofViewSet(viewsets.ModelViewSet):
 
         proof = serializer.save()
 
+        from .analysis_service import run_photo_analysis
+        run_photo_analysis(proof)
+
         checklist, _ = ProofChecklist.objects.get_or_create(mission=mission)
         if proof.proof_type in ('photo_before', 'photo_during'):
             checklist.pickup_photo_done = True

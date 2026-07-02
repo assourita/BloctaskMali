@@ -52,8 +52,23 @@ class BlockTaskTokenObtainPairSerializer(TokenObtainPairSerializer):
     username_field = 'email'
 
     def validate(self, attrs):
+        otp = (attrs.pop('otp', None) or self.initial_data.get('otp') or '').strip()
         data = super().validate(attrs)
         user = self.user
+
+        if user.two_factor_enabled and user.two_factor_secret:
+            if not otp:
+                raise serializers.ValidationError({
+                    'code': '2fa_required',
+                    'detail': 'Code d\'authentification à deux facteurs requis.',
+                })
+            from .two_factor import verify_totp
+            if not verify_totp(user.two_factor_secret, otp):
+                raise serializers.ValidationError({
+                    'code': 'invalid_2fa',
+                    'detail': 'Code 2FA invalide.',
+                })
+
         if email_verification_required(user):
             raise serializers.ValidationError({
                 'code': 'email_not_verified',
@@ -73,7 +88,8 @@ class BlockTaskTokenObtainPairView(TokenObtainPairView):
             serializer.is_valid(raise_exception=True)
         except serializers.ValidationError as exc:
             detail = exc.detail
-            if isinstance(detail, dict) and detail.get('code') == 'email_not_verified':
-                return Response(detail, status=status.HTTP_403_FORBIDDEN)
+            if isinstance(detail, dict) and detail.get('code') in ('email_not_verified', '2fa_required', 'invalid_2fa'):
+                status_code = status.HTTP_403_FORBIDDEN if detail.get('code') == 'email_not_verified' else status.HTTP_401_UNAUTHORIZED
+                return Response(detail, status=status_code)
             raise
         return Response(serializer.validated_data, status=status.HTTP_200_OK)

@@ -38,6 +38,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
 // Core
 import { AuthInterceptor } from './core/interceptors/auth.interceptor';
+import { TokenRefreshInterceptor } from './core/interceptors/token-refresh.interceptor';
 import { ErrorInterceptor } from './core/interceptors/error.interceptor';
 
 // Routes
@@ -84,7 +85,8 @@ import { routes } from './app.routes';
   ],
   providers: [
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
-    { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true }
+    { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true },
+    { provide: HTTP_INTERCEPTORS, useClass: TokenRefreshInterceptor, multi: true },
   ],
   schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })

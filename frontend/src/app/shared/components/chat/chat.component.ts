@@ -46,6 +46,8 @@ interface Conversation {
   };
   last_message?: Message;
   unread_count: number;
+  can_write?: boolean;
+  is_closed?: boolean;
   updated_at: string;
 }
 
@@ -172,7 +174,8 @@ interface Conversation {
 
         <!-- Input area -->
         <div class="input-area" *ngIf="currentConversation">
-          <div class="input-container">
+          <p class="chat-closed" *ngIf="!canWrite()">Messagerie fermée — mission terminée ou non démarrée.</p>
+          <div class="input-container" *ngIf="canWrite()">
             <button mat-icon-button class="attach-btn" (click)="attachFile()">
               <mat-icon>attach_file</mat-icon>
             </button>
@@ -321,6 +324,10 @@ interface Conversation {
         
         .input-area {
           padding: 16px 24px; background: #fff; border-top: 1px solid #e0e0e0;
+
+          .chat-closed {
+            text-align: center; color: #6b7280; font-size: 13px; margin: 0;
+          }
           
           .input-container {
             display: flex; align-items: center; gap: 12px;
@@ -404,7 +411,11 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   loadConversations(): void {
     this.loading = true;
-    this.http.get<any>(`${this.apiUrl}/chat/conversations/`, { headers: this.h() }).subscribe({
+    let url = `${this.apiUrl}/chat/conversations/`;
+    if (this.missionId) {
+      url += `?mission_id=${this.missionId}`;
+    }
+    this.http.get<any>(url, { headers: this.h() }).subscribe({
       next: (res) => {
         this.conversations = res.results || res;
         this.loading = false;
@@ -429,7 +440,7 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   selectConversation(conv: Conversation): void {
     this.currentConversation = conv;
-    this.showSidebar = false; // Sur mobile, cacher la sidebar
+    this.showSidebar = false;
     this.loadMessages(conv.id, true);
     
     // Marquer comme lu
@@ -461,7 +472,7 @@ export class ChatComponent implements OnInit, OnDestroy {
   }
 
   sendMessage(): void {
-    if (!this.newMessage.trim() || !this.currentConversation || this.sending) return;
+    if (!this.newMessage.trim() || !this.currentConversation || this.sending || !this.canWrite()) return;
     
     this.sending = true;
     const content = this.newMessage.trim();
@@ -492,6 +503,14 @@ export class ChatComponent implements OnInit, OnDestroy {
 
   isOwnMessage(msg: Message): boolean {
     return msg.sender.id === this.currentUserId;
+  }
+
+  canWrite(): boolean {
+    const conv = this.currentConversation as Conversation & { can_write?: boolean; is_closed?: boolean };
+    if (conv?.is_closed) return false;
+    if (conv?.can_write === false) return false;
+    const status = conv?.mission?.status;
+    return !status || ['in_progress', 'submitted', 'disputed'].includes(status);
   }
 
   formatTime(dateStr: string): string {

@@ -45,6 +45,25 @@ def create_notification(
     return notification
 
 
+def notify_chat_message(conversation, sender, content: str):
+    """Notifie l'autre participant d'un nouveau message."""
+    recipient = conversation.provider if conversation.client_id == sender.id else conversation.client
+    if not recipient or recipient.id == sender.id:
+        return None
+    mission = conversation.mission
+    preview = content[:120] + ('…' if len(content) > 120 else '')
+    return create_notification(
+        user=recipient,
+        notification_type='message_received',
+        title=f'Nouveau message — {mission.title}',
+        message=f'{sender.first_name}: {preview}',
+        mission=mission,
+        priority='high',
+        action_url=f'/missions/{mission.id}',
+        data={'conversation_id': str(conversation.id)},
+    )
+
+
 def notify_mission_event(mission, event_type: str, recipient, title: str, message: str):
     type_map = {
         'application': Notification.Type.MISSION_CREATED,

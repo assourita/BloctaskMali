@@ -18,6 +18,7 @@ import { AssignEmployeeModal } from '../../src/components/AssignEmployeeModal';
 import { confirmPayment } from '../../src/api/payments';
 import { sendLocation } from '../../src/api/tracking';
 import { ProofSection } from '../../src/components/ProofSection';
+import { MissionChat } from '../../src/components/MissionChat';
 import { PrimaryButton, SecondaryButton, Input } from '../../src/components/buttons';
 import { DateField, TimeField } from '../../src/components/datetime';
 import { Card } from '../../src/components/ui';
@@ -265,6 +266,9 @@ export default function MissionDetailScreen() {
   const showProofs =
     ['in_progress', 'submitted', 'completed', 'provider_done'].includes(mission.status) ||
     (isClient && !!mission.provider);
+  const showChat =
+    !!mission.provider &&
+    ['in_progress', 'submitted', 'disputed', 'completed'].includes(mission.status);
   const canTrack = ['accepted', 'in_progress', 'submitted'].includes(mission.status) && !!mission.provider;
   const canDispute = ['in_progress', 'submitted', 'completed'].includes(mission.status);
   const canRate = mission.status === 'completed';
@@ -497,6 +501,13 @@ export default function MissionDetailScreen() {
             missionId={id}
             canUpload={isProvider && ['in_progress', 'provider_done', 'submitted'].includes(mission.status)}
           />
+        ) : null}
+
+        {showChat && id ? (
+          <Card>
+            <Text style={styles.section}>Messagerie mission</Text>
+            <MissionChat missionId={id} currentUserId={user?.id} />
+          </Card>
         ) : null}
 
         {fundedOverdueNoProvider ? (

@@ -44,6 +44,7 @@ export interface User {
 export interface LoginCredentials {
   email: string;
   password: string;
+  otp?: string;
 }
 
 export interface RegisterData {
@@ -92,7 +93,12 @@ export class AuthService {
   }
   
   login(credentials: LoginCredentials): Observable<any> {
-    return this.http.post(`${this.apiUrl}/auth/token/`, credentials).pipe(
+    const body: Record<string, string> = {
+      email: credentials.email,
+      password: credentials.password,
+    };
+    if (credentials.otp) body['otp'] = credentials.otp;
+    return this.http.post(`${this.apiUrl}/auth/token/`, body).pipe(
       switchMap((response: any) => {
         this.setSession(response);
         return this.loadUserProfile();
@@ -246,6 +252,33 @@ export class AuthService {
   
   getToken(): string | null {
     return localStorage.getItem('access_token');
+  }
+
+  getRefreshToken(): string | null {
+    return localStorage.getItem('refresh_token');
+  }
+
+  /** Rafraîchit le JWT access (rotation du refresh côté backend). */
+  async refreshAccessToken(): Promise<string | null> {
+    const refresh = this.getRefreshToken();
+    if (!refresh) return null;
+
+    try {
+      const res = await fetch(`${this.apiUrl}/auth/token/refresh/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ refresh }),
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      localStorage.setItem('access_token', data.access);
+      if (data.refresh) {
+        localStorage.setItem('refresh_token', data.refresh);
+      }
+      return data.access as string;
+    } catch {
+      return null;
+    }
   }
   
   getCurrentUser(): User | null {

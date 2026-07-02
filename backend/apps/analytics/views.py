@@ -2,9 +2,11 @@ from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django.db.models import Count, Sum, Avg, Q
+from decimal import Decimal
 from django.db.models.functions import TruncDate
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+from django.conf import settings
 
 from apps.missions.models import Mission
 from apps.payments.models import Payment
@@ -12,8 +14,79 @@ from apps.disputes.models import Dispute
 from apps.reputation.models import ReputationScore
 from apps.users.models import Employee, EnterpriseProfile
 from apps.users.roles import resolve_request_role
+from apps.escrow.models import ProviderDeposit, EnterpriseDeposit, EscrowTransaction
 
 User = get_user_model()
+
+ESCROW_ACTIVE_MISSION_STATUSES = [
+    'funded', 'accepted', 'in_progress', 'submitted', 'disputed',
+]
+
+
+def _admin_finances(now, month_start):
+    """Synthèse financière plateforme pour l'admin."""
+    completed_payments = Payment.objects.filter(status=Payment.Status.COMPLETED)
+    active_missions = Mission.objects.filter(status__in=ESCROW_ACTIVE_MISSION_STATUSES)
+
+    escrow_locked = Payment.objects.filter(
+        mission__status__in=ESCROW_ACTIVE_MISSION_STATUSES,
+        status=Payment.Status.COMPLETED,
+    ).aggregate(total=Sum('escrow_amount'))['total'] or 0
+
+    provider_deposits_locked = ProviderDeposit.objects.filter(
+        status='locked',
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    enterprise_deposits_locked = EnterpriseDeposit.objects.filter(
+        status='locked',
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    provider_deposits_active = ProviderDeposit.objects.filter(
+        status='active',
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    enterprise_deposits_active = EnterpriseDeposit.objects.filter(
+        status='active',
+    ).aggregate(total=Sum('amount'))['total'] or 0
+
+    return {
+        'currency': 'XOF',
+        'platform_fees_total': completed_payments.aggregate(
+            total=Sum('platform_fee'),
+        )['total'] or 0,
+        'platform_fees_this_month': completed_payments.filter(
+            completed_at__gte=month_start,
+        ).aggregate(total=Sum('platform_fee'))['total'] or 0,
+        'payment_volume_total': completed_payments.aggregate(
+            total=Sum('amount'),
+        )['total'] or 0,
+        'payment_volume_this_month': completed_payments.filter(
+            completed_at__gte=month_start,
+        ).aggregate(total=Sum('amount'))['total'] or 0,
+        'escrow_locked': escrow_locked,
+        'provider_deposits_locked': provider_deposits_locked,
+        'enterprise_deposits_locked': enterprise_deposits_locked,
+        'provider_deposits_available': provider_deposits_active,
+        'enterprise_deposits_available': enterprise_deposits_active,
+        'total_deposits_locked': provider_deposits_locked + enterprise_deposits_locked,
+        'total_funds_blocked': (
+            Decimal(str(escrow_locked))
+            + Decimal(str(provider_deposits_locked))
+            + Decimal(str(enterprise_deposits_locked))
+        ),
+        'active_funded_missions': active_missions.filter(status='funded').count(),
+        'active_in_progress_missions': active_missions.filter(
+            status__in=['accepted', 'in_progress', 'submitted'],
+        ).count(),
+        'payments_pending': Payment.objects.filter(
+            status__in=[Payment.Status.PENDING, Payment.Status.PROCESSING],
+        ).count(),
+        'payments_failed': Payment.objects.filter(status=Payment.Status.FAILED).count(),
+        'escrow_transactions_pending': EscrowTransaction.objects.filter(
+            status='pending',
+        ).count(),
+        'sandbox_mode': settings.MOBILE_MONEY_CONFIG.get('SANDBOX', True),
+    }
 
 
 def _is_admin(user):
@@ -59,6 +132,7 @@ def dashboard_stats(request):
             'reputation': {
                 'average_score': ReputationScore.objects.aggregate(a=Avg('overall_score'))['a'] or 0,
             },
+            'finances': _admin_finances(now, month_start),
         })
 
     role = resolve_request_role(user, request.query_params.get('role'))

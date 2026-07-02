@@ -16,6 +16,7 @@ import type { UserRole } from '../src/types';
 const ROLES: { id: UserRole; label: string; desc: string }[] = [
   { id: 'client', label: 'Client', desc: 'Je délègue des missions' },
   { id: 'provider', label: 'Prestataire', desc: 'Je réalise des missions' },
+  { id: 'enterprise', label: 'Entreprise', desc: 'Je gère une équipe de prestataires' },
 ];
 
 export default function RegisterScreen() {
@@ -86,7 +87,7 @@ export default function RegisterScreen() {
   return (
     <AuthLayout
       title="Rejoignez BlockTask"
-      subtitle="Client ou prestataire — créez votre compte en quelques étapes."
+      subtitle="Client, prestataire ou entreprise — créez votre compte en quelques étapes."
     >
       <Text style={styles.formTitle}>Inscription</Text>
       <Text style={styles.formSubtitle}>Choisissez le profil qui vous correspond</Text>

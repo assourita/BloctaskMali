@@ -736,3 +736,87 @@ def enterprise_public_profile(request, id):
         'company_email': profile.company_email or '',
         'company_phone': profile.company_phone or user.phone_number or '',
     })
+
+
+def _admin_only(user):
+    return user.is_staff or getattr(user, 'user_type', '') == 'admin'
+
+
+class TwoFactorSetupView(APIView):
+    """Génère un secret TOTP et QR code (étape 1)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from .two_factor import generate_secret, provisioning_uri, qr_code_data_url
+        user = request.user
+        secret = generate_secret()
+        user.two_factor_secret = secret
+        user.two_factor_enabled = False
+        user.save(update_fields=['two_factor_secret', 'two_factor_enabled'])
+        uri = provisioning_uri(user, secret)
+        return Response({
+            'secret': secret,
+            'provisioning_uri': uri,
+            'qr_code': qr_code_data_url(uri),
+        })
+
+
+class TwoFactorConfirmView(APIView):
+    """Active la 2FA après vérification du code (étape 2)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from .two_factor import verify_totp
+        code = (request.data.get('code') or '').strip()
+        user = request.user
+        if not user.two_factor_secret:
+            return Response({'error': 'Lancez d\'abord la configuration 2FA.'}, status=400)
+        if not verify_totp(user.two_factor_secret, code):
+            return Response({'error': 'Code invalide.'}, status=400)
+        user.two_factor_enabled = True
+        user.save(update_fields=['two_factor_enabled'])
+        return Response({'enabled': True, 'message': 'Authentification à deux facteurs activée.'})
+
+
+class TwoFactorDisableView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        from .two_factor import verify_totp
+        user = request.user
+        code = (request.data.get('code') or '').strip()
+        if user.two_factor_enabled:
+            if not verify_totp(user.two_factor_secret or '', code):
+                return Response({'error': 'Code 2FA requis pour désactiver.'}, status=400)
+        user.two_factor_enabled = False
+        user.two_factor_secret = None
+        user.save(update_fields=['two_factor_enabled', 'two_factor_secret'])
+        return Response({'enabled': False})
+
+
+class TwoFactorStatusView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        return Response({'enabled': bool(request.user.two_factor_enabled)})
+
+
+class AdminResetPasswordView(APIView):
+    """Réinitialise le mot de passe d'un utilisateur (admin)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, id):
+        if not _admin_only(request.user):
+            return Response({'error': 'Accès réservé aux administrateurs.'}, status=403)
+        user = get_object_or_404(User, id=id)
+        import secrets
+        import string
+        alphabet = string.ascii_letters + string.digits
+        temp_password = ''.join(secrets.choice(alphabet) for _ in range(12))
+        user.set_password(temp_password)
+        user.save(update_fields=['password'])
+        return Response({
+            'message': f'Mot de passe réinitialisé pour {user.email}.',
+            'temporary_password': temp_password,
+            'user_id': str(user.id),
+        })

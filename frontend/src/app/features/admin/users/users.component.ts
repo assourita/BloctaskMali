@@ -1077,8 +1077,20 @@ export class AdminUsersComponent implements OnInit, AfterViewInit {
   }
 
   resetUserPassword(user: User): void {
-    // TODO: Implement password reset
-    this.snackBar.open(`Réinitialisation du mot de passe pour ${user.email}`, 'Fermer', { duration: 3000 });
+    if (!confirm(`Réinitialiser le mot de passe de ${user.email} ? Un mot de passe temporaire sera généré.`)) return;
+    this.http.post<{ temporary_password: string; message: string }>(
+      `${this.apiUrl}/users/${user.id}/reset-password/`,
+      {},
+      { headers: this.getHeaders() },
+    ).subscribe({
+      next: (res) => {
+        prompt(`Mot de passe temporaire pour ${user.email} (copiez-le maintenant) :`, res.temporary_password);
+        this.snackBar.open(res.message, 'Fermer', { duration: 5000 });
+      },
+      error: () => {
+        this.snackBar.open('Erreur lors de la réinitialisation', 'Fermer', { duration: 3000 });
+      },
+    });
   }
 
   deleteUser(user: User): void {

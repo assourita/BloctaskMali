@@ -83,6 +83,12 @@ import { GoogleSignInButtonComponent } from '../../../shared/components/google-s
               <a routerLink="/forgot-password" class="text-link">Mot de passe oublié ?</a>
             </div>
 
+            <mat-form-field appearance="outline" class="full-width" *ngIf="needs2fa">
+              <mat-label>Code 2FA (6 chiffres)</mat-label>
+              <mat-icon matPrefix>pin</mat-icon>
+              <input matInput formControlName="otp" inputmode="numeric" maxlength="6" placeholder="123456">
+            </mat-form-field>
+
             <button mat-raised-button type="submit" class="submit-btn" [disabled]="loginForm.invalid || isLoading">
               <mat-spinner diameter="20" *ngIf="isLoading"></mat-spinner>
               <span *ngIf="!isLoading">Se connecter</span>
@@ -369,6 +375,7 @@ export class LoginComponent implements OnInit {
   loginForm: FormGroup;
   hidePassword = true;
   isLoading = false;
+  needs2fa = false;
   sessionExpired = false;
   returnUrl: string = '/client/dashboard';
 
@@ -381,7 +388,8 @@ export class LoginComponent implements OnInit {
   ) {
     this.loginForm = this.fb.group({
       email: ['', [Validators.required, Validators.email]],
-      password: ['', Validators.required]
+      password: ['', Validators.required],
+      otp: [''],
     });
   }
 
@@ -398,9 +406,9 @@ export class LoginComponent implements OnInit {
     if (this.loginForm.invalid) return;
 
     this.isLoading = true;
-    const { email, password } = this.loginForm.value;
+    const { email, password, otp } = this.loginForm.value;
 
-    this.authService.login({ email, password }).subscribe({
+    this.authService.login({ email, password, otp: otp || undefined }).subscribe({
       next: () => {
         this.isLoading = false;
         this.snackBar.open('Connexion réussie !', 'Fermer', { duration: 3000 });
@@ -412,6 +420,13 @@ export class LoginComponent implements OnInit {
       },
       error: (error) => {
         this.isLoading = false;
+        if (error.status === 401 && error.error?.code === '2fa_required') {
+          this.needs2fa = true;
+          this.loginForm.get('otp')?.setValidators([Validators.required, Validators.minLength(6)]);
+          this.loginForm.get('otp')?.updateValueAndValidity();
+          this.snackBar.open('Saisissez le code de votre application d\'authentification.', 'Fermer', { duration: 5000 });
+          return;
+        }
         if (error.status === 403 && error.error?.code === 'email_not_verified') {
           this.snackBar.open('Vérifiez votre email avant de vous connecter.', 'Fermer', { duration: 6000 });
           this.router.navigate(['/verify-email'], {
