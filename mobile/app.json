@@ -1,0 +1,70 @@
+{
+  "expo": {
+    "name": "BlockTask",
+    "slug": "blocktask-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "blocktask",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.blocktask.mobile",
+      "infoPlist": {
+        "NSLocationWhenInUseUsageDescription": "BlockTask utilise votre position pour afficher les missions à proximité.",
+        "NSCameraUsageDescription": "BlockTask utilise la caméra pour les preuves de mission.",
+        "NSPhotoLibraryUsageDescription": "BlockTask accède à vos photos pour les preuves."
+      }
+    },
+    "android": {
+      "package": "com.blocktask.mobile",
+      "usesCleartextTraffic": true,
+      "softwareKeyboardLayoutMode": "pan",
+      "adaptiveIcon": {
+        "backgroundColor": "#E6F4FE",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "permissions": [
+        "ACCESS_COARSE_LOCATION",
+        "ACCESS_FINE_LOCATION",
+        "CAMERA"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "BlockTask utilise votre position pour les missions à proximité."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "BlockTask utilise la caméra pour les preuves de mission.",
+          "photosPermission": "BlockTask accède à vos photos pour les preuves."
+        }
+      ],
+      "expo-asset",
+      "expo-font",
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/icon.png",
+          "color": "#3CB371"
+        }
+      ],
+      "@react-native-community/datetimepicker"
+    ]
+  }
+}

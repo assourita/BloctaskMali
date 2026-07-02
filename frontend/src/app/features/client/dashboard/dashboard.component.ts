@@ -9,8 +9,12 @@ import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatTableModule } from '@angular/material/table';
 import { MatBadgeModule } from '@angular/material/badge';
 import { Observable } from 'rxjs';
+import { Router } from '@angular/router';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { AuthService, User } from '../../../core/services/auth.service';
-import { DashboardHeaderComponent } from '../../../shared/components/dashboard-header/dashboard-header.component';
+import { MissionService, Mission } from '../../../core/services/mission.service';
+import { formatXOF } from '../../../core/constants/africa.constants';
+import { MissionApplicationsComponent } from '../missions/mission-applications/mission-applications.component';
 
 @Component({
   selector: 'app-client-dashboard',
@@ -25,11 +29,10 @@ import { DashboardHeaderComponent } from '../../../shared/components/dashboard-h
     MatProgressBarModule,
     MatTableModule,
     MatBadgeModule,
-    DashboardHeaderComponent
+    MatSnackBarModule,
+    MissionApplicationsComponent
   ],
   template: `
-    <app-dashboard-header></app-dashboard-header>
-    
     <div class="dashboard-container">
       <!-- Welcome Section -->
       <div class="welcome-section">
@@ -44,7 +47,7 @@ import { DashboardHeaderComponent } from '../../../shared/components/dashboard-h
             <mat-icon>pending_actions</mat-icon>
           </div>
           <div class="stat-content">
-            <span class="stat-value">3</span>
+            <span class="stat-value">{{ stats.active }}</span>
             <span class="stat-label">Missions actives</span>
           </div>
         </mat-card>
@@ -54,7 +57,7 @@ import { DashboardHeaderComponent } from '../../../shared/components/dashboard-h
             <mat-icon>check_circle</mat-icon>
           </div>
           <div class="stat-content">
-            <span class="stat-value">12</span>
+            <span class="stat-value">{{ stats.completed }}</span>
             <span class="stat-label">Missions terminées</span>
           </div>
         </mat-card>
@@ -64,7 +67,7 @@ import { DashboardHeaderComponent } from '../../../shared/components/dashboard-h
             <mat-icon>schedule</mat-icon>
           </div>
           <div class="stat-content">
-            <span class="stat-value">2</span>
+            <span class="stat-value">{{ stats.pending }}</span>
             <span class="stat-label">En attente</span>
           </div>
         </mat-card>
@@ -74,7 +77,7 @@ import { DashboardHeaderComponent } from '../../../shared/components/dashboard-h
             <mat-icon>account_balance_wallet</mat-icon>
           </div>
           <div class="stat-content">
-            <span class="stat-value">450,000 FCFA</span>
+            <span class="stat-value">{{ stats.spentThisMonth }}</span>
             <span class="stat-label">Dépensé ce mois</span>
           </div>
         </mat-card>
@@ -147,7 +150,7 @@ import { DashboardHeaderComponent } from '../../../shared/components/dashboard-h
                 </div>
               </div>
 
-              <div class="mission-actions" *ngIf="mission.status === 'provider_done'">
+              <div class="mission-actions" *ngIf="mission.status === 'submitted'">
                 <p class="info-text">Le prestataire a soumis des preuves. Veuillez valider la mission.</p>
                 <div class="action-buttons">
                   <button mat-raised-button color="primary" (click)="validateMission(mission)">
@@ -164,6 +167,9 @@ import { DashboardHeaderComponent } from '../../../shared/components/dashboard-h
           </div>
         </mat-card-content>
       </mat-card>
+
+      <!-- Pending Applications -->
+      <app-mission-applications></app-mission-applications>
 
       <!-- Recent Activity -->
       <mat-card class="activity-card">
@@ -472,85 +478,83 @@ import { DashboardHeaderComponent } from '../../../shared/components/dashboard-h
 })
 export class ClientDashboardComponent implements OnInit {
   currentUser$: Observable<User | null>;
-  
-  activeMissions = [
-    {
-      id: 1,
-      title: 'Livraison colis urgent',
-      status: 'in_progress',
-      budget: 50,
-      currency: 'FCFA',
-      pickup: 'Cocody',
-      delivery: 'Plateau',
-      provider: {
-        name: 'Konan K.',
-        avatar: 'assets/images/avatar1.jpg',
-        rating: 4.9
-      },
-      progress: 65
-    },
-    {
-      id: 2,
-      title: 'Course supermarché',
-      status: 'provider_done',
-      budget: 35,
-      currency: 'FCFA',
-      pickup: 'Super U Marcory',
-      delivery: 'Angré',
-      provider: {
-        name: 'Amoin M.',
-        avatar: 'assets/images/avatar2.jpg',
-        rating: 4.7
-      }
-    },
-    {
-      id: 3,
-      title: 'Dépôt document',
-      status: 'assigned',
-      budget: 25,
-      currency: 'FCFA',
-      pickup: 'Cocody',
-      delivery: 'Treichville',
-      provider: {
-        name: 'Yao J.',
-        avatar: 'assets/images/avatar3.jpg',
-        rating: 4.8
-      }
-    }
-  ];
+  loading = true;
 
-  recentActivity = [
-    {
-      type: 'success',
-      icon: 'check_circle',
-      text: 'Mission "Livraison colis" validée et payée',
-      time: 'Il y a 2 heures'
-    },
-    {
-      type: 'info',
-      icon: 'person_add',
-      text: 'Konan K. a accepté votre mission',
-      time: 'Il y a 5 heures'
-    },
-    {
-      type: 'warning',
-      icon: 'schedule',
-      text: 'Mission "Course urgente" expirera dans 2h',
-      time: 'Il y a 1 jour'
-    }
-  ];
+  stats = { active: 0, completed: 0, pending: 0, spentThisMonth: '0 XOF' };
+  activeMissions: Array<{
+    id: string;
+    title: string;
+    status: string;
+    budget: number;
+    currency: string;
+    pickup: string;
+    delivery: string;
+    provider?: { name: string; avatar?: string; rating?: number };
+    progress?: number;
+  }> = [];
 
-  constructor(private authService: AuthService) {
+  recentActivity: Array<{ type: string; icon: string; text: string; time: string }> = [];
+
+  constructor(
+    private authService: AuthService,
+    private missionService: MissionService,
+    private router: Router,
+    private snackBar: MatSnackBar
+  ) {
     this.currentUser$ = this.authService.currentUser$;
   }
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    this.loadDashboard();
+  }
+
+  loadDashboard(): void {
+    this.loading = true;
+    this.missionService.getDashboardStats('client').subscribe({
+      next: (s) => {
+        this.stats = {
+          active: s.active_missions || 0,
+          completed: s.completed_missions || 0,
+          pending: s.pending_missions || 0,
+          spentThisMonth: formatXOF(s.spent_this_month || 0)
+        };
+      }
+    });
+    this.missionService.getMyMissions('client').subscribe({
+      next: (missions) => {
+        const active = missions.filter(m =>
+          ['accepted', 'in_progress', 'submitted'].includes(m.status)
+        );
+        this.activeMissions = active.slice(0, 5).map(m => this.mapMission(m));
+        this.loading = false;
+      },
+      error: () => { this.loading = false; }
+    });
+  }
+
+  private mapMission(m: Mission) {
+    return {
+      id: m.id,
+      title: m.title,
+      status: m.status,
+      budget: Number(m.budget),
+      currency: m.currency || 'XOF',
+      pickup: m.pickup_address || '—',
+      delivery: m.delivery_address || '—',
+      provider: m.provider ? {
+        name: `${m.provider.first_name} ${m.provider.last_name?.[0] || ''}.`.trim(),
+        avatar: m.provider.profile_picture,
+        rating: 4.5
+      } : undefined,
+      progress: m.status === 'in_progress' ? 50 : undefined
+    };
+  }
 
   getStatusColor(status: string): string {
     const colors: { [key: string]: string } = {
       'in_progress': 'accent',
-      'provider_done': 'primary',
-      'assigned': 'warn'
+      'submitted': 'primary',
+      'accepted': 'warn'
     };
     return colors[status] || 'primary';
   }
@@ -558,19 +562,23 @@ export class ClientDashboardComponent implements OnInit {
   getStatusLabel(status: string): string {
     const labels: { [key: string]: string } = {
       'in_progress': 'En cours',
-      'provider_done': 'À valider',
-      'assigned': 'Assignée'
+      'submitted': 'À valider',
+      'accepted': 'Acceptée'
     };
     return labels[status] || status;
   }
 
-  validateMission(mission: any): void {
-    console.log('Validating mission:', mission);
-    // TODO: Appeler l'API
+  validateMission(mission: { id: string; title: string }): void {
+    this.missionService.validateMission(mission.id).subscribe({
+      next: () => {
+        this.snackBar.open('Mission validée', 'Fermer', { duration: 3000 });
+        this.loadDashboard();
+      },
+      error: () => this.snackBar.open('Erreur de validation', 'Fermer', { duration: 3000 })
+    });
   }
 
-  openDispute(mission: any): void {
-    console.log('Opening dispute for:', mission);
-    // TODO: Rediriger vers la page de litige
+  openDispute(mission: { id: string }): void {
+    this.router.navigate(['/client/disputes'], { queryParams: { mission: mission.id } });
   }
 }

@@ -163,6 +163,40 @@ class ProviderDeposit(models.Model):
         return f"Deposit {self.provider.username} - {self.amount} {self.currency}"
 
 
+class EnterpriseDeposit(models.Model):
+    """Caution entreprise (solde géré par le gérant)."""
+
+    DEPOSIT_STATUS = ProviderDeposit.DEPOSIT_STATUS
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    enterprise = models.ForeignKey(
+        'users.EnterpriseProfile',
+        on_delete=models.CASCADE,
+        related_name='deposits',
+    )
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+    currency = models.CharField(max_length=10, default='XOF')
+    status = models.CharField(max_length=20, choices=DEPOSIT_STATUS, default='active')
+    blockchain_deposit_id = models.CharField(max_length=100, blank=True)
+    deposit_tx_hash = models.CharField(max_length=100, blank=True)
+    locked_for_mission = models.ForeignKey(
+        'missions.Mission',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='locked_enterprise_deposits',
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    locked_at = models.DateTimeField(null=True, blank=True)
+    released_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Enterprise deposit {self.enterprise.company_name} - {self.amount}"
+
+
 class PaymentLog(models.Model):
     """Journal des paiements"""
     PAYMENT_METHODS = [

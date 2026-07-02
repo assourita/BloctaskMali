@@ -8,6 +8,8 @@ from . import views
 urlpatterns = [
     # Auth
     path('register/', views.RegisterView.as_view(), name='register'),
+    path('email/verify/', views.EmailVerifyView.as_view(), name='email-verify'),
+    path('email/resend/', views.EmailResendVerificationView.as_view(), name='email-resend'),
     
     # Profile
     path('me/', views.UserProfileView.as_view(), name='user-profile'),
@@ -15,6 +17,8 @@ urlpatterns = [
     path('', views.UserListView.as_view(), name='user-list'),
     
     # Provider
+    path('providers/<uuid:id>/public/', views.provider_public_profile, name='provider-public'),
+    path('enterprises/<uuid:id>/public/', views.enterprise_public_profile, name='enterprise-public'),
     path('provider/profile/', views.ProviderProfileView.as_view(), name='provider-profile'),
     
     # Enterprise
@@ -28,9 +32,14 @@ urlpatterns = [
     
     # KYC
     path('kyc/submit/', views.KYCSubmissionView.as_view(), name='kyc-submit'),
+    path('kyc/verify-phone/', views.PhoneVerificationRequestView.as_view(), name='kyc-verify-phone'),
+    path('kyc/confirm-phone/', views.PhoneVerificationConfirmView.as_view(), name='kyc-confirm-phone'),
     
     # Security
     path('password/change/', views.ChangePasswordView.as_view(), name='change-password'),
+    path('password/reset/', views.PasswordResetRequestView.as_view(), name='password-reset'),
+    path('password/reset/validate/', views.PasswordResetValidateView.as_view(), name='password-reset-validate'),
+    path('password/reset/confirm/', views.PasswordResetConfirmView.as_view(), name='password-reset-confirm'),
     
     # Stats & Actions
     path('stats/', views.get_user_stats, name='user-stats'),

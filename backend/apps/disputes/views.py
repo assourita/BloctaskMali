@@ -9,7 +9,8 @@ from .models import Dispute, DisputeMessage
 from .serializers import (
     DisputeListSerializer, DisputeDetailSerializer,
     DisputeResolveSerializer, DisputeStatusSerializer,
-    DisputeMessageSerializer
+    DisputeMessageSerializer, DisputeCreateSerializer,
+    DisputeEvidenceCreateSerializer, DisputeEvidenceSerializer,
 )
 
 
@@ -28,9 +29,15 @@ class DisputeViewSet(viewsets.ModelViewSet):
 
         if not is_admin(self.request.user):
             user = self.request.user
-            qs = qs.filter(Q(plaintiff=user) | Q(defendant=user))
+            if getattr(user, 'user_type', '') == 'enterprise':
+                qs = qs.filter(mission__client=user)
+            else:
+                qs = qs.filter(Q(plaintiff=user) | Q(defendant=user))
 
-        # Filtres optionnels
+        mission_id = self.request.query_params.get('mission')
+        if mission_id:
+            qs = qs.filter(mission_id=mission_id)
+
         status_filter = self.request.query_params.get('status')
         if status_filter:
             qs = qs.filter(status=status_filter)
@@ -55,7 +62,34 @@ class DisputeViewSet(viewsets.ModelViewSet):
     def get_serializer_class(self):
         if self.action == 'retrieve':
             return DisputeDetailSerializer
+        if self.action == 'create':
+            return DisputeCreateSerializer
         return DisputeListSerializer
+
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        dispute = serializer.save()
+
+        from apps.notifications.services import create_notification
+        create_notification(
+            dispute.defendant,
+            'dispute_opened',
+            'Litige ouvert',
+            f'Un litige a été ouvert pour la mission « {dispute.mission.title} »',
+            mission=dispute.mission,
+            dispute=dispute,
+            priority='high',
+        )
+
+        return Response(DisputeDetailSerializer(dispute).data, status=status.HTTP_201_CREATED)
+
+    @action(detail=False, methods=['get'])
+    def mine(self, request):
+        """Litiges de l'utilisateur courant."""
+        qs = self.get_queryset()
+        serializer = DisputeListSerializer(qs, many=True)
+        return Response(serializer.data)
 
     def list(self, request, *args, **kwargs):
         if not is_admin(request.user):
@@ -108,6 +142,26 @@ class DisputeViewSet(viewsets.ModelViewSet):
         dispute.resolved_at = timezone.now()
         dispute.save()
 
+        from apps.notifications.services import create_notification
+        for party in (dispute.plaintiff, dispute.defendant):
+            create_notification(
+                party,
+                'dispute_resolved',
+                'Litige résolu',
+                f'Le litige pour « {dispute.mission.title} » a été résolu.',
+                mission=dispute.mission,
+                dispute=dispute,
+            )
+
+        from apps.reputation.services import recalculate_reputation
+        if dispute.mission.provider_id:
+            recalculate_reputation(
+                dispute.mission.provider,
+                event_type='dispute_resolved',
+                mission=dispute.mission,
+                description='Litige résolu',
+            )
+
         return Response(DisputeListSerializer(dispute).data)
 
     @action(detail=True, methods=['patch'])
@@ -143,6 +197,22 @@ class DisputeViewSet(viewsets.ModelViewSet):
             is_internal=request.data.get('is_internal', True)
         )
         return Response(DisputeMessageSerializer(msg).data, status=201)
+
+    @action(detail=True, methods=['post'])
+    def add_evidence(self, request, pk=None):
+        """Soumettre une preuve pour un litige."""
+        dispute = self.get_object()
+        user = request.user
+        if user not in (dispute.plaintiff, dispute.defendant) and not is_admin(user):
+            return Response({'error': 'Non autorisé'}, status=403)
+
+        serializer = DisputeEvidenceCreateSerializer(
+            data=request.data,
+            context={'request': request, 'dispute': dispute},
+        )
+        serializer.is_valid(raise_exception=True)
+        evidence = serializer.save()
+        return Response(DisputeEvidenceSerializer(evidence).data, status=201)
 
     @action(detail=True, methods=['post'])
     def close(self, request, pk=None):

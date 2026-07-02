@@ -1,18 +1,17 @@
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule, Router } from '@angular/router';
+import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatSelectModule } from '@angular/material/select';
 import { MatStepperModule } from '@angular/material/stepper';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 
 import { AuthService } from '../../../core/services/auth.service';
+import { GoogleSignInButtonComponent } from '../../../shared/components/google-sign-in/google-sign-in.component';
 
 @Component({
   selector: 'app-register',
@@ -21,436 +20,509 @@ import { AuthService } from '../../../core/services/auth.service';
     CommonModule,
     RouterModule,
     ReactiveFormsModule,
-    MatCardModule,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
     MatIconModule,
-    MatSelectModule,
     MatStepperModule,
     MatProgressSpinnerModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    GoogleSignInButtonComponent,
   ],
   template: `
-    <div class="register-container">
-      <!-- Back Button -->
-      <button mat-button class="back-btn" routerLink="/">
-        <mat-icon>arrow_back</mat-icon>
-        Retour à l'accueil
-      </button>
-
-      <mat-card class="register-card">
-        <mat-card-header class="register-header">
-          <div class="logo" routerLink="/" style="cursor: pointer;">
+    <div class="auth-page">
+      <aside class="auth-brand">
+        <button mat-button class="back-btn" routerLink="/">
+          <mat-icon>arrow_back</mat-icon> Accueil
+        </button>
+        <div class="brand-content">
+          <div class="logo">
             <span class="logo-icon">⚡</span>
             <span class="logo-text">BlockTask</span>
           </div>
-          <p class="subtitle">Créez votre compte</p>
-        </mat-card-header>
+          <h1>Rejoignez BlockTask</h1>
+          <p>Client, prestataire ou entreprise — créez votre compte en 3 étapes simples.</p>
+          <div class="steps-preview">
+            <div class="step-item"><span>1</span> Type de compte</div>
+            <div class="step-item"><span>2</span> Vos informations</div>
+            <div class="step-item"><span>3</span> Sécurité</div>
+          </div>
+        </div>
+      </aside>
 
-        <mat-card-content>
-          <mat-stepper linear #stepper>
-            <!-- Étape 1: Type de compte -->
+      <main class="auth-panel">
+        <div class="panel-inner">
+          <div class="panel-header">
+            <h2>Inscription</h2>
+            <p>Créez votre compte gratuitement</p>
+          </div>
+
+          <mat-stepper linear #stepper class="auth-stepper" labelPosition="bottom">
+            <!-- Étape 1 -->
             <mat-step [stepControl]="accountTypeForm">
-              <ng-template matStepLabel>Type</ng-template>
-              <form [formGroup]="accountTypeForm">
-                <h3>Je suis...</h3>
+              <ng-template matStepLabel>Profil</ng-template>
+              <form [formGroup]="accountTypeForm" class="auth-form">
+                <p class="step-intro">Choisissez le profil qui vous correspond :</p>
                 <div class="account-types">
-                  <div 
-                    class="account-type-card" 
+                  <button
+                    type="button"
+                    class="account-type-card"
                     [class.selected]="accountTypeForm.get('user_type')?.value === 'client'"
-                    (click)="selectAccountType('client')"
-                  >
-                    <mat-icon>person</mat-icon>
+                    (click)="selectAccountType('client')">
+                    <div class="card-icon client"><mat-icon>person</mat-icon></div>
                     <h4>Client</h4>
-                    <p>Je veux déléguer des tâches</p>
-                  </div>
-                  
-                  <div 
-                    class="account-type-card" 
+                    <p>Je délègue des missions</p>
+                    <mat-icon class="check" *ngIf="accountTypeForm.get('user_type')?.value === 'client'">check_circle</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="account-type-card"
                     [class.selected]="accountTypeForm.get('user_type')?.value === 'provider'"
-                    (click)="selectAccountType('provider')"
-                  >
-                    <mat-icon>work</mat-icon>
+                    (click)="selectAccountType('provider')">
+                    <div class="card-icon provider"><mat-icon>work</mat-icon></div>
                     <h4>Prestataire</h4>
-                    <p>Je veux réaliser des missions</p>
-                  </div>
-                  
-                  <div 
-                    class="account-type-card" 
+                    <p>Je réalise des missions</p>
+                    <mat-icon class="check" *ngIf="accountTypeForm.get('user_type')?.value === 'provider'">check_circle</mat-icon>
+                  </button>
+                  <button
+                    type="button"
+                    class="account-type-card"
                     [class.selected]="accountTypeForm.get('user_type')?.value === 'enterprise'"
-                    (click)="selectAccountType('enterprise')"
-                  >
-                    <mat-icon>business</mat-icon>
+                    (click)="selectAccountType('enterprise')">
+                    <div class="card-icon enterprise"><mat-icon>business</mat-icon></div>
                     <h4>Entreprise</h4>
                     <p>Je gère une équipe</p>
-                  </div>
+                    <mat-icon class="check" *ngIf="accountTypeForm.get('user_type')?.value === 'enterprise'">check_circle</mat-icon>
+                  </button>
                 </div>
-                
                 <input type="hidden" formControlName="user_type">
-                <mat-error *ngIf="accountTypeForm.get('user_type')?.hasError('required') && stepper.selectedIndex === 0">
-                  Sélectionnez un type de compte
-                </mat-error>
               </form>
-              
               <div class="step-actions">
-                <button mat-raised-button color="primary" matStepperNext [disabled]="accountTypeForm.invalid">
-                  Continuer
+                <button mat-raised-button class="submit-btn" matStepperNext [disabled]="accountTypeForm.invalid">
+                  Continuer <mat-icon>arrow_forward</mat-icon>
                 </button>
               </div>
             </mat-step>
 
-            <!-- Étape 2: Informations personnelles -->
+            <!-- Étape 2 -->
             <mat-step [stepControl]="personalInfoForm">
-              <ng-template matStepLabel>Profil</ng-template>
-              <form [formGroup]="personalInfoForm">
+              <ng-template matStepLabel>Informations</ng-template>
+              <form [formGroup]="personalInfoForm" class="auth-form">
                 <div class="form-row">
-                  <mat-form-field appearance="fill">
+                  <mat-form-field appearance="outline">
                     <mat-label>Prénom</mat-label>
-                    <input matInput formControlName="first_name" placeholder="Jean">
-                    <mat-error *ngIf="personalInfoForm.get('first_name')?.hasError('required')">
-                      Prénom requis
-                    </mat-error>
+                    <mat-icon matPrefix>badge</mat-icon>
+                    <input matInput formControlName="first_name" placeholder="Amadou">
+                    <mat-error>Prénom requis</mat-error>
                   </mat-form-field>
-
-                  <mat-form-field appearance="fill">
+                  <mat-form-field appearance="outline">
                     <mat-label>Nom</mat-label>
-                    <input matInput formControlName="last_name" placeholder="Dupont">
-                    <mat-error *ngIf="personalInfoForm.get('last_name')?.hasError('required')">
-                      Nom requis
-                    </mat-error>
+                    <mat-icon matPrefix>badge</mat-icon>
+                    <input matInput formControlName="last_name" placeholder="Diallo">
+                    <mat-error>Nom requis</mat-error>
                   </mat-form-field>
                 </div>
-
-                <mat-form-field appearance="fill" class="full-width">
+                <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Nom d'utilisateur</mat-label>
-                  <input matInput formControlName="username" placeholder="jeandupont">
-                  <mat-error *ngIf="personalInfoForm.get('username')?.hasError('required')">
-                    Nom d'utilisateur requis
-                  </mat-error>
+                  <mat-icon matPrefix>alternate_email</mat-icon>
+                  <input matInput formControlName="username" placeholder="amadou.diallo">
+                  <mat-error>Nom d'utilisateur requis</mat-error>
                 </mat-form-field>
-
-                <mat-form-field appearance="fill" class="full-width">
+                <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Email</mat-label>
-                  <input matInput formControlName="email" type="email" placeholder="jean@exemple.com">
-                  <mat-error *ngIf="personalInfoForm.get('email')?.hasError('required')">
-                    Email requis
-                  </mat-error>
-                  <mat-error *ngIf="personalInfoForm.get('email')?.hasError('email')">
-                    Format invalide
-                  </mat-error>
+                  <mat-icon matPrefix>email</mat-icon>
+                  <input matInput formControlName="email" type="email" placeholder="vous@exemple.com">
+                  <mat-error>Email invalide</mat-error>
                 </mat-form-field>
-
-                <mat-form-field appearance="fill" class="full-width">
+                <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Téléphone</mat-label>
-                  <input matInput formControlName="phone_number" placeholder="+225 01 02 03 04 05">
+                  <mat-icon matPrefix>phone</mat-icon>
+                  <input matInput formControlName="phone_number" placeholder="+223 70 00 00 00">
+                  <mat-hint>Format Mali : +223 XX XX XX XX</mat-hint>
                 </mat-form-field>
               </form>
-              
-              <div class="step-actions">
-                <button mat-button matStepperPrevious>Retour</button>
-                <button mat-raised-button color="primary" matStepperNext [disabled]="personalInfoForm.invalid">
-                  Continuer
+              <div class="step-actions split">
+                <button mat-button matStepperPrevious><mat-icon>arrow_back</mat-icon> Retour</button>
+                <button mat-raised-button class="submit-btn" matStepperNext [disabled]="personalInfoForm.invalid">
+                  Continuer <mat-icon>arrow_forward</mat-icon>
                 </button>
               </div>
             </mat-step>
 
-            <!-- Étape 3: Sécurité -->
+            <!-- Étape 3 -->
             <mat-step [stepControl]="securityForm">
               <ng-template matStepLabel>Sécurité</ng-template>
-              <form [formGroup]="securityForm">
-                <mat-form-field appearance="fill" class="full-width">
+              <form [formGroup]="securityForm" class="auth-form">
+                <p class="step-intro">Choisissez un mot de passe fort pour protéger votre compte.</p>
+                <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Mot de passe</mat-label>
+                  <mat-icon matPrefix>lock</mat-icon>
                   <input matInput formControlName="password" [type]="hidePassword ? 'password' : 'text'">
-                  <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button">
+                  <button mat-icon-button matSuffix type="button" (click)="hidePassword = !hidePassword" tabindex="-1">
                     <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
                   </button>
-                  <mat-hint>Min. 8 caractères, 1 majuscule, 1 chiffre</mat-hint>
-                  <mat-error *ngIf="securityForm.get('password')?.hasError('required')">
-                    Mot de passe requis
-                  </mat-error>
-                  <mat-error *ngIf="securityForm.get('password')?.hasError('minlength')">
-                    Min. 8 caractères
-                  </mat-error>
+                  <mat-hint>8 caractères minimum</mat-hint>
+                  <mat-error *ngIf="securityForm.get('password')?.hasError('required')">Mot de passe requis</mat-error>
+                  <mat-error *ngIf="securityForm.get('password')?.hasError('minlength')">8 caractères minimum</mat-error>
                 </mat-form-field>
-
-                <mat-form-field appearance="fill" class="full-width">
+                <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Confirmer le mot de passe</mat-label>
+                  <mat-icon matPrefix>lock_reset</mat-icon>
                   <input matInput formControlName="password_confirm" [type]="hidePassword ? 'password' : 'text'">
-                  <mat-error *ngIf="securityForm.get('password_confirm')?.hasError('required')">
-                    Confirmation requise
-                  </mat-error>
-                  <mat-error *ngIf="securityForm.hasError('mismatch')">
-                    Les mots de passe ne correspondent pas
-                  </mat-error>
+                  <mat-error *ngIf="securityForm.hasError('mismatch')">Les mots de passe ne correspondent pas</mat-error>
                 </mat-form-field>
               </form>
-              
-              <div class="step-actions">
-                <button mat-button matStepperPrevious>Retour</button>
-                <button 
-                  mat-raised-button 
-                  color="primary" 
-                  (click)="onSubmit()"
-                  [disabled]="securityForm.invalid || isLoading"
-                >
+              <div class="step-actions split">
+                <button mat-button matStepperPrevious><mat-icon>arrow_back</mat-icon> Retour</button>
+                <button mat-raised-button class="submit-btn" (click)="onSubmit()" [disabled]="securityForm.invalid || isLoading">
                   <mat-spinner diameter="20" *ngIf="isLoading"></mat-spinner>
                   <span *ngIf="!isLoading">Créer mon compte</span>
                 </button>
               </div>
             </mat-step>
           </mat-stepper>
-        </mat-card-content>
 
-        <mat-card-footer>
-          <p class="login-link">
-            Déjà un compte ? 
-            <a routerLink="/login" class="link">Se connecter</a>
+          <div class="auth-divider"><span>ou</span></div>
+          <app-google-sign-in
+            text="signup_with"
+            (credential)="onGoogleCredential($event)">
+          </app-google-sign-in>
+
+          <p class="switch-auth">
+            Déjà inscrit ?
+            <a routerLink="/login" class="text-link strong">Se connecter</a>
           </p>
-        </mat-card-footer>
-      </mat-card>
+        </div>
+      </main>
     </div>
   `,
   styles: [`
-    .register-container {
+    .auth-page {
       min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1.1fr;
+    }
+
+    .auth-brand {
+      background: linear-gradient(145deg, #059669 0%, #3CB371 45%, #047857 100%);
+      color: white;
+      padding: 32px 48px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-      padding: 20px;
       position: relative;
+      overflow: hidden;
+    }
+
+    .auth-brand::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 20% 80%, rgba(255,255,255,0.12) 0%, transparent 50%);
+      pointer-events: none;
     }
 
     .back-btn {
-      position: absolute;
-      top: 24px;
-      left: 24px;
-      color: #6c757d;
-      font-weight: 500;
+      align-self: flex-start;
+      color: rgba(255,255,255,0.9) !important;
+      z-index: 1;
     }
 
-    .back-btn:hover {
-      color: #3CB371;
-    }
-
-    .register-card {
-      width: 100%;
-      max-width: 540px;
-      padding: 40px;
-      border-radius: 16px;
-      background: white;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-    }
-
-    .register-header {
-      text-align: center;
-      margin-bottom: 32px;
+    .brand-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      max-width: 400px;
+      z-index: 1;
     }
 
     .logo {
       display: flex;
       align-items: center;
-      justify-content: center;
       gap: 10px;
-      margin-bottom: 12px;
+      margin-bottom: 28px;
     }
 
-    .logo-icon {
-      font-size: 28px;
-    }
+    .logo-icon { font-size: 32px; }
+    .logo-text { font-size: 28px; font-weight: 800; }
 
-    .logo-text {
-      font-size: 26px;
+    .brand-content h1 {
+      font-size: 34px;
       font-weight: 700;
-      color: #3CB371;
+      margin: 0 0 14px;
+      line-height: 1.15;
     }
 
-    .subtitle {
-      color: #6c757d;
-      font-size: 15px;
+    .brand-content > p {
+      font-size: 16px;
+      line-height: 1.6;
+      opacity: 0.92;
+      margin: 0 0 28px;
+    }
+
+    .steps-preview {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .step-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
       font-weight: 500;
     }
 
-    h3 {
-      margin-bottom: 20px;
-      color: #1a1a1a;
-      font-weight: 600;
+    .step-item span {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .auth-panel {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 24px;
+      background: #f8fafc;
+      overflow-y: auto;
+    }
+
+    .panel-inner {
+      width: 100%;
+      max-width: 520px;
+      background: white;
+      border-radius: 20px;
+      padding: 36px 32px;
+      box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+      border: 1px solid #e2e8f0;
+      margin: auto 0;
+    }
+
+    .panel-header {
+      margin-bottom: 24px;
+    }
+
+    .panel-header h2 {
+      margin: 0 0 6px;
+      font-size: 26px;
+      font-weight: 700;
+      color: #0f172a;
+    }
+
+    .panel-header p {
+      margin: 0;
+      color: #64748b;
+      font-size: 15px;
+    }
+
+    .step-intro {
+      color: #64748b;
+      font-size: 14px;
+      margin: 0 0 16px;
     }
 
     .account-types {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 16px;
-      margin-bottom: 24px;
+      gap: 12px;
+      margin-bottom: 8px;
     }
 
     .account-type-card {
-      padding: 24px 16px;
-      border: 2px solid #e9ecef;
-      border-radius: 12px;
+      position: relative;
+      padding: 20px 12px;
+      border: 2px solid #e2e8f0;
+      border-radius: 14px;
       text-align: center;
       cursor: pointer;
+      background: #fafafa;
       transition: all 0.2s ease;
-      background: white;
+      font: inherit;
+      color: inherit;
     }
 
     .account-type-card:hover {
       border-color: #3CB371;
-      background: rgba(60, 179, 113, 0.05);
+      background: #f0fdf4;
     }
 
     .account-type-card.selected {
       border-color: #3CB371;
-      background: rgba(60, 179, 113, 0.1);
+      background: #ecfdf5;
+      box-shadow: 0 0 0 3px rgba(60, 179, 113, 0.15);
     }
 
-    .account-type-card mat-icon {
-      font-size: 32px;
-      width: 32px;
-      height: 32px;
-      color: #3CB371;
-      margin-bottom: 12px;
+    .card-icon {
+      width: 48px;
+      height: 48px;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 12px;
     }
+
+    .card-icon mat-icon { font-size: 26px; width: 26px; height: 26px; }
+    .card-icon.client { background: #dbeafe; color: #2563eb; }
+    .card-icon.provider { background: #d1fae5; color: #059669; }
+    .card-icon.enterprise { background: #ede9fe; color: #7c3aed; }
 
     .account-type-card h4 {
-      font-size: 16px;
+      font-size: 15px;
       font-weight: 600;
-      margin-bottom: 8px;
-      color: #1a1a1a;
+      margin: 0 0 4px;
+      color: #0f172a;
     }
 
     .account-type-card p {
-      font-size: 12px;
-      color: #6c757d;
+      font-size: 11px;
+      color: #64748b;
       margin: 0;
+      line-height: 1.3;
     }
 
-    /* ===== CHAMPS DE SAISIE ===== */
+    .account-type-card .check {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      color: #3CB371;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      padding-top: 8px;
+    }
+
     .form-row {
       display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 20px;
-      margin-bottom: 8px;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
     }
 
-    .full-width {
-      width: 100%;
-      margin-bottom: 16px;
-    }
-
-    ::ng-deep .mat-mdc-form-field {
-      width: 100%;
-    }
-
-    ::ng-deep .mat-mdc-text-field-wrapper {
-      background: #f8fafc !important;
-      border-radius: 16px !important;
-    }
-
-    ::ng-deep .mat-mdc-form-field-appearance-fill .mat-mdc-form-field-infix {
-      padding-top: 20px !important;
-      padding-bottom: 12px !important;
-    }
-
-    ::ng-deep .mat-mdc-form-field-appearance-fill .mat-mdc-floating-label {
-      top: 28px !important;
-    }
-
-    ::ng-deep .mat-mdc-form-field-appearance-fill .mat-mdc-floating-label--float-above {
-      top: 20px !important;
-      transform: translateY(-50%) scale(0.85) !important;
-      color: #3CB371 !important;
-    }
-
-    ::ng-deep .mat-mdc-form-field-infix {
-      min-height: 56px !important;
-      padding-top: 16px !important;
-      padding-bottom: 12px !important;
-    }
-
-    ::ng-deep .mdc-floating-label {
-      font-size: 14px !important;
-    }
-
-    ::ng-deep .mat-mdc-form-field.mat-focused .mdc-floating-label {
-      color: #3CB371 !important;
-    }
-
-    ::ng-deep .mat-mdc-form-field.mat-focused .mdc-notched-outline {
-      border-color: #3CB371 !important;
-    }
-
-    ::ng-deep .mat-mdc-input-element {
-      font-size: 15px !important;
-    }
-
-    ::ng-deep .mat-mdc-form-field-icon-prefix,
-    ::ng-deep .mat-mdc-form-field-icon-suffix {
-      color: #9ca3af;
-    }
-
-    ::ng-deep .mat-mdc-form-field-error {
-      font-size: 12px;
-    }
-
-    ::ng-deep .mat-mdc-form-field-hint {
-      font-size: 12px;
-      color: #6c757d;
-    }
-
-    ::ng-deep .mat-mdc-form-field-subscript-wrapper {
-      margin-top: 4px;
-    }
-
-    ::ng-deep .mat-step-header .mat-step-icon-selected {
-      background-color: #3CB371;
-    }
-
-    ::ng-deep .mat-step-header .mat-step-icon-state-edit {
-      background-color: #3CB371;
-    }
+    .full-width { width: 100%; }
 
     .step-actions {
-      display: flex;
-      justify-content: space-between;
       margin-top: 24px;
+      display: flex;
+      justify-content: flex-end;
     }
 
-    .step-actions button[mat-raised-button] {
+    .step-actions.split {
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .submit-btn {
+      height: 48px !important;
+      font-weight: 600 !important;
+      border-radius: 12px !important;
       background: #3CB371 !important;
       color: white !important;
+      padding: 0 24px !important;
     }
 
-    mat-card-footer {
-      padding: 24px 0 0 0;
+    .submit-btn mat-icon {
+      margin-left: 4px;
+      font-size: 20px;
+    }
+
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0 16px;
+      color: #94a3b8;
+      font-size: 13px;
+    }
+
+    .auth-divider::before,
+    .auth-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e2e8f0;
+    }
+
+    .switch-auth {
       text-align: center;
-    }
-
-    .login-link {
-      color: #6c757d;
+      margin: 28px 0 0;
+      color: #64748b;
       font-size: 15px;
     }
 
-    .link {
+    .text-link {
       color: #3CB371;
-      font-weight: 600;
       text-decoration: none;
+      font-weight: 600;
     }
 
-    @media (max-width: 600px) {
-      .account-types {
-        grid-template-columns: 1fr;
+    .text-link:hover { text-decoration: underline; }
+
+    ::ng-deep .auth-stepper .mat-step-header .mat-step-icon-selected,
+    ::ng-deep .auth-stepper .mat-step-header .mat-step-icon-state-done,
+    ::ng-deep .auth-stepper .mat-step-header .mat-step-icon-state-edit {
+      background-color: #3CB371 !important;
+    }
+
+    ::ng-deep .auth-stepper .mat-step-label-selected {
+      color: #3CB371 !important;
+      font-weight: 600;
+    }
+
+    ::ng-deep .auth-form .mat-mdc-form-field-icon-prefix {
+      padding-right: 8px;
+      color: #94a3b8;
+    }
+
+    ::ng-deep .auth-form .mat-mdc-form-field.mat-focused .mat-mdc-form-field-icon-prefix {
+      color: #3CB371;
+    }
+
+    ::ng-deep .auth-form .mdc-notched-outline__leading,
+    ::ng-deep .auth-form .mdc-notched-outline__notch,
+    ::ng-deep .auth-form .mdc-notched-outline__trailing {
+      border-color: #e2e8f0 !important;
+    }
+
+    ::ng-deep .auth-form .mat-mdc-form-field.mat-focused .mdc-notched-outline__leading,
+    ::ng-deep .auth-form .mat-mdc-form-field.mat-focused .mdc-notched-outline__notch,
+    ::ng-deep .auth-form .mat-mdc-form-field.mat-focused .mdc-notched-outline__trailing {
+      border-color: #3CB371 !important;
+      border-width: 2px !important;
+    }
+
+    @media (max-width: 900px) {
+      .auth-page { grid-template-columns: 1fr; }
+      .auth-brand { padding: 24px; }
+      .brand-content { padding: 8px 0 16px; }
+      .brand-content h1 { font-size: 26px; }
+      .steps-preview { display: none; }
+      .panel-inner {
+        padding: 28px 20px;
+        box-shadow: none;
+        border: none;
+        background: transparent;
       }
-      
-      .form-row {
-        grid-template-columns: 1fr;
-      }
+      .auth-panel { background: white; padding: 0 16px 32px; }
+      .account-types { grid-template-columns: 1fr; }
+      .form-row { grid-template-columns: 1fr; }
     }
   `]
 })
-export class RegisterComponent {
+export class RegisterComponent implements OnInit {
   accountTypeForm: FormGroup;
   personalInfoForm: FormGroup;
   securityForm: FormGroup;
@@ -461,6 +533,7 @@ export class RegisterComponent {
     private fb: FormBuilder,
     private authService: AuthService,
     private router: Router,
+    private route: ActivatedRoute,
     private snackBar: MatSnackBar
   ) {
     this.accountTypeForm = this.fb.group({
@@ -479,6 +552,15 @@ export class RegisterComponent {
       password: ['', [Validators.required, Validators.minLength(8)]],
       password_confirm: ['', Validators.required]
     }, { validators: this.passwordMatchValidator });
+  }
+
+  ngOnInit(): void {
+    this.route.queryParams.subscribe((params) => {
+      const type = params['type'];
+      if (type === 'client' || type === 'provider' || type === 'enterprise') {
+        this.selectAccountType(type);
+      }
+    });
   }
 
   passwordMatchValidator(g: FormGroup) {
@@ -501,47 +583,53 @@ export class RegisterComponent {
     };
 
     this.authService.register(formData).subscribe({
-      next: (response: any) => {
+      next: (res) => {
         this.isLoading = false;
-        this.snackBar.open('Compte créé avec succès ! Redirection...', 'Fermer', { duration: 2000 });
-        
-        // Redirection automatique vers le dashboard
-        const userType = response?.user?.user_type || formData.user_type || 'client';
-        console.log('Inscription réussie - Redirection vers:', `/${userType}/dashboard`);
-        
-        // Délai court pour que l'utilisateur voie le message
-        setTimeout(() => {
-          this.router.navigate([`/${userType}/dashboard`]);
-        }, 500);
+        const email = res?.email || formData.email;
+        this.snackBar.open(
+          res?.message || 'Compte créé. Vérifiez votre email pour activer votre compte.',
+          'Fermer',
+          { duration: 6000 }
+        );
+        this.router.navigate(['/verify-email'], { queryParams: { email } });
       },
       error: (error) => {
         this.isLoading = false;
-        console.error('Registration error:', error);
-        
-        // Afficher les erreurs de validation détaillées
         let errorMessage = 'Erreur lors de la création du compte';
         if (error.error) {
           if (typeof error.error === 'string') {
             errorMessage = error.error;
           } else if (error.error.message) {
             errorMessage = error.error.message;
-          } else if (error.error.email) {
-            errorMessage = `Email: ${error.error.email.join(', ')}`;
-          } else if (error.error.username) {
-            errorMessage = `Username: ${error.error.username.join(', ')}`;
-          } else if (error.error.password) {
-            errorMessage = `Password: ${error.error.password.join(', ')}`;
           } else {
-            // Afficher toutes les erreurs
             const errors = Object.entries(error.error)
               .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
               .join('; ');
             if (errors) errorMessage = errors;
           }
         }
-        
         this.snackBar.open(errorMessage, 'Fermer', { duration: 8000 });
       }
+    });
+  }
+
+  onGoogleCredential(idToken: string): void {
+    if (this.accountTypeForm.invalid) {
+      this.snackBar.open('Choisissez d\'abord un type de compte (étape Profil)', 'Fermer', { duration: 4000 });
+      return;
+    }
+    this.isLoading = true;
+    const userType = this.accountTypeForm.value.user_type || 'client';
+    this.authService.loginWithGoogle(idToken, userType).subscribe({
+      next: () => {
+        this.isLoading = false;
+        this.snackBar.open('Compte Google créé / connecté', 'Fermer', { duration: 4000 });
+        this.authService.navigateAfterAuth();
+      },
+      error: (error) => {
+        this.isLoading = false;
+        this.snackBar.open(error.error?.error || 'Inscription Google impossible', 'Fermer', { duration: 5000 });
+      },
     });
   }
 }

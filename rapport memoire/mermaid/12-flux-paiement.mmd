@@ -1,0 +1,31 @@
+---
+title: Figure 3.12 — Flux financier escrow BlockTask
+---
+flowchart LR
+    subgraph Entree["Entrée des fonds"]
+        C["Client"]
+        MM["Mobile Money<br/>Orange / Moov"]
+    end
+
+    subgraph Escrow["Séquestre plateforme"]
+        E["Escrow FCFA<br/>Mission funded"]
+        D["Caution prestataire<br/>2000–5000 XOF"]
+    end
+
+    subgraph Sortie["Libération à la validation"]
+        P["Prestataire<br/>95% du budget"]
+        PL["Plateforme<br/>5% commission"]
+        R["Restitution caution"]
+    end
+
+    C -->|Paiement mission| MM
+    MM --> E
+    P2["Prestataire"] -->|Dépôt caution| D
+
+    E -->|validate mission| P
+    E -->|commission| PL
+    D -->|mission OK| R
+
+    style E fill:#bbdefb
+    style P fill:#c8e6c9
+    style PL fill:#ffe0b2

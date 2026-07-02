@@ -1,29 +1,25 @@
 """
 ASGI config for BlockTask project.
-It exposes the ASGI callable as a module-level variable named ``application``.
 """
 
 import os
 
 from django.core.asgi import get_asgi_application
 from channels.routing import ProtocolTypeRouter, URLRouter
-from channels.auth import AuthMiddlewareStack
+from channels.security.websocket import AllowedHostsOriginValidator
 
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')
 
-# Import routing after settings
 django_asgi_app = get_asgi_application()
 
-# WebSocket routing will be added here
-# from apps.tracking import routing as tracking_routing
-# from apps.notifications import routing as notifications_routing
+from apps.tracking.routing import websocket_urlpatterns  # noqa: E402
+from apps.common.websocket_auth import JwtAuthMiddlewareStack  # noqa: E402
 
 application = ProtocolTypeRouter({
     "http": django_asgi_app,
-    # "websocket": AuthMiddlewareStack(
-    #     URLRouter(
-    #         tracking_routing.websocket_urlpatterns +
-    #         notifications_routing.websocket_urlpatterns
-    #     )
-    # ),
+    "websocket": AllowedHostsOriginValidator(
+        JwtAuthMiddlewareStack(
+            URLRouter(websocket_urlpatterns)
+        )
+    ),
 })

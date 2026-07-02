@@ -1,33 +1,38 @@
-from django.db.models.signals import post_save, pre_save
+from django.db.models.signals import post_save
 from django.dispatch import receiver
-from .models import Mission, MissionStatusHistory, MissionApplication
+
+from .models import Mission, MissionReview
 
 
 @receiver(post_save, sender=Mission)
-def log_mission_creation(sender, instance, created, **kwargs):
-    """Log la création d'une mission"""
-    if created:
-        MissionStatusHistory.objects.create(
+def on_mission_status_change(sender, instance, **kwargs):
+    if instance.provider_id and instance.status == Mission.Status.COMPLETED:
+        from apps.reputation.services import recalculate_reputation
+        recalculate_reputation(
+            instance.provider,
+            event_type='mission_completed',
             mission=instance,
-            old_status='',
-            new_status=instance.status,
-            changed_by=instance.client,
-            reason='Mission créée'
+            description=f'Mission terminée: {instance.title}',
         )
 
 
-@receiver(pre_save, sender=Mission)
-def track_status_change(sender, instance, **kwargs):
-    """Track les changements de statut"""
-    # Ne rien faire si c'est une création (pas d'ancienne instance)
-    if instance._state.adding or not instance.pk:
+@receiver(post_save, sender=MissionReview)
+def on_review_received(sender, instance, created, **kwargs):
+    if not created:
         return
-    
-    try:
-        old = Mission.objects.get(pk=instance.pk)
-        if old.status != instance.status:
-            # Le changement sera loggé par la vue
-            pass
-    except Mission.DoesNotExist:
-        # Mission n'existe pas encore, ignorer
-        pass
+    from apps.reputation.services import recalculate_reputation
+    mission = instance.mission
+    if instance.client_rating and mission.provider_id:
+        recalculate_reputation(
+            mission.provider,
+            event_type='rating_received',
+            mission=mission,
+            description=f'Évaluation reçue: {instance.client_rating}/5',
+        )
+    if instance.provider_rating and mission.client_id:
+        recalculate_reputation(
+            mission.client,
+            event_type='rating_received',
+            mission=mission,
+            description=f'Évaluation reçue: {instance.provider_rating}/5',
+        )

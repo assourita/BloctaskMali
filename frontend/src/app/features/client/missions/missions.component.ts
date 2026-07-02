@@ -1,7 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
-import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -10,7 +9,9 @@ import { MatBadgeModule } from '@angular/material/badge';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatMenuModule } from '@angular/material/menu';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { MissionService } from '../../../core/services/mission.service';
 
 interface Mission {
   id: string;
@@ -28,6 +29,8 @@ interface Mission {
   provider?: { id: string; first_name: string; last_name: string; profile_picture?: string };
   application_count?: number;
   applications_count?: number;
+  expiry_decision_pending?: boolean;
+  expiry_decision_due_at?: string;
 }
 
 @Component({
@@ -44,8 +47,8 @@ interface Mission {
       <!-- Header -->
       <div class="missions-header">
         <div class="header-left">
-          <h1>Mes Missions</h1>
-          <p class="subtitle">Gérez vos demandes et suivez leur progression</p>
+          <h1>Mes missions créées</h1>
+          <p class="subtitle">Uniquement les missions que vous avez publiées</p>
         </div>
         <button mat-raised-button color="primary" routerLink="create">
           <mat-icon>add</mat-icon>
@@ -107,11 +110,19 @@ interface Mission {
 
       <!-- Missions List -->
       <div class="missions-list" *ngIf="!loading">
-        <mat-card class="mission-card" *ngFor="let mission of filteredMissions" [routerLink]="[mission.id]">
+        <mat-card class="mission-card" *ngFor="let mission of filteredMissions" (click)="viewMission(mission)">
           <!-- Status Badge -->
           <div class="mission-status-badge" [class]="'status-' + mission.status">
             <mat-icon>{{ getStatusIcon(mission.status) }}</mat-icon>
             <span>{{ getStatusLabel(mission.status) }}</span>
+          </div>
+
+          <div class="expiry-strip" *ngIf="needsExpiryAttention(mission)" (click)="$event.stopPropagation()">
+            <mat-icon>warning</mat-icon>
+            <span>{{ getExpiryStripMessage(mission) }}</span>
+            <button mat-stroked-button color="warn" type="button" (click)="viewMission(mission, $event)">
+              {{ mission.status === 'expired' ? 'Voir' : 'Décider' }}
+            </button>
           </div>
 
           <div class="mission-content">
@@ -122,7 +133,7 @@ interface Mission {
               </div>
               
               <p class="mission-description" *ngIf="mission.description">
-                {{ mission.description | slice:0:120 }}{{ (mission.description?.length || 0) > 120 ? '...' : '' }}
+                {{ mission.description | slice:0:120 }}{{ mission.description.length > 120 ? '...' : '' }}
               </p>
               
               <!-- Category Tag -->
@@ -139,14 +150,14 @@ interface Mission {
                   <div class="route-dot pickup"></div>
                   <mat-icon class="route-icon">location_on</mat-icon>
                   <span class="route-label">Départ:</span>
-                  <span class="route-address">{{ mission.pickup_address | slice:0:35 }}{{ (mission.pickup_address?.length || 0) > 35 ? '...' : '' }}</span>
+                  <span class="route-address">{{ mission.pickup_address | slice:0:35 }}{{ mission.pickup_address.length > 35 ? '...' : '' }}</span>
                 </div>
                 <div class="route-connector" *ngIf="mission.pickup_address && mission.delivery_address"></div>
                 <div class="route-item" *ngIf="mission.delivery_address">
                   <div class="route-dot delivery"></div>
                   <mat-icon class="route-icon">flag</mat-icon>
                   <span class="route-label">Arrivée:</span>
-                  <span class="route-address">{{ mission.delivery_address | slice:0:35 }}{{ (mission.delivery_address?.length || 0) > 35 ? '...' : '' }}</span>
+                  <span class="route-address">{{ mission.delivery_address | slice:0:35 }}{{ mission.delivery_address.length > 35 ? '...' : '' }}</span>
                 </div>
               </div>
             </div>
@@ -159,18 +170,14 @@ interface Mission {
                 <div class="meta-unit">{{ mission.currency || 'XOF' }}</div>
               </div>
               
-              <div class="meta-row">
+              <div class="meta-row" *ngIf="mission.deadline" [class.overdue]="isDeadlineOverdue(mission)">
                 <mat-icon>event</mat-icon>
-                <span>{{ mission.deadline | date:'dd MMM yyyy' }}</span>
-              </div>
-              
-              <div class="meta-row" *ngIf="mission.deadline">
-                <mat-icon>access_time</mat-icon>
-                <span>{{ mission.deadline | date:'HH:mm' }}</span>
+                <span>{{ mission.deadline | date:'dd MMM yyyy HH:mm' }}</span>
+                <span class="overdue-tag" *ngIf="isDeadlineOverdue(mission)">Dépassée</span>
               </div>
               
               <div class="meta-row candidates" *ngIf="mission.applications_count || mission.application_count">
-                <mat-icon [matBadge]="mission.applications_count || mission.application_count" matBadgeColor="accent" matBadgeSize="small">person</mat-icon>
+                <mat-icon aria-hidden="false" [matBadge]="mission.applications_count || mission.application_count" matBadgeColor="accent" matBadgeSize="small">person</mat-icon>
                 <span>{{ mission.applications_count || mission.application_count }} candidat{{ (mission.applications_count || mission.application_count || 0) > 1 ? 's' : '' }}</span>
               </div>
             </div>
@@ -181,12 +188,12 @@ interface Mission {
             <div class="provider-section">
               <div class="provider-info" *ngIf="mission.provider">
                 <img 
-                  [src]="mission.provider?.profile_picture || 'assets/default-avatar.png'" 
-                  [alt]="mission.provider?.first_name || 'Prestataire'"
+                  [src]="mission.provider.profile_picture || 'assets/default-avatar.png'" 
+                  [alt]="mission.provider.first_name || 'Prestataire'"
                   class="provider-avatar"
                 />
                 <div class="provider-details">
-                  <span class="provider-name">{{ mission.provider?.first_name || '' }} {{ mission.provider?.last_name || '' }}</span>
+                  <span class="provider-name">{{ mission.provider.first_name || '' }} {{ mission.provider.last_name || '' }}</span>
                   <span class="provider-label">Prestataire assigné</span>
                 </div>
               </div>
@@ -202,17 +209,17 @@ interface Mission {
             </div>
             
             <div class="mission-actions">
-              <button mat-stroked-button color="primary" [routerLink]="[mission.id]">
+              <button mat-stroked-button color="primary" type="button" (click)="viewMission(mission, $event)">
                 <mat-icon>visibility</mat-icon>
                 Voir
               </button>
-              <button mat-icon-button [matMenuTriggerFor]="menu" (click)="$event.stopPropagation()">
+              <button mat-icon-button type="button" [matMenuTriggerFor]="menu" (click)="$event.stopPropagation()">
                 <mat-icon>more_vert</mat-icon>
               </button>
             </div>
             
             <mat-menu #menu="matMenu">
-              <button mat-menu-item [routerLink]="[mission.id]">
+              <button mat-menu-item type="button" (click)="viewMission(mission, $event)">
                 <mat-icon>visibility</mat-icon>
                 <span>Voir détails</span>
               </button>
@@ -293,7 +300,21 @@ interface Mission {
       &.status-submitted { background: #cffafe; color: #155e75; }
       &.status-completed { background: #d1fae5; color: #065f46; }
       &.status-cancelled { background: #fee2e2; color: #991b1b; }
+      &.status-expired { background: #f3f4f6; color: #6b7280; }
       &.status-disputed { background: #fee2e2; color: #991b1b; }
+    }
+
+    .expiry-strip {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      margin-top: 8px; padding: 10px 14px; border-radius: 10px;
+      background: #fffbeb; border: 1px solid #f59e0b; color: #92400e; font-size: 13px; font-weight: 600;
+      mat-icon { color: #d97706; font-size: 20px; width: 20px; height: 20px; }
+      span { flex: 1; min-width: 160px; }
+    }
+    .meta-row.overdue { color: #d97706; font-weight: 600; }
+    .overdue-tag {
+      margin-left: auto; font-size: 10px; font-weight: 700; text-transform: uppercase;
+      background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 999px;
     }
 
     .mission-content { display: flex; gap: 32px; margin-top: 12px; }
@@ -391,7 +412,12 @@ export class ClientMissionsComponent implements OnInit {
     { icon: 'check_circle', label: 'Terminées', value: 0, color: '#00b894', filter: 'completed' }
   ];
 
-  constructor(private http: HttpClient, private router: Router, private snackBar: MatSnackBar) {}
+  constructor(
+    private http: HttpClient,
+    private router: Router,
+    private snackBar: MatSnackBar,
+    private missionService: MissionService,
+  ) {}
 
   ngOnInit(): void {
     this.loadMissions();
@@ -403,10 +429,9 @@ export class ClientMissionsComponent implements OnInit {
 
   loadMissions(): void {
     this.loading = true;
-    this.http.get<any>(`${this.apiUrl}/missions/`, { headers: this.h() }).subscribe({
-      next: (response) => {
-        // Handle paginated response (results array) or direct array
-        this.missions = Array.isArray(response) ? response : (response.results || []);
+    this.missionService.getMyMissions('client').subscribe({
+      next: (missions) => {
+        this.missions = missions as Mission[];
         this.updateStats();
         this.loading = false;
       },
@@ -424,7 +449,7 @@ export class ClientMissionsComponent implements OnInit {
       case 'pending':
         return this.missions.filter(m => ['draft', 'pending', 'funded'].includes(m.status));
       case 'completed':
-        return this.missions.filter(m => ['completed', 'cancelled'].includes(m.status));
+        return this.missions.filter(m => ['completed', 'cancelled', 'expired'].includes(m.status));
       default:
         return this.missions;
     }
@@ -441,7 +466,7 @@ export class ClientMissionsComponent implements OnInit {
       case 'pending':
         return this.missions.filter(m => ['draft', 'pending', 'funded'].includes(m.status)).length;
       case 'completed':
-        return this.missions.filter(m => ['completed', 'cancelled'].includes(m.status)).length;
+        return this.missions.filter(m => ['completed', 'cancelled', 'expired'].includes(m.status)).length;
       default:
         return this.missions.length;
     }
@@ -464,6 +489,7 @@ export class ClientMissionsComponent implements OnInit {
       submitted: 'task',
       completed: 'check_circle',
       cancelled: 'cancel',
+      expired: 'event_busy',
       disputed: 'gavel'
     };
     return icons[status] || 'help';
@@ -479,13 +505,41 @@ export class ClientMissionsComponent implements OnInit {
       submitted: 'Preuves soumises',
       completed: 'Terminée',
       cancelled: 'Annulée',
+      expired: 'Expirée',
       disputed: 'En litige'
     };
     return labels[status] || status;
   }
 
+  viewMission(mission: Mission, event?: Event): void {
+    event?.stopPropagation();
+    this.router.navigate(['/client/missions', mission.id]);
+  }
+
   canCancel(mission: Mission): boolean {
     return ['draft', 'pending', 'funded'].includes(mission.status);
+  }
+
+  isDeadlineOverdue(mission: Mission): boolean {
+    if (!mission.deadline) return false;
+    if (['completed', 'cancelled', 'expired'].includes(mission.status)) return false;
+    return new Date(mission.deadline).getTime() < Date.now();
+  }
+
+  needsExpiryAttention(mission: Mission): boolean {
+    if (mission.status === 'expired') return true;
+    if (mission.expiry_decision_pending) return true;
+    if (mission.status === 'accepted' && mission.provider && this.isDeadlineOverdue(mission)) return true;
+    if (mission.status === 'funded' && !mission.provider && this.isDeadlineOverdue(mission)) return true;
+    return false;
+  }
+
+  getExpiryStripMessage(mission: Mission): string {
+    if (mission.status === 'expired') return 'Mission expirée — fonds remboursés';
+    if (mission.status === 'funded' && !mission.provider) {
+      return 'Échéance dépassée — remboursement en cours';
+    }
+    return 'Échéance dépassée — décision requise';
   }
 
   cancelMission(mission: Mission, event: Event): void {

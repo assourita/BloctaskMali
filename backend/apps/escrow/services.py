@@ -8,13 +8,29 @@ from decimal import Decimal
 from typing import Optional, Dict, Any, Callable
 
 from django.conf import settings
-from web3 import Web3
-from web3.middleware import geth_poa_middleware
-from eth_account import Account
 
-from .models import EscrowTransaction, ProviderDeposit, BlockchainEvent
+from .models import EscrowTransaction, ProviderDeposit, EnterpriseDeposit, BlockchainEvent
 
 logger = logging.getLogger(__name__)
+
+WEB3_AVAILABLE = False
+Web3 = None
+geth_poa_middleware = None
+
+try:
+    from web3 import Web3 as _Web3
+    try:
+        from web3.middleware import ExtraDataToPOAMiddleware as _poa_middleware
+    except ImportError:
+        from web3.middleware import geth_poa_middleware as _poa_middleware
+    Web3 = _Web3
+    geth_poa_middleware = _poa_middleware
+    WEB3_AVAILABLE = True
+except ImportError:
+    logger.warning(
+        'web3 non installé — blockchain désactivée. '
+        'Installez les deps: .\\venv\\Scripts\\python.exe -m pip install -r requirements.txt'
+    )
 
 ABI_DIR = os.path.join(os.path.dirname(__file__), 'abis')
 
@@ -42,13 +58,20 @@ class BlockchainService:
     
     def _connect(self):
         """Établit la connexion à la blockchain"""
+        if not WEB3_AVAILABLE or Web3 is None:
+            logger.warning('web3 indisponible — connexion blockchain ignorée')
+            return False
         try:
             # Connexion au provider (Infura, Alchemy, ou local)
-            provider_url = settings.ETHEREUM_RPC_URL
+            blockchain_cfg = getattr(settings, 'BLOCKCHAIN_CONFIG', {})
+            provider_url = blockchain_cfg.get(
+                'ETHEREUM_RPC_URL',
+                getattr(settings, 'ETHEREUM_RPC_URL', 'https://sepolia.infura.io/v3/YOUR_KEY'),
+            )
             self.web3 = Web3(Web3.HTTPProvider(provider_url))
-            
-            # Ajouter le middleware POA pour les réseaux de test (Sepolia, etc.)
-            self.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
+
+            if geth_poa_middleware is not None:
+                self.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
             
             # Vérifier la connexion
             if not self.web3.is_connected():
@@ -262,103 +285,463 @@ class BlockchainService:
             logger.error(f"Erreur validation on-chain: {e}")
             return None
 
+    def sync_events(self, from_block: int = 0) -> dict:
+        """Synchronise les événements EscrowContract vers la base."""
+        from apps.escrow.models import BlockchainEvent
+        from apps.missions.models import Mission
+
+        if not self.is_connected() or not self.escrow_contract:
+            return {'error': 'Blockchain non connectée', 'synced': 0}
+
+        counts = {}
+        for event_name in ('MissionCreated', 'MissionValidated', 'MissionAccepted'):
+            try:
+                event = getattr(self.escrow_contract.events, event_name)
+                logs = event.get_logs(fromBlock=from_block)
+                for evt in logs:
+                    BlockchainEvent.objects.get_or_create(
+                        transaction_hash=evt.transactionHash.hex(),
+                        log_index=evt.logIndex,
+                        defaults={
+                            'event_type': event_name.lower(),
+                            'contract_address': self.escrow_contract.address,
+                            'block_number': evt.blockNumber,
+                            'event_data': dict(evt.args),
+                            'processed': False,
+                        },
+                    )
+                    if event_name == 'MissionValidated':
+                        mission_id = evt.args.get('missionId')
+                        if mission_id is not None:
+                            Mission.objects.filter(mission_contract_id=mission_id).update(
+                                blockchain_status='completed',
+                            )
+                counts[event_name] = len(logs)
+            except Exception as exc:
+                logger.warning(f'Erreur sync {event_name}: {exc}')
+                counts[event_name] = 0
+
+        return {'synced': sum(counts.values()), 'by_event': counts}
+
 
 class EscrowService:
     """Service métier pour la gestion des escrows"""
     
     def __init__(self):
         self.blockchain = BlockchainService()
+
+    def is_blockchain_enabled(self) -> bool:
+        return WEB3_AVAILABLE and bool(
+            getattr(settings, 'BLOCKCHAIN_CONFIG', {}).get('ESCROW_CONTRACT_ADDRESS')
+        ) and self.blockchain.is_connected()
     
     def create_escrow_for_mission(self, mission) -> Optional[EscrowTransaction]:
-        """
-        Crée un escrow pour une mission
-        
-        En production, cela interagirait avec la blockchain.
-        Pour l'instant, on crée juste l'enregistrement en DB.
-        """
+        """Crée un enregistrement escrow DB (blockchain enregistrée séparément)."""
         try:
-            escrow = EscrowTransaction.objects.create(
+            escrow, created = EscrowTransaction.objects.get_or_create(
                 mission=mission,
-                client=mission.client,
                 transaction_type='deposit',
-                status='pending',
-                amount=mission.budget,
-                currency=mission.currency,
-                blockchain_mission_id='',  # Sera mis à jour après création on-chain
-                reason='Dépôt initial pour mission'
+                defaults={
+                    'client': mission.client,
+                    'status': 'pending',
+                    'amount': mission.budget,
+                    'currency': mission.currency,
+                    'blockchain_mission_id': '',
+                    'reason': 'Dépôt initial pour mission',
+                },
             )
-            
-            # TODO: Appeler blockchain.create_mission_on_chain()
-            # et mettre à jour blockchain_mission_id
-            
             return escrow
-            
         except Exception as e:
             logger.error(f"Erreur création escrow: {e}")
             return None
-    
-    def release_payment_to_provider(self, mission) -> bool:
-        """
-        Libère le paiement au prestataire après validation
-        """
+
+    def confirm_escrow_deposit(
+        self,
+        mission,
+        *,
+        tx_hash: str,
+        blockchain_mission_id: int = None,
+        block_number: int = None,
+        gas_used: int = None,
+    ) -> Optional[EscrowTransaction]:
+        """Confirme un dépôt escrow (Mobile Money ou blockchain)."""
+        escrow = self.create_escrow_for_mission(mission)
+        if not escrow:
+            return None
+
+        escrow.status = 'confirmed'
+        escrow.deposit_tx_hash = tx_hash
+        if blockchain_mission_id is not None:
+            escrow.blockchain_mission_id = str(blockchain_mission_id)
+        if block_number:
+            escrow.block_number = block_number
+        if gas_used:
+            escrow.gas_used = gas_used
+        escrow.save()
+
+        mission.escrow_tx_hash = tx_hash
+        if blockchain_mission_id is not None:
+            mission.mission_contract_id = blockchain_mission_id
+        mission.blockchain_status = 'funded'
+        mission.save(update_fields=['escrow_tx_hash', 'mission_contract_id', 'blockchain_status'])
+        return escrow
+
+    def confirm_provider_deposit_on_chain(
+        self,
+        mission,
+        provider,
+        *,
+        tx_hash: str,
+        block_number: int = None,
+        gas_used: int = None,
+    ):
+        """Enregistre acceptMission on-chain après blocage caution DB."""
+        deposit = ProviderDeposit.objects.filter(
+            locked_for_mission=mission,
+            provider=provider,
+            status='locked',
+        ).first()
+        if deposit:
+            deposit.deposit_tx_hash = tx_hash
+            deposit.save(update_fields=['deposit_tx_hash'])
+
+        mission.deposit_tx_hash = tx_hash
+        if mission.blockchain_status in ('funded', 'pending'):
+            mission.blockchain_status = 'accepted'
+        mission.save(update_fields=['deposit_tx_hash', 'blockchain_status'])
+        return deposit
+
+    def calculate_enterprise_deposit(self, enterprise) -> Decimal:
+        """Caution mission pour une entreprise (basée sur réputation entreprise)."""
         try:
-            # Récupérer l'escrow de la mission
+            score = float(enterprise.reputation_score or 50)
+            if score >= 50:
+                reduction = (score - 50) * Decimal('60')
+                return max(Decimal('2000'), Decimal('5000') - reduction)
+            return Decimal('5000')
+        except Exception as e:
+            logger.error(f'Erreur calcul caution entreprise: {e}')
+            return Decimal('5000')
+
+    def lock_enterprise_deposit(self, mission, enterprise):
+        """Bloque la caution sur le solde entreprise."""
+        try:
+            amount = self.calculate_enterprise_deposit(enterprise)
+            mission.required_deposit = amount
+            mission.deposit_amount = amount
+            mission.save(update_fields=['required_deposit', 'deposit_amount'])
+
+            if enterprise.deposit_balance < amount:
+                logger.warning(
+                    f'Caution entreprise insuffisante: {enterprise.deposit_balance} < {amount}'
+                )
+                return None
+
+            enterprise.deposit_locked += amount
+            enterprise.deposit_balance = max(Decimal('0'), enterprise.deposit_balance - amount)
+            enterprise.save(update_fields=['deposit_locked', 'deposit_balance'])
+
+            from django.utils import timezone
+            deposit = EnterpriseDeposit.objects.create(
+                enterprise=enterprise,
+                amount=amount,
+                currency=mission.currency,
+                status='locked',
+                locked_for_mission=mission,
+                locked_at=timezone.now(),
+            )
+
+            mission.deposit_paid = True
+            mission.deposit_tx_hash = f'ent-deposit-{deposit.id}'
+            mission.save(update_fields=['deposit_paid', 'deposit_tx_hash'])
+
+            from apps.notifications.services import create_notification
+            create_notification(
+                enterprise.user,
+                'deposit_locked',
+                'Caution entreprise bloquée',
+                f'{amount} {mission.currency} bloqués pour « {mission.title} »',
+                mission=mission,
+            )
+            return deposit
+        except Exception as e:
+            logger.error(f'Erreur blocage caution entreprise: {e}')
+            return None
+
+    def release_enterprise_deposit(self, mission) -> bool:
+        """Libère la caution entreprise."""
+        try:
+            deposit = EnterpriseDeposit.objects.filter(
+                locked_for_mission=mission,
+                status='locked',
+            ).first()
+            if not deposit:
+                return False
+
+            enterprise = deposit.enterprise
+            enterprise.deposit_locked = max(Decimal('0'), enterprise.deposit_locked - deposit.amount)
+            enterprise.deposit_balance += deposit.amount
+            enterprise.save(update_fields=['deposit_locked', 'deposit_balance'])
+
+            from django.utils import timezone
+            deposit.status = 'released'
+            deposit.released_at = timezone.now()
+            deposit.save()
+
+            from apps.notifications.services import create_notification
+            create_notification(
+                enterprise.user,
+                'deposit_released',
+                'Caution entreprise libérée',
+                f'Votre caution de {deposit.amount} {deposit.currency} a été libérée.',
+                mission=mission,
+            )
+            return True
+        except Exception as e:
+            logger.error(f'Erreur libération caution entreprise: {e}')
+            return False
+
+    def lock_provider_deposit(self, mission, provider) -> Optional[ProviderDeposit]:
+        """Bloque la caution du prestataire à l'acceptation de la mission."""
+        try:
+            amount = self.calculate_dynamic_deposit(provider)
+            profile = provider.provider_profile
+            mission.required_deposit = amount
+            mission.deposit_amount = amount
+            mission.save(update_fields=['required_deposit', 'deposit_amount'])
+
+            if profile.deposit_balance < amount:
+                logger.warning(
+                    f"Caution insuffisante pour {provider.id}: {profile.deposit_balance} < {amount}"
+                )
+                return None
+
+            profile.deposit_locked += amount
+            profile.deposit_balance = max(Decimal('0'), profile.deposit_balance - amount)
+            profile.save(update_fields=['deposit_locked', 'deposit_balance'])
+
+            deposit = ProviderDeposit.objects.create(
+                provider=provider,
+                amount=amount,
+                currency=mission.currency,
+                status='locked',
+                locked_for_mission=mission,
+            )
+
+            mission.deposit_paid = True
+            mission.deposit_tx_hash = f'deposit-{deposit.id}'
+            mission.save(update_fields=['deposit_paid', 'deposit_tx_hash'])
+
+            from apps.notifications.services import create_notification
+            create_notification(
+                provider,
+                'deposit_locked',
+                'Caution bloquée',
+                f'{amount} {mission.currency} bloqués pour la mission « {mission.title} »',
+                mission=mission,
+            )
+            return deposit
+        except Exception as e:
+            logger.error(f"Erreur blocage caution: {e}")
+            return None
+
+    def release_provider_deposit(self, mission) -> bool:
+        """Libère la caution après validation réussie."""
+        if mission.assigned_enterprise_id:
+            return self.release_enterprise_deposit(mission)
+        try:
+            deposit = ProviderDeposit.objects.filter(
+                locked_for_mission=mission,
+                status='locked',
+            ).first()
+            if not deposit:
+                return False
+
+            provider = deposit.provider
+            profile = provider.provider_profile
+            profile.deposit_locked = max(Decimal('0'), profile.deposit_locked - deposit.amount)
+            profile.deposit_balance += deposit.amount
+            profile.save(update_fields=['deposit_locked', 'deposit_balance'])
+
+            from django.utils import timezone
+            deposit.status = 'released'
+            deposit.released_at = timezone.now()
+            deposit.save()
+
+            from apps.notifications.services import create_notification
+            create_notification(
+                provider,
+                'deposit_released',
+                'Caution libérée',
+                f'Votre caution de {deposit.amount} {deposit.currency} a été libérée.',
+                mission=mission,
+            )
+            return True
+        except Exception as e:
+            logger.error(f"Erreur libération caution: {e}")
+            return False
+    
+    def release_payment_to_provider(self, mission) -> Optional[dict]:
+        """Libère le paiement au prestataire après validation."""
+        try:
             escrow = EscrowTransaction.objects.filter(
                 mission=mission,
                 transaction_type='deposit',
-                status='confirmed'
+                status='confirmed',
             ).first()
             
             if not escrow:
-                logger.error(f"Aucun escrow confirmé trouvé pour mission {mission.id}")
-                return False
+                escrow = self.create_escrow_for_mission(mission)
+                if escrow:
+                    escrow.status = 'confirmed'
+                    escrow.save(update_fields=['status'])
             
-            # Créer la transaction de libération
             release = EscrowTransaction.objects.create(
                 mission=mission,
                 client=mission.client,
                 provider=mission.provider,
                 transaction_type='release',
                 status='pending',
-                amount=mission.provider_accepted_price or mission.budget,
+                amount=mission.final_price or mission.budget,
                 currency=mission.currency,
-                reason='Paiement libéré après validation'
+                reason='Paiement libéré après validation',
             )
-            
-            # TODO: Appeler blockchain.validate_mission_on_chain()
-            # et mettre à jour release_tx_hash
-            
-            return True
+
+            tx_hash = None
+            if (
+                self.is_blockchain_enabled()
+                and mission.mission_contract_id
+            ):
+                relayer_key = os.getenv('BLOCKCHAIN_RELAYER_PRIVATE_KEY', '')
+                relayer_address = os.getenv('BLOCKCHAIN_RELAYER_ADDRESS', '')
+                if relayer_key and relayer_address:
+                    tx_hash = self.blockchain.validate_mission_on_chain(
+                        mission.mission_contract_id,
+                        relayer_address,
+                        relayer_key,
+                    )
+                    if tx_hash:
+                        release.release_tx_hash = tx_hash
+                        release.status = 'confirmed'
+                        release.save(update_fields=['release_tx_hash', 'status'])
+                        mission.blockchain_status = 'completed'
+                        mission.save(update_fields=['blockchain_status'])
+
+            self.release_provider_deposit(mission)
+            return {'release_id': str(release.id), 'tx_hash': tx_hash}
             
         except Exception as e:
             logger.error(f"Erreur libération paiement: {e}")
-            return False
+            return None
+
+    def refund_provider_deposit(self, mission) -> bool:
+        """Rembourse la caution bloquée au prestataire (annulation / expiration)."""
+        return self.release_provider_deposit(mission)
+
+    def refund_client(self, mission, reason: str = '') -> Optional[dict]:
+        """Rembourse les fonds escrow au client (annulation ou expiration)."""
+        from django.utils import timezone
+        from apps.payments.models import Payment, PaymentRefund
+
+        try:
+            if EscrowTransaction.objects.filter(
+                mission=mission,
+                transaction_type='refund',
+                status='confirmed',
+            ).exists():
+                return {'already_refunded': True}
+
+            escrow = EscrowTransaction.objects.filter(
+                mission=mission,
+                transaction_type='deposit',
+                status='confirmed',
+            ).first()
+
+            amount = escrow.amount if escrow else (mission.budget or Decimal('0'))
+            if amount <= 0:
+                logger.warning(f'Aucun montant à rembourser pour mission {mission.id}')
+                return None
+
+            refund = EscrowTransaction.objects.create(
+                mission=mission,
+                client=mission.client,
+                provider=mission.provider,
+                transaction_type='refund',
+                status='pending',
+                amount=amount,
+                currency=mission.currency,
+                reason=reason or 'Remboursement client',
+            )
+
+            tx_id = None
+            payment = getattr(mission, 'payment', None)
+            if payment and payment.status == Payment.Status.COMPLETED:
+                from apps.payments.mobile_money import MobileMoneyService
+                try:
+                    result = MobileMoneyService.refund_to_client(payment, reason=reason)
+                    tx_id = result.get('transaction_id')
+                except Exception as exc:
+                    logger.error(f'Erreur remboursement Mobile Money: {exc}')
+                    refund.status = 'failed'
+                    refund.reason = f'{reason} — échec MM: {exc}'
+                    refund.save(update_fields=['status', 'reason'])
+                    return None
+
+                PaymentRefund.objects.create(
+                    payment=payment,
+                    amount=payment.escrow_amount or amount,
+                    reason=PaymentRefund.Reason.MISSION_CANCELLED,
+                    reason_details=reason,
+                    status=PaymentRefund.Status.COMPLETED,
+                    transaction_id=tx_id or '',
+                    processed_at=timezone.now(),
+                )
+                payment.status = Payment.Status.REFUNDED
+                payment.refunded_at = timezone.now()
+                payment.save(update_fields=['status', 'refunded_at'])
+
+            refund.status = 'confirmed'
+            refund.release_tx_hash = tx_id or ''
+            refund.confirmed_at = timezone.now()
+            refund.save(update_fields=['status', 'release_tx_hash', 'confirmed_at'])
+
+            if mission.blockchain_status not in ('completed', 'refunded'):
+                mission.blockchain_status = 'refunded'
+                mission.save(update_fields=['blockchain_status'])
+
+            from apps.notifications.services import create_notification
+            create_notification(
+                mission.client,
+                'payment_refunded',
+                'Remboursement effectué',
+                f'Vos fonds ({amount} {mission.currency}) ont été remboursés pour « {mission.title} ».',
+                mission=mission,
+            )
+
+            return {
+                'refund_id': str(refund.id),
+                'tx_hash': tx_id,
+                'amount': str(amount),
+            }
+        except Exception as e:
+            logger.error(f'Erreur remboursement client: {e}')
+            return None
     
     def calculate_dynamic_deposit(self, provider) -> Decimal:
-        """
-        Calcule le montant de la caution dynamique pour un prestataire
-        basé sur son score de réputation
-        """
+        """Caution dynamique en FCFA (marché Mali)."""
         try:
-            reputation_score = provider.provider_profile.current_reputation_score
-            
-            # Formule: caution diminue avec la réputation
-            # Base: 50 USDT
-            # Réputation > 90: caution = 10 USDT
-            # Réputation 50-90: caution = 50 - (score - 50) * 0.5
-            # Réputation < 50: caution = 50 USDT
-            
+            reputation_score = provider.provider_profile.reputation_score
+
             if reputation_score >= 90:
-                return Decimal('10.00')
-            elif reputation_score >= 50:
-                reduction = (reputation_score - 50) * Decimal('0.5')
-                return Decimal('50.00') - reduction
-            else:
-                return Decimal('50.00')
-                
+                return Decimal('2000')
+            if reputation_score >= 50:
+                reduction = (reputation_score - 50) * Decimal('60')
+                return max(Decimal('2000'), Decimal('5000') - reduction)
+            return Decimal('5000')
+
         except Exception as e:
             logger.error(f"Erreur calcul caution: {e}")
-            return Decimal('50.00')
+            return Decimal('5000')
 
 
 # Instance singleton

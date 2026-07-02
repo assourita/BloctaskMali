@@ -31,5 +31,8 @@ export const environment = {
     storageBucket: '',
     messagingSenderId: '',
     appId: ''
-  }
+  },
+
+  /** Client OAuth Web Google — Console Google Cloud */
+  googleClientId: '',
 };

@@ -14,9 +14,12 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSelectModule } from '@angular/material/select';
 import { OverlayModule } from '@angular/cdk/overlay';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../../core/services/auth.service';
+import { MALI_COUNTRY } from '../../../core/constants/africa.constants';
+import { ProfileOnboardingBarComponent } from '../../../shared/components/profile-onboarding-bar/profile-onboarding-bar.component';
+import { KycVerificationComponent } from '../../../shared/components/kyc-verification/kyc-verification.component';
 
 @Component({
   selector: 'app-client-profile',
@@ -25,10 +28,12 @@ import { AuthService } from '../../../core/services/auth.service';
     CommonModule, ReactiveFormsModule,
     MatCardModule, MatTabsModule, MatFormFieldModule, MatInputModule,
     MatButtonModule, MatIconModule, MatSnackBarModule, MatDividerModule,
-    MatChipsModule, MatProgressBarModule, MatSelectModule, OverlayModule
+    MatChipsModule, MatProgressBarModule, MatSelectModule, OverlayModule,
+    ProfileOnboardingBarComponent,
+    KycVerificationComponent,
   ],
   template: `
-    <div class="profile-container">
+    <div class="profile-container" [class.has-onboarding-bar]="showOnboarding">
 
       <!-- Header carte identité -->
       <div class="profile-header">
@@ -72,7 +77,7 @@ import { AuthService } from '../../../core/services/auth.service';
       </div>
 
       <!-- Onglets -->
-      <mat-tab-group class="profile-tabs" animationDuration="200ms">
+      <mat-tab-group class="profile-tabs" animationDuration="200ms" [(selectedIndex)]="activeTabIndex">
 
         <!-- ── Onglet 1 : Informations personnelles ── -->
         <mat-tab label="Informations personnelles">
@@ -87,8 +92,8 @@ import { AuthService } from '../../../core/services/auth.service';
                   <label class="field-label">Nom <span class="req">*</span></label>
                   <input class="field-input" formControlName="last_name" placeholder="Votre nom"/>
                 </div>
-                <div class="field-wrap">
-                  <label class="field-label">Téléphone</label>
+                <div class="field-wrap" [class.field-missing]="isMissing('phone_number')" data-profile-field="phone_number">
+                  <label class="field-label">Téléphone <span class="req" *ngIf="isMissing('phone_number')">*</span></label>
                   <div class="field-input-icon">
                     <input class="field-input" formControlName="phone_number" placeholder="+229..."/>
                     <mat-icon class="field-icon">phone</mat-icon>
@@ -104,7 +109,7 @@ import { AuthService } from '../../../core/services/auth.service';
                     <mat-icon class="select-arrow">expand_more</mat-icon>
                   </div>
                 </div>
-                <div class="field-wrap">
+                <div class="field-wrap" [class.field-missing]="isMissing('city')" data-profile-field="city">
                   <label class="field-label">Ville <span class="req">*</span></label>
                   <div class="native-select-wrap">
                     <select class="native-select" formControlName="city" [disabled]="!infoForm.get('country')?.value">
@@ -114,8 +119,8 @@ import { AuthService } from '../../../core/services/auth.service';
                     <mat-icon class="select-arrow">expand_more</mat-icon>
                   </div>
                 </div>
-                <div class="field-wrap">
-                  <label class="field-label">Adresse</label>
+                <div class="field-wrap" [class.field-missing]="isMissing('address')" data-profile-field="address">
+                  <label class="field-label">Adresse <span class="req" *ngIf="isMissing('address')">*</span></label>
                   <div class="field-input-icon">
                     <input class="field-input" formControlName="address" placeholder="Votre adresse"/>
                     <mat-icon class="field-icon">home</mat-icon>
@@ -136,7 +141,19 @@ import { AuthService } from '../../../core/services/auth.service';
           </div>
         </mat-tab>
 
-        <!-- ── Onglet 2 : Sécurité ── -->
+        <!-- ── Onglet 2 : Vérification identité ── -->
+        <mat-tab label="Vérification identité">
+          <div class="tab-content">
+            <app-kyc-verification
+              [user]="user"
+              [missingFields]="missingFields"
+              [showOnboarding]="showOnboarding"
+              (kycUpdated)="onKycUpdated()">
+            </app-kyc-verification>
+          </div>
+        </mat-tab>
+
+        <!-- ── Onglet 3 : Sécurité ── -->
         <mat-tab label="Sécurité">
           <div class="tab-content">
             <h3 class="section-title"><mat-icon>lock</mat-icon> Changer le mot de passe</h3>
@@ -236,24 +253,6 @@ import { AuthService } from '../../../core/services/auth.service';
 
             <mat-divider class="section-divider"></mat-divider>
 
-            <h3 class="section-title"><mat-icon>verified_user</mat-icon> Vérification KYC</h3>
-            <div class="kyc-section">
-              <div class="kyc-status-row">
-                <div class="kyc-badge" [class]="'kyc-badge-' + user?.kyc_status">
-                  <mat-icon>{{ kycIcon(user?.kyc_status) }}</mat-icon>
-                  {{ kycLabel(user?.kyc_status) }}
-                </div>
-                <p class="kyc-desc">{{ kycDesc(user?.kyc_status) }}</p>
-              </div>
-              <button mat-raised-button color="accent"
-                *ngIf="user?.kyc_status === 'not_started' || user?.kyc_status === 'not_required'"
-                (click)="startKYC()">
-                <mat-icon>badge</mat-icon> Démarrer la vérification KYC
-              </button>
-            </div>
-
-            <mat-divider class="section-divider"></mat-divider>
-
             <h3 class="section-title"><mat-icon>gps_fixed</mat-icon> Suivi GPS</h3>
             <div class="gps-section">
               <div class="gps-row">
@@ -341,7 +340,7 @@ import { AuthService } from '../../../core/services/auth.service';
                 </span>
               </div>
               <div class="info-row">
-                <span class="info-key">NINA</span>
+                <span class="info-key">NINA / ID nationale</span>
                 <span class="info-val">{{ user?.nina || 'Non renseigné' }}</span>
               </div>
             </div>
@@ -349,10 +348,18 @@ import { AuthService } from '../../../core/services/auth.service';
         </mat-tab>
 
       </mat-tab-group>
+
+      <app-profile-onboarding-bar
+        [visible]="showOnboarding"
+        [missingFields]="missingFields"
+        [kycAccessStatus]="user?.kyc_access_status || null"
+        [kycBlockMessage]="user?.kyc_block_message || ''">
+      </app-profile-onboarding-bar>
     </div>
   `,
   styles: [`
     .profile-container { padding: 24px; max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
+    .profile-container.has-onboarding-bar { padding-bottom: 100px; }
 
     .profile-header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%); color: #fff; border-radius: 16px; padding: 28px 32px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
     .avatar-section { flex-shrink: 0; }
@@ -402,6 +409,10 @@ import { AuthService } from '../../../core/services/auth.service';
       font-family: inherit;
     }
     .field-input:focus { border-color: #6C5CE7; box-shadow: 0 0 0 3px rgba(108,92,231,0.1); }
+    .field-wrap.field-missing .field-label { color: #dc2626; }
+    .field-wrap.field-missing .field-input,
+    .field-wrap.field-missing .native-select { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.12); }
+    .field-wrap.field-missing::after { content: 'À compléter'; display: block; font-size: 11px; color: #dc2626; margin-top: 4px; font-weight: 600; }
     .field-input::placeholder { color: #9ca3af; font-weight: 400; }
     .field-textarea { resize: vertical; min-height: 90px; }
     .field-input-icon { position: relative; display: flex; align-items: center; }
@@ -482,71 +493,27 @@ export class ClientProfileComponent implements OnInit {
   activatingProvider = false;
   savingGPS = false;
   showPwd = [false, false, false];
+  showOnboarding = false;
+  missingFields: string[] = [];
+  activeTabIndex = 0;
+  private readonly kycFields = ['nina', 'id_card_front', 'id_card_back', 'selfie_verification', 'phone_verified'];
 
-  // Pays d'Afrique avec leurs villes principales
-  africanCountries = [
-    { code: 'CI', name: "Côte d'Ivoire", cities: ['Abidjan', 'Bouaké', 'Daloa', 'Yamoussoukro', 'San-Pédro', 'Korhogo', 'Man', 'Divo', 'Gagnoa', 'Abengourou'] },
-    { code: 'SN', name: 'Sénégal', cities: ['Dakar', 'Pikine', 'Touba', 'Thiès', 'Kaolack', 'Mbour', 'Saint-Louis', 'Rufisque', 'Ziguinchor', 'Kolda'] },
-    { code: 'GH', name: 'Ghana', cities: ['Accra', 'Kumasi', 'Tamale', 'Sekondi-Takoradi', 'Ashaiman', 'Sunyani', 'Cape Coast', 'Obuasi', 'Teshie', 'Tema'] },
-    { code: 'NG', name: 'Nigeria', cities: ['Lagos', 'Kano', 'Ibadan', 'Abuja', 'Port Harcourt', 'Benin City', 'Kaduna', 'Maiduguri', 'Zaria', 'Aba'] },
-    { code: 'BJ', name: 'Bénin', cities: ['Cotonou', 'Porto-Novo', 'Parakou', 'Djougou', 'Bohicon', 'Natitingou', 'Abomey', 'Lokossa', 'Ouidah', 'Savé'] },
-    { code: 'TG', name: 'Togo', cities: ['Lomé', 'Sokodé', 'Kara', 'Kpalimé', 'Atakpamé', 'Bassar', 'Tsévié', 'Aného', 'Mango', 'Dapaong'] },
-    { code: 'BF', name: 'Burkina Faso', cities: ['Ouagadougou', 'Bobo-Dioulasso', 'Koudougou', 'Banfora', 'Ouahigouya', 'Pouytenga', 'Kaya', 'Tenkodogo', 'Houndé', 'Fada N\'Gourma'] },
-    { code: 'ML', name: 'Mali', cities: ['Bamako', 'Ségou', 'Mopti', 'Sikasso', 'Kayes', 'Gao', 'Koutiala', 'Kati', 'Markala', 'Tombouctou'] },
-    { code: 'GN', name: 'Guinée', cities: ['Conakry', 'Nzérékoré', 'Kankan', 'Kindia', 'Boké', 'Labé', 'Mamou', 'Faranah', 'Kissidougou', 'Guéckédou'] },
-    { code: 'CM', name: 'Cameroun', cities: ['Douala', 'Yaoundé', 'Garoua', 'Kousséri', 'Bamenda', 'Maroua', 'Ngaoundéré', 'Bafoussam', 'Limbe', 'Kumba'] },
-    { code: 'GA', name: 'Gabon', cities: ['Libreville', 'Port-Gentil', 'Franceville', 'Oyem', 'Moanda', 'Lambaréné', 'Bitam', 'Mouila', 'Koulamoutou', 'Makokou'] },
-    { code: 'CG', name: 'Congo', cities: ['Brazzaville', 'Pointe-Noire', 'Dolisie', 'Nkayi', 'Ouesso', 'Madingou', 'Mbandaka', 'Owando', 'Gamboma', 'Sibiti'] },
-    { code: 'CD', name: 'RDC', cities: ['Kinshasa', 'Lubumbashi', 'Mbuji-Mayi', 'Kananga', 'Kisangani', 'Bukavu', 'Goma', 'Kolwezi', 'Likasi', 'Kalemie'] },
-    { code: 'ZA', name: 'Afrique du Sud', cities: ['Johannesburg', 'Cape Town', 'Durban', 'Pretoria', 'Port Elizabeth', 'Bloemfontein', 'East London', 'Polokwane', 'Nelspruit', 'Kimberley'] },
-    { code: 'KE', name: 'Kenya', cities: ['Nairobi', 'Mombasa', 'Kisumu', 'Nakuru', 'Eldoret', 'Thika', 'Malindi', 'Kitale', 'Garissa', 'Kakamega'] },
-    { code: 'ET', name: 'Éthiopie', cities: ['Addis-Abeba', 'Dire Dawa', 'Adama', 'Gondar', 'Hawassa', 'Jimma', 'Bahir Dar', 'Mek\'ele', 'Dessie', 'Jijiga'] },
-    { code: 'TZ', name: 'Tanzanie', cities: ['Dar es Salaam', 'Mwanza', 'Arusha', 'Dodoma', 'Zanzibar', 'Mbeya', 'Morogoro', 'Tanga', 'Kigoma', 'Tabora'] },
-    { code: 'UG', name: 'Ouganda', cities: ['Kampala', 'Entebbe', 'Gulu', 'Lira', 'Mbale', 'Jinja', 'Mbarara', 'Masaka', 'Kasese', 'Fort Portal'] },
-    { code: 'RW', name: 'Rwanda', cities: ['Kigali', 'Butare', 'Gitarama', 'Ruhengeri', 'Gisenyi', 'Byumba', 'Cyangugu', 'Kibuye', 'Kibungo', 'Nyanza'] },
-    { code: 'BI', name: 'Burundi', cities: ['Bujumbura', 'Gitega', 'Ngozi', 'Rumonge', 'Cibitoke', 'Kayanza', 'Bururi', 'Makamba', 'Rutana', 'Muramvya'] },
-    { code: 'MW', name: 'Malawi', cities: ['Lilongwe', 'Blantyre', 'Mzuzu', 'Zomba', 'Kasungu', 'Mangochi', 'Karonga', 'Salima', 'Nkhotakota', 'Liwonde'] },
-    { code: 'ZM', name: 'Zambie', cities: ['Lusaka', 'Kitwe', 'Ndola', 'Livingstone', 'Chingola', 'Luanshya', 'Kasama', 'Chipata', 'Mongu', 'Kafue'] },
-    { code: 'ZW', name: 'Zimbabwe', cities: ['Harare', 'Bulawayo', 'Chitungwiza', 'Mutare', 'Gweru', 'Kwekwe', 'Kadoma', 'Masvingo', 'Chegutu', 'Zvishavane'] },
-    { code: 'MZ', name: 'Mozambique', cities: ['Maputo', 'Matola', 'Beira', 'Nampula', 'Chimoio', 'Nacala', 'Quelimane', 'Tete', 'Xai-Xai', 'Pemba'] },
-    { code: 'AO', name: 'Angola', cities: ['Luanda', 'Huambo', 'Lobito', 'Benguela', 'Kuito', 'Lubango', 'Malanje', 'Namibe', 'Soyo', 'Cabinda'] },
-    { code: 'NA', name: 'Namibie', cities: ['Windhoek', 'Walvis Bay', 'Swakopmund', 'Otjiwarongo', 'Ondangwa', 'Keetmanshoop', 'Tsumeb', 'Katima Mulilo', 'Grootfontein', 'Mariental'] },
-    { code: 'BW', name: 'Botswana', cities: ['Gaborone', 'Francistown', 'Molepolole', 'Maun', 'Serowe', 'Kanye', 'Mahalapye', 'Mogoditshane', 'Mochudi', 'Lobatse'] },
-    { code: 'MA', name: 'Maroc', cities: ['Casablanca', 'Rabat', 'Fès', 'Marrakech', 'Agadir', 'Tanger', 'Oujda', 'Kénitra', 'Tétouan', 'Safi'] },
-    { code: 'DZ', name: 'Algérie', cities: ['Alger', 'Oran', 'Constantine', 'Annaba', 'Blida', 'Batna', 'Sétif', 'Chlef', 'Djelfa', 'Sidi Bel Abbès'] },
-    { code: 'TN', name: 'Tunisie', cities: ['Tunis', 'Sfax', 'Sousse', 'Kairouan', 'Bizerte', 'Gabès', 'Ariana', 'Gafsa', 'Monastir', 'Ben Arous'] },
-    { code: 'EG', name: 'Égypte', cities: ['Le Caire', 'Alexandrie', 'Gizeh', 'Port-Saïd', 'Suez', 'Luxor', 'Ismailia', 'Assiout', 'Fayoum', 'Zagazig'] },
-    { code: 'LY', name: 'Libye', cities: ['Tripoli', 'Benghazi', 'Misrata', 'Zliten', 'Bayda', 'Zawiya', 'Ajdabiya', 'Khoms', 'Derna', 'Tobruk'] },
-    { code: 'SD', name: 'Soudan', cities: ['Khartoum', 'Omdurman', 'Port-Soudan', 'Kassala', 'El-Obeid', 'Wad Madani', 'Nyala', 'Gedaref', 'Dongola', 'Atbara'] },
-    { code: 'SS', name: 'Soudan du Sud', cities: ['Juba', 'Wau', 'Malakal', 'Yei', 'Bor', 'Rumbek', 'Nimule', 'Torit', 'Kapoeta', 'Maridi'] },
-    { code: 'ER', name: 'Érythrée', cities: ['Asmara', 'Keren', 'Massawa', 'Assab', 'Mendefera', 'Barentu', 'Teseney', 'Agordat', 'Dekemhare', 'Segeneiti'] },
-    { code: 'DJ', name: 'Djibouti', cities: ['Djibouti', 'Ali Sabieh', 'Tadjourah', 'Obock', 'Dikhil', 'Arta', 'Holhol', 'Balho', 'Loyada', 'Chabelley'] },
-    { code: 'SO', name: 'Somalie', cities: ['Mogadiscio', 'Hargeisa', 'Bosaso', 'Kismaayo', 'Baidoa', 'Berbera', 'Burao', 'Galkayo', 'Marka', 'Beledweyne'] },
-    { code: 'MR', name: 'Mauritanie', cities: ['Nouakchott', 'Nouadhibou', 'Rosso', 'Kiffa', 'Kaédi', 'Zouérat', 'Atar', 'Boutilimit', 'Sélibaby', 'Aleg'] },
-    { code: 'NE', name: 'Niger', cities: ['Niamey', 'Zinder', 'Maradi', 'Agadez', 'Tahoua', 'Dosso', 'Diffa', 'Birni N\'Konni', 'Gaya', 'Tillabéri'] },
-    { code: 'TD', name: 'Tchad', cities: ['N\'Djamena', 'Moundou', 'Sarh', 'Abéché', 'Kelo', 'Koumra', 'Pala', 'Am Timan', 'Bongor', 'Mongo'] },
-    { code: 'CF', name: 'RCA', cities: ['Bangui', 'Bimbo', 'Berbérati', 'Carnot', 'Bambari', 'Bouar', 'Bossangoa', 'Bria', 'Kaga-Bandoro', 'Sibut'] },
-    { code: 'GQ', name: 'Guinée Équatoriale', cities: ['Malabo', 'Bata', 'Ebebiyin', 'Aconibe', 'Añisoc', 'Luba', 'Mongomo', 'Mikomeseng', 'Evinayong', 'Cogo'] },
-    { code: 'ST', name: 'Sao Tomé-et-Principe', cities: ['São Tomé', 'Santo António', 'Santana', 'Neves', 'Guadalupe', 'Trindade', 'Santa Catarina', 'Porto Alegre', 'Angolares', 'Ribeira Afonso'] },
-    { code: 'CV', name: 'Cap-Vert', cities: ['Praia', 'Mindelo', 'Santa Maria', 'Assomada', 'Porto Novo', 'São Filipe', 'Tarrafal', 'Ribeira Brava', 'Espargos', 'Cidade Velha'] },
-    { code: 'GM', name: 'Gambie', cities: ['Banjul', 'Serekunda', 'Brikama', 'Bakau', 'Farafenni', 'Lamin', 'Sukuta', 'Gunjur', 'Kerewan', 'Mansa Konko'] },
-    { code: 'LR', name: 'Liberia', cities: ['Monrovia', 'Gbarnga', 'Buchanan', 'Ganta', 'Zwedru', 'Kakata', 'Harper', 'Foya', 'Voinjama', 'Sanniquellie'] },
-    { code: 'SL', name: 'Sierra Leone', cities: ['Freetown', 'Bo', 'Kenema', 'Makeni', 'Koidu', 'Lunsar', 'Port Loko', 'Pujehun', 'Kambia', 'Bonthe'] },
-    { code: 'GW', name: 'Guinée-Bissau', cities: ['Bissau', 'Bafatá', 'Gabu', 'Bissorã', 'Bolama', 'Cacheu', 'Canchungo', 'Farim', 'Mansôa', 'Quebo'] },
-    { code: 'SZ', name: 'Eswatini', cities: ['Mbabane', 'Manzini', 'Big Bend', 'Malkerns', 'Lobamba', 'Nhlangano', 'Pigg\'s Peak', 'Siteki', 'Hluti', 'Bulembu'] },
-    { code: 'LS', name: 'Lesotho', cities: ['Maseru', 'Teyateyaneng', 'Mafeteng', 'Hlotse', 'Mohale\'s Hoek', 'Maputsoe', 'Qacha\'s Nek', 'Butha-Buthe', 'Morija', 'Mokhotlong'] },
-    { code: 'KM', name: 'Comores', cities: ['Moroni', 'Mutsamudu', 'Fomboni', 'Domoni', 'Tsimbeo', 'Sima', 'Ouani', 'Mkazi', 'Kove', 'Mitsamiouli'] },
-    { code: 'MG', name: 'Madagascar', cities: ['Antananarivo', 'Toamasina', 'Antsirabe', 'Fianarantsoa', 'Mahajanga', 'Toliara', 'Antsiranana', 'Ambovombe', 'Mananjary', 'Ambatondrazaka'] },
-    { code: 'MU', name: 'Maurice', cities: ['Port Louis', 'Beau Bassin-Rose Hill', 'Vacoas-Phoenix', 'Curepipe', 'Quatre Bornes', 'Triolet', 'Goodlands', 'Flacq', 'Bel Air', 'Mahébourg'] },
-    { code: 'SC', name: 'Seychelles', cities: ['Victoria', 'Anse Boileau', 'Bel Ombre', 'Beau Vallon', 'Cascade', 'Anse Royale', 'Takamaka', 'Grand Anse Mahe', 'Port Glaud', 'La Passe'] },
-  ];
+  // Mali uniquement (phase 1)
+  africanCountries = [MALI_COUNTRY];
 
   availableCities: string[] = [];
 
   infoForm!: FormGroup;
   pwdForm!: FormGroup;
 
-  constructor(private fb: FormBuilder, private http: HttpClient, private snack: MatSnackBar, private authService: AuthService, private router: Router) {}
+  constructor(
+    private fb: FormBuilder,
+    private http: HttpClient,
+    private snack: MatSnackBar,
+    private authService: AuthService,
+    private router: Router,
+    private route: ActivatedRoute,
+  ) {}
 
   ngOnInit(): void {
     this.infoForm = this.fb.group({
@@ -554,7 +521,7 @@ export class ClientProfileComponent implements OnInit {
       last_name: ['', Validators.required],
       phone_number: [''],
       city: [''],
-      country: [''],
+      country: ['ML'],
       address: [''],
       bio: [''],
     });
@@ -567,6 +534,12 @@ export class ClientProfileComponent implements OnInit {
 
     this.loadProfile();
     this.loadStats();
+
+    this.route.queryParams.subscribe((params) => {
+      if (params['complete'] === '1' || params['kyc']) {
+        this.activeTabIndex = 1;
+      }
+    });
   }
 
   get initials(): string {
@@ -582,6 +555,8 @@ export class ClientProfileComponent implements OnInit {
     this.http.get<any>(`${this.apiUrl}/users/me/`, { headers: this.h() }).subscribe({
       next: (u) => {
         this.user = u;
+        this.missingFields = u.profile_missing_fields || [];
+        this.updateOnboardingState(u);
         // Trouver le code pays à partir du nom ou utiliser le code stocké
         const countryCode = this.findCountryCode(u.country) || u.country || '';
         // Mettre à jour les villes disponibles pour ce pays
@@ -657,8 +632,35 @@ export class ClientProfileComponent implements OnInit {
         this.user = { ...this.user, ...u };
         this.savingInfo = false;
         this.snack.open('Profil mis à jour ✓', 'Fermer', { duration: 3000, panelClass: ['snack-success'] });
+        this.afterProfileSave();
       },
       error: () => { this.savingInfo = false; this.snack.open('Erreur lors de la mise à jour', 'Fermer', { duration: 3000 }); }
+    });
+  }
+
+  private updateOnboardingState(u: any): void {
+    this.showOnboarding = u.can_access_platform === false;
+    if (this.showOnboarding && this.missingFields.some((f) => this.kycFields.includes(f))) {
+      this.activeTabIndex = 1;
+    }
+  }
+
+  onKycUpdated(): void {
+    this.afterProfileSave();
+  }
+
+  isMissing(field: string): boolean {
+    return this.showOnboarding && this.missingFields.includes(field);
+  }
+
+  private afterProfileSave(): void {
+    this.authService.refreshUserProfile().subscribe((u) => {
+      this.user = u;
+      this.missingFields = u.profile_missing_fields || [];
+      this.updateOnboardingState(u);
+      if (u.can_access_platform) {
+        this.authService.navigateAfterAuth();
+      }
     });
   }
 
@@ -708,10 +710,6 @@ export class ClientProfileComponent implements OnInit {
     this.http.patch(`${this.apiUrl}/users/me/`, { wallet_address: null }, { headers: this.h() }).subscribe({
       next: () => { this.user = { ...this.user, wallet_address: null }; this.snack.open('Wallet déconnecté', 'Fermer', { duration: 2000 }); }
     });
-  }
-
-  startKYC(): void {
-    this.snack.open('Redirection vers la vérification KYC...', 'Fermer', { duration: 2000 });
   }
 
   activateProviderRole(): void {

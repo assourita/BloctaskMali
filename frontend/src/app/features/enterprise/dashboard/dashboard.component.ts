@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { Router, RouterModule } from '@angular/router';
+import { forkJoin } from 'rxjs';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -8,6 +9,12 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatTableModule } from '@angular/material/table';
 import { MatBadgeModule } from '@angular/material/badge';
 import { MatMenuModule } from '@angular/material/menu';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import {
+  EnterpriseService,
+  EnterpriseMission,
+  EnterpriseEmployee,
+} from '../../../core/services/enterprise.service';
 
 @Component({
   selector: 'app-enterprise-dashboard',
@@ -21,10 +28,14 @@ import { MatMenuModule } from '@angular/material/menu';
     MatChipsModule,
     MatTableModule,
     MatBadgeModule,
-    MatMenuModule
+    MatMenuModule,
+    MatProgressSpinnerModule,
   ],
   template: `
     <div class="dashboard-container">
+      <div class="loading" *ngIf="loading"><mat-spinner diameter="40"></mat-spinner></div>
+
+      <ng-container *ngIf="!loading">
       <!-- Company Header -->
       <div class="company-header">
         <div class="company-info">
@@ -41,7 +52,7 @@ import { MatMenuModule } from '@angular/material/menu';
           </div>
         </div>
         <div class="company-actions">
-          <button mat-raised-button color="primary" routerLink="/enterprise/missions">
+          <button mat-raised-button color="primary" routerLink="/enterprise/missions/create">
             <mat-icon>add</mat-icon>
             Nouvelle mission
           </button>
@@ -125,7 +136,7 @@ import { MatMenuModule } from '@angular/material/menu';
               <div class="agent-marker" *ngFor="let agent of activeAgents" 
                    [style.left.%]="agent.x" [style.top.%]="agent.y">
                 <div class="marker-icon" [class]="agent.status">
-                  <img [src]="agent.avatar" alt="{{ agent.name }}">
+                  <span class="marker-initials">{{ agent.name.slice(0,2).toUpperCase() }}</span>
                 </div>
                 <div class="marker-label">{{ agent.name }}</div>
                 <div class="marker-status">{{ getStatusLabel(agent.status) }}</div>
@@ -163,7 +174,10 @@ import { MatMenuModule } from '@angular/material/menu';
                 <th>Actions</th>
               </tr>
             </thead>
-            <tbody>
+              <tbody>
+              <tr *ngIf="!activeMissionsList.length">
+                <td colspan="6" class="empty-row">Aucune mission en cours</td>
+              </tr>
               <tr *ngFor="let mission of activeMissionsList">
                 <td>
                   <div class="mission-cell">
@@ -173,7 +187,7 @@ import { MatMenuModule } from '@angular/material/menu';
                 </td>
                 <td>
                   <div class="employee-cell">
-                    <img [src]="mission.employee.avatar" alt="" class="avatar">
+                    <div class="avatar-initials">{{ mission.employee.initials }}</div>
                     <span>{{ mission.employee.name }}</span>
                   </div>
                 </td>
@@ -238,15 +252,16 @@ import { MatMenuModule } from '@angular/material/menu';
             <div class="employee-list">
               <div class="employee-item" *ngFor="let emp of topEmployees">
                 <div class="rank">#{{ emp.rank }}</div>
-                <img [src]="emp.avatar" alt="" class="avatar">
+                <div class="avatar-initials">{{ emp.initials }}</div>
                 <div class="employee-info">
                   <strong>{{ emp.name }}</strong>
                   <span>{{ emp.missions }} missions • {{ emp.rating }} ⭐</span>
                 </div>
                 <div class="employee-stats">
-                  <span class="earnings">+{{ emp.earnings }} {{ currency }}</span>
+                  <span class="earnings">{{ emp.missions }} missions</span>
                 </div>
               </div>
+              <p class="empty-row" *ngIf="!topEmployees.length">Ajoutez des employés pour voir les performances</p>
             </div>
           </mat-card-content>
         </mat-card>
@@ -268,6 +283,7 @@ import { MatMenuModule } from '@angular/material/menu';
           </mat-card-content>
         </mat-card>
       </div>
+      </ng-container>
     </div>
   `,
   styles: [`
@@ -276,6 +292,12 @@ import { MatMenuModule } from '@angular/material/menu';
       display: flex;
       flex-direction: column;
       gap: 24px;
+    }
+    .loading { display: flex; justify-content: center; padding: 60px; }
+    .empty-row { text-align: center; color: #9ca3af; padding: 24px; }
+    .avatar-initials {
+      width: 32px; height: 32px; border-radius: 50%; background: #3CB371; color: #fff;
+      display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700;
     }
 
     .company-header {
@@ -694,77 +716,103 @@ import { MatMenuModule } from '@angular/material/menu';
   `]
 })
 export class EnterpriseDashboardComponent implements OnInit {
-  // Company Info
-  companyName = 'QuickDelivery CI';
-  planType = 'Business Pro';
-  employeeCount = 24;
-  totalMissions = 156;
-  currency = 'FCFA';
-  
-  // Stats
-  activeMissions = 8;
-  completedToday = 12;
-  monthlyRevenue = 8750;
-  avgCompletionTime = 2.3;
-  
-  // Agents on Map
-  activeAgents = [
-    { name: 'Kouamé', avatar: 'assets/images/agent1.jpg', status: 'active', x: 25, y: 35 },
-    { name: 'Awa', avatar: 'assets/images/agent2.jpg', status: 'busy', x: 55, y: 45 },
-    { name: 'Moussa', avatar: 'assets/images/agent3.jpg', status: 'available', x: 75, y: 25 },
-    { name: 'Fatou', avatar: 'assets/images/agent4.jpg', status: 'active', x: 40, y: 65 },
-    { name: 'Yves', avatar: 'assets/images/agent5.jpg', status: 'available', x: 65, y: 70 }
-  ];
-  availableAgents = 2;
-  
-  // Active Missions
-  activeMissionsList = [
-    {
-      id: 1,
-      title: 'Livraison express - Zone 4',
-      client: 'Client: ABC Corp',
-      employee: { name: 'Kouamé B.', avatar: 'assets/images/agent1.jpg' },
-      status: 'in_progress',
-      currentLocation: 'Marcory',
-      progress: 65
-    },
-    {
-      id: 2,
-      title: 'Course urgent - Plateau',
-      client: 'Client: TechStart',
-      employee: { name: 'Awa D.', avatar: 'assets/images/agent2.jpg' },
-      status: 'assigned',
-      currentLocation: 'Plateau',
-      progress: 15
-    },
-    {
-      id: 3,
-      title: 'Documents - Treichville',
-      client: 'Client: Global SA',
-      employee: { name: 'Moussa K.', avatar: 'assets/images/agent3.jpg' },
-      status: 'in_progress',
-      currentLocation: 'Treichville',
-      progress: 80
-    }
-  ];
-  
-  // Top Employees
-  topEmployees = [
-    { rank: 1, name: 'Kouamé B.', avatar: 'assets/images/agent1.jpg', missions: 42, rating: 4.9, earnings: 1250 },
-    { rank: 2, name: 'Awa D.', avatar: 'assets/images/agent2.jpg', missions: 38, rating: 4.8, earnings: 980 },
-    { rank: 3, name: 'Moussa K.', avatar: 'assets/images/agent3.jpg', missions: 35, rating: 4.7, earnings: 890 }
-  ];
-  
-  // Alerts
-  alerts = [
-    { type: 'urgent', icon: 'error', message: 'Fatou D. en retard sur sa mission', time: '5 min' },
-    { type: 'warning', icon: 'schedule', message: 'Mission #2343 expire dans 30 min', time: '10 min' },
-    { type: 'info', icon: 'check_circle', message: 'Kouamé B. a complété sa mission', time: '15 min' },
-    { type: 'success', icon: 'trending_up', message: 'Objectif journalier atteint!', time: '1h' }
-  ];
-  
-  ngOnInit(): void {}
-  
+  loading = true;
+  companyName = '';
+  planType = 'Entreprise';
+  employeeCount = 0;
+  totalMissions = 0;
+  currency = 'XOF';
+
+  activeMissions = 0;
+  completedToday = 0;
+  monthlyRevenue = 0;
+  avgCompletionTime = 0;
+
+  activeAgents: { name: string; status: string; x: number; y: number }[] = [];
+  availableAgents = 0;
+  activeMissionsList: any[] = [];
+  topEmployees: { rank: number; name: string; initials: string; missions: number; rating: number; earnings: number }[] = [];
+  alerts: { type: string; icon: string; message: string; time: string }[] = [];
+
+  constructor(
+    private enterpriseService: EnterpriseService,
+    private router: Router,
+  ) {}
+
+  ngOnInit(): void {
+    forkJoin({
+      profile: this.enterpriseService.getProfile(),
+      analytics: this.enterpriseService.getAnalytics(),
+      missions: this.enterpriseService.getMissions(),
+      employees: this.enterpriseService.getEmployees(),
+      availability: this.enterpriseService.getAvailability(),
+    }).subscribe({
+      next: ({ profile, analytics, missions, employees, availability }) => {
+        this.companyName = profile.company_name;
+        this.employeeCount = analytics.employees_count ?? employees.length;
+        this.totalMissions = analytics.missions_total ?? missions.length;
+        this.activeMissions = analytics.missions_active ?? 0;
+        this.completedToday = analytics.missions_completed_today ?? 0;
+        this.monthlyRevenue = analytics.spent_this_month ?? 0;
+
+        const activeStatuses = ['accepted', 'in_progress', 'submitted'];
+        this.activeMissionsList = missions
+          .filter((m) => activeStatuses.includes(m.status))
+          .slice(0, 5)
+          .map((m) => this.mapMissionRow(m));
+
+        this.topEmployees = [...employees]
+          .sort((a, b) => b.missions_completed - a.missions_completed)
+          .slice(0, 3)
+          .map((e, i) => ({
+            rank: i + 1,
+            name: `${e.first_name} ${e.last_name}`,
+            initials: `${e.first_name[0]}${e.last_name[0]}`,
+            missions: e.missions_completed,
+            rating: 4.5,
+            earnings: 0,
+          }));
+
+        this.activeAgents = availability.slice(0, 6).map((a, i) => ({
+          name: a.employee_name || 'Agent',
+          status: a.status || 'available',
+          x: 15 + (i % 3) * 30,
+          y: 20 + Math.floor(i / 3) * 35,
+        }));
+        this.availableAgents = availability.filter((a) => a.status === 'available').length;
+
+        if (!this.activeMissionsList.length && analytics.missions_completed > 0) {
+          this.alerts = [{
+            type: 'success', icon: 'check_circle',
+            message: `${analytics.missions_completed} mission(s) terminée(s) au total`,
+            time: 'Récent',
+          }];
+        }
+
+        this.loading = false;
+      },
+      error: () => { this.loading = false; },
+    });
+  }
+
+  private mapMissionRow(m: EnterpriseMission) {
+    const progressMap: Record<string, number> = {
+      accepted: 20, in_progress: 60, submitted: 90,
+    };
+    return {
+      id: m.id,
+      title: m.title,
+      client: m.pickup_city || 'Départ',
+      employee: {
+        name: (m as any).provider_name || 'Prestataire externe',
+        initials: ((m as any).provider_name || 'PE').slice(0, 2).toUpperCase(),
+      },
+      status: m.status,
+      currentLocation: m.delivery_city || '—',
+      progress: progressMap[m.status] || 10,
+    };
+  }
+
   getStatusLabel(status: string): string {
     const labels: { [key: string]: string } = {
       'active': 'En mission',
@@ -785,20 +833,20 @@ export class EnterpriseDashboardComponent implements OnInit {
   getMissionStatusLabel(status: string): string {
     const labels: { [key: string]: string } = {
       'in_progress': 'En cours',
-      'assigned': 'Assignée'
+      'accepted': 'Acceptée',
+      'submitted': 'Soumise',
+      'assigned': 'Assignée',
     };
     return labels[status] || status;
   }
-  
-  trackMission(mission: any): void {
-    console.log('Tracking mission:', mission);
+
+  trackMission(_mission: any): void {
+    this.router.navigate(['/enterprise/tracking']);
   }
-  
-  contactEmployee(employee: any): void {
-    console.log('Contacting employee:', employee);
-  }
-  
-  reassignMission(mission: any): void {
-    console.log('Reassigning mission:', mission);
+
+  contactEmployee(_employee: any): void {}
+
+  reassignMission(_mission: any): void {
+    this.router.navigate(['/enterprise/missions']);
   }
 }

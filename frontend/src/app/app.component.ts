@@ -5,6 +5,7 @@ import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
 import { HeaderComponent } from './shared/components/header/header.component';
 import { SidebarComponent } from './shared/components/sidebar/sidebar.component';
+import { SidebarService } from './core/services/sidebar.service';
 
 @Component({
   selector: 'app-root',
@@ -13,7 +14,16 @@ import { SidebarComponent } from './shared/components/sidebar/sidebar.component'
   template: `
     <div class="app-container">
       <app-header *ngIf="showHeader"></app-header>
-      <main [class.with-header]="showHeader" [class.with-sidebar]="showSidebar">
+      <main
+        [class.with-header]="showHeader"
+        [class.with-sidebar]="showSidebar"
+        [class.sidebar-open]="showSidebar && (sidebarService.isOpen$ | async)"
+      >
+        <div
+          class="sidebar-overlay"
+          *ngIf="showSidebar && (sidebarService.isOpen$ | async)"
+          (click)="sidebarService.setOpen(false)"
+        ></div>
         <app-sidebar *ngIf="showSidebar"></app-sidebar>
         <div class="content">
           <router-outlet></router-outlet>
@@ -52,7 +62,16 @@ import { SidebarComponent } from './shared/components/sidebar/sidebar.component'
     }
     
     main.with-sidebar .content {
+      margin-left: 0;
+      transition: margin-left 0.3s ease;
+    }
+
+    main.with-sidebar.sidebar-open .content {
       margin-left: 280px;
+    }
+
+    .sidebar-overlay {
+      display: none;
     }
     
     /* Animation de page */
@@ -72,27 +91,20 @@ import { SidebarComponent } from './shared/components/sidebar/sidebar.component'
     }
     
     @media (max-width: 768px) {
-      main.with-sidebar .content {
+      main.with-sidebar.sidebar-open .content {
         margin-left: 0;
         padding: 20px;
       }
-      
+
       .sidebar-overlay {
+        display: block;
         position: fixed;
         top: 64px;
         left: 0;
         right: 0;
         bottom: 0;
-        background: rgba(0,0,0,0.5);
+        background: rgba(0, 0, 0, 0.45);
         z-index: 99;
-        opacity: 0;
-        visibility: hidden;
-        transition: all 0.3s ease;
-      }
-      
-      .sidebar-overlay.active {
-        opacity: 1;
-        visibility: visible;
       }
     }
   `]
@@ -101,10 +113,13 @@ export class AppComponent implements OnInit {
   showHeader = true;
   showSidebar = false;
   
-  private noHeaderRoutes = ['/login', '/register', '/landing'];
-  private sidebarRoutes = ['/client', '/provider', '/enterprise', '/admin'];
+  private noHeaderRoutes = ['/login', '/register', '/forgot-password', '/reset-password', '/landing'];
+  private sidebarRoutes = ['/client', '/provider', '/enterprise', '/admin', '/help'];
   
-  constructor(private router: Router) {}
+  constructor(
+    private router: Router,
+    public sidebarService: SidebarService,
+  ) {}
   
   ngOnInit(): void {
     this.router.events

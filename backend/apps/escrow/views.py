@@ -92,6 +92,22 @@ class ProviderDepositViewSet(viewsets.ReadOnlyModelViewSet):
 
         return qs
 
+    @action(detail=False, methods=['post'])
+    def fund(self, request):
+        """Alimente le solde caution via Mobile Money (prestataire ou entreprise)."""
+        from apps.payments.deposit_funding import fund_deposit_balance
+        from apps.payments.mobile_money import MobileMoneyError
+
+        try:
+            payload = fund_deposit_balance(request.user, request.data)
+        except MobileMoneyError as exc:
+            body = {'error': str(exc), 'code': exc.code}
+            if exc.code == 'payment_method_required':
+                body['payment_method_required'] = True
+            return Response(body, status=400)
+
+        return Response(payload)
+
     @action(detail=True, methods=['post'])
     def release(self, request, pk=None):
         """Libérer manuellement une caution (admin)"""

@@ -18,9 +18,29 @@ export class ErrorInterceptor implements HttpInterceptor {
   intercept(req: HttpRequest<any>, next: HttpHandler): Observable<HttpEvent<any>> {
     return next.handle(req).pipe(
       catchError((error: HttpErrorResponse) => {
+        // Les composants candidature gèrent leurs propres messages
+        if (req.url.includes('/apply/')) {
+          return throwError(() => error);
+        }
+
         let message = 'Une erreur est survenue';
         
-        if (error.status === 401) {
+        if (error.status === 400 && error.error) {
+          const body = error.error;
+          if (typeof body === 'string') {
+            message = body;
+          } else if (body.error) {
+            message = body.error;
+          } else if (body.detail) {
+            message = body.detail;
+          } else if (body.non_field_errors?.[0]) {
+            message = body.non_field_errors[0];
+          } else {
+            const firstKey = Object.keys(body)[0];
+            const val = body[firstKey];
+            if (Array.isArray(val) && val[0]) message = String(val[0]);
+          }
+        } else if (error.status === 401) {
           message = 'Votre session a expiré ou le token est invalide. Veuillez vous reconnecter.';
           this.authService.logout();
           this.router.navigate(['/login'], { 

@@ -74,7 +74,7 @@ class Payment(models.Model):
     )
     
     # Mobile Money details
-    country_code = models.CharField(max_length=5, default='+225', blank=True)
+    country_code = models.CharField(max_length=5, default='+223', blank=True)
     phone_number = models.CharField(max_length=20, blank=True)
     operator = models.CharField(
         max_length=20,

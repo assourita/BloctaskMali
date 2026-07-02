@@ -306,7 +306,11 @@ interface User {
         <div class="header-content">
           <div>
             <h1>Gestion des Utilisateurs</h1>
-            <p>{{dataSource.data.length}} utilisateurs sur la plateforme</p>
+            <p>
+              <strong>{{ dataSource.data.length }}</strong> utilisateurs
+              <span *ngIf="isFiltered"> · <em>{{ filteredCount }} affiché(s)</em></span>
+              sur la plateforme
+            </p>
           </div>
           <div class="header-actions">
             <button class="btn-add" (click)="openAddUserDialog()">
@@ -324,41 +328,95 @@ interface User {
       <!-- Stats Cards -->
       <div class="stats-row" *ngIf="!loading">
         <mat-card class="stat-card total">
-          <mat-icon>people</mat-icon>
+          <div class="stat-icon-wrap"><mat-icon>people</mat-icon></div>
           <div class="stat-info">
-            <span class="stat-value">{{stats.total}}</span>
-            <span class="stat-label">Total</span>
+            <span class="stat-value">{{ stats.total | number }}</span>
+            <span class="stat-label">Total utilisateurs</span>
+            <span class="stat-sub">Tous profils confondus</span>
           </div>
         </mat-card>
         <mat-card class="stat-card clients">
-          <mat-icon>person</mat-icon>
+          <div class="stat-icon-wrap"><mat-icon>person</mat-icon></div>
           <div class="stat-info">
-            <span class="stat-value">{{stats.clients}}</span>
+            <span class="stat-value">{{ stats.clients | number }}</span>
             <span class="stat-label">Clients</span>
+            <span class="stat-sub">{{ pct(stats.clients, stats.total) }}% du total</span>
           </div>
         </mat-card>
         <mat-card class="stat-card providers">
-          <mat-icon>work</mat-icon>
+          <div class="stat-icon-wrap"><mat-icon>work</mat-icon></div>
           <div class="stat-info">
-            <span class="stat-value">{{stats.providers}}</span>
+            <span class="stat-value">{{ stats.providers | number }}</span>
             <span class="stat-label">Prestataires</span>
+            <span class="stat-sub">{{ pct(stats.providers, stats.total) }}% du total</span>
           </div>
         </mat-card>
         <mat-card class="stat-card enterprises">
-          <mat-icon>business</mat-icon>
+          <div class="stat-icon-wrap"><mat-icon>business</mat-icon></div>
           <div class="stat-info">
-            <span class="stat-value">{{stats.enterprises}}</span>
+            <span class="stat-value">{{ stats.enterprises | number }}</span>
             <span class="stat-label">Entreprises</span>
+            <span class="stat-sub">{{ pct(stats.enterprises, stats.total) }}% du total</span>
           </div>
         </mat-card>
         <mat-card class="stat-card pending">
-          <mat-icon>pending_actions</mat-icon>
+          <div class="stat-icon-wrap"><mat-icon>pending_actions</mat-icon></div>
           <div class="stat-info">
-            <span class="stat-value">{{stats.pendingKyc}}</span>
+            <span class="stat-value">{{ stats.pendingKyc | number }}</span>
             <span class="stat-label">KYC en attente</span>
+            <span class="stat-sub" [class.warn]="stats.pendingKyc > 0">
+              {{ stats.pendingKyc > 0 ? 'Action admin requise' : 'Aucun dossier en attente' }}
+            </span>
           </div>
         </mat-card>
       </div>
+
+      <!-- Recherche & filtres -->
+      <mat-card class="filters-card" *ngIf="!loading">
+        <div class="filters-row">
+          <mat-form-field appearance="outline" class="search-field">
+            <mat-label>Rechercher un utilisateur</mat-label>
+            <input matInput [(ngModel)]="searchTerm" (ngModelChange)="onFilterChange()"
+              placeholder="Nom, email, username, téléphone..."/>
+            <mat-icon matPrefix>search</mat-icon>
+            <button mat-icon-button matSuffix *ngIf="searchTerm" (click)="clearSearch()" type="button">
+              <mat-icon>close</mat-icon>
+            </button>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Type</mat-label>
+            <mat-select [(ngModel)]="filterType" (ngModelChange)="onFilterChange()">
+              <mat-option value="">Tous</mat-option>
+              <mat-option value="client">Client</mat-option>
+              <mat-option value="provider">Prestataire</mat-option>
+              <mat-option value="enterprise">Entreprise</mat-option>
+              <mat-option value="admin">Admin</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Statut KYC</mat-label>
+            <mat-select [(ngModel)]="filterKyc" (ngModelChange)="onFilterChange()">
+              <mat-option value="">Tous</mat-option>
+              <mat-option value="pending">En attente</mat-option>
+              <mat-option value="verified">Vérifié</mat-option>
+              <mat-option value="rejected">Rejeté</mat-option>
+              <mat-option value="not_required">Non requis</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <mat-form-field appearance="outline" class="filter-field">
+            <mat-label>Compte</mat-label>
+            <mat-select [(ngModel)]="filterStatus" (ngModelChange)="onFilterChange()">
+              <mat-option value="">Tous</mat-option>
+              <mat-option value="active">Actif</mat-option>
+              <mat-option value="inactive">Inactif</mat-option>
+            </mat-select>
+          </mat-form-field>
+          <button class="reset-btn" type="button" (click)="resetFilters()" *ngIf="isFiltered">
+            <mat-icon>filter_alt_off</mat-icon>
+            Réinitialiser
+          </button>
+        </div>
+      </mat-card>
 
 
       <!-- Charts -->
@@ -394,8 +452,16 @@ interface User {
         </button>
       </mat-card>
 
+      <!-- Empty State - filtered -->
+      <mat-card class="empty-container" *ngIf="!loading && dataSource.data.length > 0 && dataSource.filteredData.length === 0">
+        <mat-icon class="empty-icon">search_off</mat-icon>
+        <h3>Aucun résultat</h3>
+        <p>Aucun utilisateur ne correspond à votre recherche</p>
+        <button mat-stroked-button (click)="resetFilters()">Effacer les filtres</button>
+      </mat-card>
+
       <!-- Table -->
-      <mat-card class="table-card" *ngIf="!loading && dataSource.data.length > 0">
+      <mat-card class="table-card" *ngIf="!loading && dataSource.filteredData.length > 0">
         <div class="table-header">
           <span class="results-count">{{dataSource.filteredData.length}} résultat(s)</span>
           <div class="table-actions">
@@ -560,8 +626,17 @@ export class AdminUsersComponent implements OnInit, AfterViewInit {
     clients: 0,
     providers: 0,
     enterprises: 0,
-    pendingKyc: 0
+    pendingKyc: 0,
+    admins: 0,
   };
+
+  get filteredCount(): number {
+    return this.dataSource.filteredData?.length ?? 0;
+  }
+
+  get isFiltered(): boolean {
+    return !!(this.searchTerm || this.filterType || this.filterKyc || this.filterStatus);
+  }
 
   private apiUrl = environment.apiUrl;
   private charts: Chart[] = [];
@@ -570,7 +645,7 @@ export class AdminUsersComponent implements OnInit, AfterViewInit {
     private http: HttpClient,
     private dialog: MatDialog,
     private snackBar: MatSnackBar,
-    private fb: FormBuilder
+    private fb: FormBuilder,
   ) {}
 
   ngOnInit(): void {
@@ -677,23 +752,35 @@ export class AdminUsersComponent implements OnInit, AfterViewInit {
     });
   }
 
-  calculateStats(): void {
-    const users = this.dataSource.data;
+  calculateStats(users?: User[]): void {
+    const source = users ?? this.dataSource.filteredData ?? this.dataSource.data;
     this.stats = {
-      total: users.length,
-      clients: users.filter(u => u.user_type === 'client').length,
-      providers: users.filter(u => u.user_type === 'provider').length,
-      enterprises: users.filter(u => u.user_type === 'enterprise').length,
-      pendingKyc: users.filter(u => u.kyc_status === 'pending').length
+      total: source.length,
+      clients: source.filter((u) => u.user_type === 'client').length,
+      providers: source.filter((u) => u.user_type === 'provider').length,
+      enterprises: source.filter((u) => u.user_type === 'enterprise').length,
+      pendingKyc: source.filter((u) => u.kyc_status === 'pending').length,
+      admins: source.filter((u) => u.user_type === 'admin').length,
     };
     setTimeout(() => this.renderCharts(), 100);
+  }
+
+  pct(part: number, total: number): string {
+    if (!total) return '0';
+    return ((part / total) * 100).toFixed(0);
+  }
+
+  onFilterChange(): void {
+    this.applyFilters();
   }
 
   renderCharts(): void {
     this.charts.forEach(c => c.destroy());
     this.charts = [];
 
-    const users = this.dataSource.data;
+    const users = this.dataSource.filteredData.length
+      ? this.dataSource.filteredData
+      : this.dataSource.data;
 
     /* 1. Donut — répartition par type */
     const donutCanvas = document.getElementById('doughnutChart') as HTMLCanvasElement;
@@ -780,7 +867,8 @@ export class AdminUsersComponent implements OnInit, AfterViewInit {
           data.email.toLowerCase().includes(term) ||
           data.username.toLowerCase().includes(term) ||
           data.first_name.toLowerCase().includes(term) ||
-          data.last_name.toLowerCase().includes(term);
+          data.last_name.toLowerCase().includes(term) ||
+          (data.phone_number || '').toLowerCase().includes(term);
         if (!matchesSearch) return false;
       }
 
@@ -797,6 +885,7 @@ export class AdminUsersComponent implements OnInit, AfterViewInit {
       kyc: this.filterKyc,
       status: this.filterStatus
     });
+    this.calculateStats(this.dataSource.filteredData);
   }
 
   resetFilters(): void {
@@ -966,7 +1055,17 @@ export class AdminUsersComponent implements OnInit, AfterViewInit {
   }
 
   rejectUserKyc(user: User): void {
-    this.http.patch(`${this.apiUrl}/users/${user.id}/`, { kyc_status: 'rejected' }, { headers: this.getHeaders() }).subscribe({
+    const reason = prompt('Motif du rejet KYC (obligatoire) :');
+    if (reason === null) return;
+    if (!reason.trim()) {
+      this.snackBar.open('Le motif de rejet est obligatoire', 'Fermer', { duration: 4000 });
+      return;
+    }
+    this.http.patch(
+      `${this.apiUrl}/users/${user.id}/`,
+      { kyc_status: 'rejected', kyc_rejection_reason: reason.trim() },
+      { headers: this.getHeaders() },
+    ).subscribe({
       next: () => {
         user.kyc_status = 'rejected';
         this.snackBar.open('KYC rejeté', 'Fermer', { duration: 3000 });

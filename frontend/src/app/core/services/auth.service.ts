@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
-import { BehaviorSubject, Observable, tap, map, of, switchMap } from 'rxjs';
+import { BehaviorSubject, Observable, tap, switchMap } from 'rxjs';
 import { Router } from '@angular/router';
 import { environment } from '../../../environments/environment';
 
@@ -22,7 +22,21 @@ export interface User {
   email_verified: boolean;
   phone_verified: boolean;
   phone_number?: string;
+  nina?: string;
+  kyc_submitted_at?: string;
+  id_card_front_url?: string;
+  id_card_back_url?: string;
+  selfie_verification_url?: string;
+  has_id_card_front?: boolean;
+  has_id_card_back?: boolean;
+  has_selfie_verification?: boolean;
   created_at: string;
+  profile_complete?: boolean;
+  profile_missing_fields?: string[];
+  kyc_access_status?: 'incomplete' | 'pending_review' | 'rejected' | 'approved';
+  can_access_platform?: boolean;
+  kyc_block_message?: string;
+  kyc_rejection_reason?: string;
   provider_profile?: any;
   enterprise_profile?: any;
 }
@@ -85,14 +99,29 @@ export class AuthService {
       })
     );
   }
-  
-  register(data: RegisterData): Observable<any> {
-    return this.http.post(`${this.apiUrl}/users/register/`, data).pipe(
-      tap((response: any) => {
+
+  loginWithGoogle(idToken: string, userType = 'client'): Observable<User> {
+    return this.http.post<any>(`${this.apiUrl}/auth/google/`, {
+      id_token: idToken,
+      user_type: userType,
+    }).pipe(
+      switchMap((response) => {
         this.setSession(response);
-        this.currentUserSubject.next(response.user);
+        return this.loadUserProfile();
       })
     );
+  }
+  
+  register(data: RegisterData): Observable<any> {
+    return this.http.post(`${this.apiUrl}/users/register/`, data);
+  }
+
+  verifyEmail(uid: string, token: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/users/email/verify/`, { uid, token });
+  }
+
+  resendVerificationEmail(email: string): Observable<any> {
+    return this.http.post(`${this.apiUrl}/users/email/resend/`, { email });
   }
   
   logout(): void {
@@ -113,6 +142,61 @@ export class AuthService {
     this.isAuthenticatedSubject.next(true);
   }
   
+  refreshUserProfile(): Observable<User> {
+    return this.loadUserProfile();
+  }
+
+  getProfilePath(): string {
+    const role = this.getActiveRole();
+    return `/${role}/profile`;
+  }
+
+  getPostAuthPath(): string {
+    const role = this.getActiveRole();
+    const user = this.getCurrentUser();
+    if (user?.can_access_platform === false) {
+      return `/${role}/profile`;
+    }
+    return `/${role}/dashboard`;
+  }
+
+  /** Après connexion ou inscription : dashboard si KYC approuvé, sinon profil. */
+  navigateAfterAuth(returnUrl?: string | null): void {
+    if (returnUrl && returnUrl !== '/') {
+      this.router.navigateByUrl(returnUrl);
+      return;
+    }
+    const user = this.getCurrentUser();
+    const role = user?.active_role || this.getActiveRole();
+    if (user?.can_access_platform === false) {
+      this.router.navigate([`/${role}/profile`], {
+        queryParams: this.getProfileQueryParams(user),
+      });
+    } else {
+      this.router.navigate([`/${role}/dashboard`]);
+    }
+  }
+
+  /** Après changement d'espace : dashboard si KYC approuvé, sinon profil. */
+  navigateAfterRoleSwitch(user: User): void {
+    const role = user.active_role || this.getActiveRole();
+    if (user.can_access_platform === false) {
+      this.router.navigate([`/${role}/profile`], {
+        queryParams: this.getProfileQueryParams(user),
+      });
+    } else {
+      this.router.navigate([`/${role}/dashboard`]);
+    }
+  }
+
+  getProfileQueryParams(user: User | null): Record<string, string> {
+    if (!user) return { complete: '1' };
+    if (!user.profile_complete) return { complete: '1' };
+    if (user.kyc_access_status === 'pending_review') return { kyc: 'pending' };
+    if (user.kyc_access_status === 'rejected') return { kyc: 'rejected' };
+    return { complete: '1' };
+  }
+
   private loadUserProfile(): Observable<User> {
     return this.http.get<User>(`${this.apiUrl}/users/me/`).pipe(
       tap((user: User) => {
@@ -125,7 +209,17 @@ export class AuthService {
   }
 
   getActiveRole(): string {
-    return this.activeRoleSubject.value || this.currentUserSubject.value?.user_type || 'client';
+    return this.activeRoleSubject.value || this.currentUserSubject.value?.active_role || this.currentUserSubject.value?.user_type || 'client';
+  }
+
+  getAvailableRoles(): string[] {
+    const user = this.currentUserSubject.value;
+    if (!user) return [];
+    const roles = [user.user_type];
+    if (user.secondary_role && !roles.includes(user.secondary_role)) {
+      roles.push(user.secondary_role);
+    }
+    return roles;
   }
 
   activateProviderRole(): Observable<any> {
@@ -140,15 +234,13 @@ export class AuthService {
     );
   }
 
-  switchRole(role: string): Observable<any> {
+  switchRole(role: string): Observable<User> {
     return this.http.post<any>(`${this.apiUrl}/users/switch-role/`, { role }).pipe(
-      tap((res) => {
-        const updated = { ...this.currentUserSubject.value!, active_role: res.active_role };
-        localStorage.setItem('user', JSON.stringify(updated));
-        this.currentUserSubject.next(updated);
-        this.activeRoleSubject.next(res.active_role);
-        this.router.navigate([`/${res.active_role}`]);
-      })
+      switchMap((res) => {
+        this.activeRoleSubject.next(res.active_role || role);
+        return this.loadUserProfile();
+      }),
+      tap((user) => this.navigateAfterRoleSwitch(user)),
     );
   }
   
@@ -186,22 +278,63 @@ export class AuthService {
       new_password_confirm: newPassword
     });
   }
+
+  requestPasswordReset(email: string): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/users/password/reset/`, { email });
+  }
+
+  validatePasswordResetToken(uid: string, token: string): Observable<{ valid: boolean; email?: string }> {
+    return this.http.get<{ valid: boolean; email?: string }>(
+      `${this.apiUrl}/users/password/reset/validate/`,
+      { params: { uid, token } },
+    );
+  }
+
+  confirmPasswordReset(data: {
+    uid: string;
+    token: string;
+    new_password: string;
+    new_password_confirm: string;
+  }): Observable<{ message: string }> {
+    return this.http.post<{ message: string }>(`${this.apiUrl}/users/password/reset/confirm/`, data);
+  }
   
   hasRole(role: string): boolean {
-    const user = this.currentUserSubject.value;
-    return user ? user.user_type === role : false;
+    return this.getAvailableRoles().includes(role);
   }
-  
+
   isClient(): boolean {
-    return this.hasRole('client');
+    return this.getActiveRole() === 'client';
   }
-  
+
   isProvider(): boolean {
-    return this.hasRole('provider');
+    return this.getActiveRole() === 'provider';
   }
   
+  syncActiveRoleFromRoute(role: string): void {
+    const user = this.currentUserSubject.value;
+    if (!user || !role || !this.hasRole(role)) return;
+
+    this.activeRoleSubject.next(role);
+
+    if (user.active_role === role) {
+      return;
+    }
+
+    this.http.post<any>(`${this.apiUrl}/users/switch-role/`, { role }).subscribe({
+      next: () => {
+        this.refreshUserProfile().subscribe();
+      },
+    });
+  }
+
+  getDashboardPath(): string {
+    const role = this.getActiveRole();
+    return `/${role}/dashboard`;
+  }
+
   isEnterprise(): boolean {
-    return this.hasRole('enterprise');
+    return this.getActiveRole() === 'enterprise';
   }
   
   isAdmin(): boolean {

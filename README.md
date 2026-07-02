@@ -2,6 +2,8 @@
 
 BlockTask est une plateforme complète permettant la délégation sécurisée de tâches physiques entre particuliers et entreprises, utilisant la blockchain Ethereum pour garantir la confiance via des smart contracts escrow.
 
+**Marché cible** : **Mali** (phase 1) — FCFA, NINA, Orange Money / Moov Money, Bamako. Extension UEMOA prévue ultérieurement.
+
 ## 🏗️ Architecture
 
 ```
@@ -23,20 +25,12 @@ blocktask_myself/
 │   ├── manage.py
 │   └── requirements.txt
 │
-├── frontend/               # Angular 17
-│   ├── src/app/
-│   │   ├── core/           # Guards, interceptors, services
-│   │   ├── shared/         # Composants communs
-│   │   ├── features/
-│   │   │   ├── auth/       # Login, register, wallet
-│   │   │   ├── client/     # Espace client
-│   │   │   ├── provider/   # Espace prestataire
-│   │   │   ├── enterprise/ # Espace entreprise
-│   │   │   └── admin/      # Espace admin
-│   │   └── services/       # API services
-│   ├── angular.json
-│   ├── package.json
-│   └── tsconfig.json
+├── frontend/               # Angular 17 (web)
+│   └── ...
+│
+├── mobile/                 # React Native / Expo (clients & prestataires)
+│   ├── app/                # Écrans Expo Router
+│   └── src/                # API, contexte auth, composants
 │
 └── smart-contracts/        # Contrats Solidity
     ├── EscrowContract.sol
@@ -103,7 +97,7 @@ ng build --configuration production
 ✅ **Users App**
 - Modèle User personnalisé avec JWT
 - Profils Prestataire, Entreprise, Employé
-- KYC avec vérification d'identité (NINA)
+- KYC avec vérification d'identité (NINA / ID nationale — Mali, Niger, Guinée…)
 - Wallet blockchain connexion
 - Historique de connexion et sécurité
 

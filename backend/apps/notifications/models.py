@@ -174,7 +174,7 @@ class NotificationPreference(models.Model):
     # Horaires
     quiet_hours_start = models.TimeField(blank=True, null=True)
     quiet_hours_end = models.TimeField(blank=True, null=True)
-    timezone = models.CharField(max_length=50, default='Africa/Abidjan')
+    timezone = models.CharField(max_length=50, default='Africa/Bamako')
     
     updated_at = models.DateTimeField(auto_now=True)
     

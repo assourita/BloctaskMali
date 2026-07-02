@@ -32,6 +32,7 @@ THIRD_PARTY_APPS = [
     'corsheaders',
     'channels',
     'django_filters',
+    'drf_spectacular',
 ]
 
 LOCAL_APPS = [
@@ -102,7 +103,7 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 LANGUAGE_CODE = 'fr-fr'
-TIME_ZONE = 'Africa/Abidjan'
+TIME_ZONE = 'Africa/Bamako'
 USE_I18N = True
 USE_TZ = True
 
@@ -128,6 +129,14 @@ REST_FRAMEWORK = {
         'rest_framework.filters.SearchFilter',
         'rest_framework.filters.OrderingFilter',
     ],
+    'DEFAULT_SCHEMA_CLASS': 'drf_spectacular.openapi.AutoSchema',
+}
+
+SPECTACULAR_SETTINGS = {
+    'TITLE': 'BlockTask API',
+    'DESCRIPTION': 'API plateforme de délégation de tâches avec escrow blockchain',
+    'VERSION': '1.0.0',
+    'SERVE_INCLUDE_SCHEMA': False,
 }
 
 from datetime import timedelta
@@ -164,14 +173,22 @@ CORS_ALLOWED_ORIGINS = [
 
 CORS_ALLOW_CREDENTIALS = True
 
-CHANNEL_LAYERS = {
-    'default': {
-        'BACKEND': 'channels_redis.core.RedisChannelLayer',
-        'CONFIG': {
-            'hosts': [('127.0.0.1', 6379)],
+CHANNEL_LAYERS = (
+    {
+        'default': {
+            'BACKEND': 'channels_redis.core.RedisChannelLayer',
+            'CONFIG': {
+                'hosts': [os.getenv('REDIS_URL', 'redis://127.0.0.1:6379/0')],
+            },
         },
-    },
-}
+    }
+    if os.getenv('USE_REDIS_CHANNELS', '').lower() in ('1', 'true', 'yes')
+    else {
+        'default': {
+            'BACKEND': 'channels.layers.InMemoryChannelLayer',
+        },
+    }
+)
 
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://127.0.0.1:6379/0')
@@ -185,8 +202,30 @@ BLOCKCHAIN_CONFIG = {
     'ESCROW_CONTRACT_ADDRESS': os.getenv('ESCROW_CONTRACT_ADDRESS', ''),
     'REPUTATION_CONTRACT_ADDRESS': os.getenv('REPUTATION_CONTRACT_ADDRESS', ''),
     'LITIGATION_CONTRACT_ADDRESS': os.getenv('LITIGATION_CONTRACT_ADDRESS', ''),
-    'CHAIN_ID': int(os.getenv('CHAIN_ID', '11155111')),  # Sepolia
+    'CHAIN_ID': int(os.getenv('CHAIN_ID', os.getenv('ETHEREUM_CHAIN_ID', '11155111'))),
 }
+ETHEREUM_RPC_URL = BLOCKCHAIN_CONFIG['ETHEREUM_RPC_URL']
+BLOCKCHAIN_RELAYER_PRIVATE_KEY = os.getenv('BLOCKCHAIN_RELAYER_PRIVATE_KEY', '')
+BLOCKCHAIN_RELAYER_ADDRESS = os.getenv('BLOCKCHAIN_RELAYER_ADDRESS', '')
+
+# Email
+SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY', '')
+RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@blocktask.ml')
+EMAIL_BACKEND = os.getenv(
+    'EMAIL_BACKEND',
+    'django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend',
+)
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
+EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
+EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:4200')
+REQUIRE_EMAIL_VERIFICATION = os.getenv('REQUIRE_EMAIL_VERIFICATION', 'True').lower() == 'true'
+
+# Google OAuth (Console Google Cloud → Identifiants OAuth 2.0 → Client Web)
+GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
 
 # SMS Configuration (Twilio)
 TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', '')
@@ -196,11 +235,18 @@ TWILIO_PHONE_NUMBER = os.getenv('TWILIO_PHONE_NUMBER', '')
 # Firebase Configuration
 FIREBASE_CREDENTIALS_PATH = os.getenv('FIREBASE_CREDENTIALS_PATH', '')
 
-# Mobile Money APIs
+# Mobile Money APIs (Mali / UEMOA)
 MOBILE_MONEY_CONFIG = {
+    'SANDBOX': os.getenv('MOBILE_MONEY_SANDBOX', 'True').lower() == 'true',
     'ORANGE_MONEY_API_KEY': os.getenv('ORANGE_MONEY_API_KEY', ''),
+    'ORANGE_MONEY_MERCHANT_ID': os.getenv('ORANGE_MONEY_MERCHANT_ID', ''),
+    'ORANGE_MONEY_API_URL': os.getenv('ORANGE_MONEY_API_URL', ''),
     'MOOV_MONEY_API_KEY': os.getenv('MOOV_MONEY_API_KEY', ''),
+    'MOOV_MONEY_API_URL': os.getenv('MOOV_MONEY_API_URL', ''),
     'WAVE_API_KEY': os.getenv('WAVE_API_KEY', ''),
+    'PAYMENT_RETURN_URL': os.getenv('PAYMENT_RETURN_URL', 'http://localhost:4200/client/missions'),
+    'PAYMENT_CANCEL_URL': os.getenv('PAYMENT_CANCEL_URL', 'http://localhost:4200/client/missions'),
+    'PAYMENT_WEBHOOK_URL': os.getenv('PAYMENT_WEBHOOK_URL', ''),
 }
 
 AUTH_USER_MODEL = 'users.User'

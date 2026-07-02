@@ -6,22 +6,17 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { HttpClient } from '@angular/common/http';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
+import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
-import { DashboardHeaderComponent } from '../../../shared/components/dashboard-header/dashboard-header.component';
+import {
+  KycReviewDialogComponent,
+  KycReviewDialogResult,
+  KycReviewUser,
+} from './kyc-review-dialog.component';
 
-interface KycRequest {
-  id: string;
-  user: {
-    id: string;
-    email: string;
-    first_name: string;
-    last_name: string;
-  };
-  status: string;
-  document_type: string;
-  submitted_at: string;
-}
+type KycFilterStatus = 'pending' | 'verified' | 'rejected';
 
 @Component({
   selector: 'app-admin-kyc',
@@ -33,32 +28,42 @@ interface KycRequest {
     MatButtonModule,
     MatIconModule,
     MatChipsModule,
-    MatProgressSpinnerModule
+    MatProgressSpinnerModule,
+    MatSnackBarModule,
+    MatDialogModule,
   ],
   template: `
     <div class="kyc-container">
       <div class="page-header">
         <h1>Vérifications KYC</h1>
-        <p>Gestion des vérifications d'identité</p>
+        <p>Consultez les pièces justificatives avant d'approuver ou de rejeter</p>
       </div>
 
-      <!-- Stats -->
       <div class="stats-row">
-        <mat-card class="stat-card pending">
+        <mat-card
+          class="stat-card pending"
+          [class.active]="activeFilter === 'pending'"
+          (click)="setFilter('pending')">
           <mat-icon>pending_actions</mat-icon>
           <div class="stat-content">
             <span class="stat-value">{{ pendingCount }}</span>
             <span class="stat-label">En attente</span>
           </div>
         </mat-card>
-        <mat-card class="stat-card verified">
+        <mat-card
+          class="stat-card verified"
+          [class.active]="activeFilter === 'verified'"
+          (click)="setFilter('verified')">
           <mat-icon>verified_user</mat-icon>
           <div class="stat-content">
             <span class="stat-value">{{ verifiedCount }}</span>
             <span class="stat-label">Vérifiés</span>
           </div>
         </mat-card>
-        <mat-card class="stat-card rejected">
+        <mat-card
+          class="stat-card rejected"
+          [class.active]="activeFilter === 'rejected'"
+          (click)="setFilter('rejected')">
           <mat-icon>cancel</mat-icon>
           <div class="stat-content">
             <span class="stat-value">{{ rejectedCount }}</span>
@@ -67,47 +72,67 @@ interface KycRequest {
         </mat-card>
       </div>
 
-      <!-- Loading -->
+      <div class="list-header" *ngIf="!loading">
+        <h2>{{ listTitle }}</h2>
+        <span class="list-count">{{ kycUsers.length }} affiché{{ kycUsers.length > 1 ? 's' : '' }}</span>
+      </div>
+
       <div class="loading-container" *ngIf="loading">
         <mat-spinner diameter="40"></mat-spinner>
         <p>Chargement...</p>
       </div>
 
-      <!-- KYC List -->
       <div class="kyc-list" *ngIf="!loading">
-        <mat-card class="kyc-card" *ngFor="let kyc of kycRequests">
+        <mat-card class="kyc-card" *ngFor="let user of kycUsers">
           <div class="kyc-header">
             <div class="user-info">
-              <h3>{{ kyc.user.first_name }} {{ kyc.user.last_name }}</h3>
-              <p>{{ kyc.user.email }}</p>
+              <h3>{{ user.first_name }} {{ user.last_name }}</h3>
+              <p>
+                {{ user.email }} · {{ getUserTypeLabel(user.user_type) }}
+                <span *ngIf="user.company_name"> · {{ user.company_name }}</span>
+              </p>
             </div>
-            <mat-chip-listbox>
-              <mat-chip [class]="kyc.status">{{ getStatusLabel(kyc.status) }}</mat-chip>
-            </mat-chip-listbox>
+            <mat-chip [class]="user.kyc_status">{{ getStatusLabel(user.kyc_status) }}</mat-chip>
           </div>
-          
+
           <div class="kyc-details">
-            <div class="detail">
-              <mat-icon>description</mat-icon>
-              <span>{{ kyc.document_type }}</span>
+            <div class="detail" *ngIf="user.nina">
+              <mat-icon>badge</mat-icon>
+              <span>NINA : {{ user.nina }}</span>
             </div>
-            <div class="detail">
+            <div class="detail" *ngIf="user.phone_number">
+              <mat-icon>phone</mat-icon>
+              <span>{{ user.phone_number }}</span>
+            </div>
+            <div class="detail" *ngIf="user.kyc_submitted_at">
               <mat-icon>schedule</mat-icon>
-              <span>{{ kyc.submitted_at | date:'dd/MM/yyyy HH:mm' }}</span>
+              <span>Soumis le {{ user.kyc_submitted_at | date:'dd/MM/yyyy HH:mm' }}</span>
+            </div>
+            <div class="detail docs-count">
+              <mat-icon>photo_library</mat-icon>
+              <span>{{ countDocs(user) }}/3 pièces</span>
             </div>
           </div>
 
-          <div class="kyc-actions" *ngIf="kyc.status === 'pending'">
-            <button mat-raised-button color="primary" (click)="approveKyc(kyc)">
-              <mat-icon>check</mat-icon>
-              Approuver
-            </button>
-            <button mat-stroked-button color="warn" (click)="rejectKyc(kyc)">
-              <mat-icon>close</mat-icon>
-              Rejeter
+          <div class="rejection-reason" *ngIf="user.kyc_rejection_reason && user.kyc_status === 'rejected'">
+            <mat-icon>report</mat-icon>
+            <span><strong>Motif :</strong> {{ user.kyc_rejection_reason }}</span>
+          </div>
+
+          <div class="doc-previews" *ngIf="hasAnyDoc(user)">
+            <img *ngIf="user.id_card_front_url" [src]="user.id_card_front_url" alt="Recto" title="Recto" />
+            <img *ngIf="user.id_card_back_url" [src]="user.id_card_back_url" alt="Verso" title="Verso" />
+            <img *ngIf="user.selfie_verification_url" [src]="user.selfie_verification_url" alt="Selfie" title="Selfie" />
+          </div>
+
+          <div class="kyc-actions">
+            <button mat-stroked-button color="primary" (click)="openReview(user)">
+              <mat-icon>visibility</mat-icon>
+              {{ user.kyc_status === 'pending' ? 'Examiner le dossier' : 'Voir le dossier' }}
             </button>
           </div>
         </mat-card>
+        <p class="empty" *ngIf="!kycUsers.length">{{ emptyMessage }}</p>
       </div>
     </div>
   `,
@@ -150,11 +175,26 @@ interface KycRequest {
       align-items: center;
       gap: 16px;
       padding: 20px;
+      cursor: pointer;
+      transition: box-shadow 0.2s, transform 0.15s;
+    }
+
+    .stat-card:hover {
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+      transform: translateY(-1px);
+    }
+
+    .stat-card.active {
+      box-shadow: 0 0 0 2px #3b82f6;
     }
 
     .stat-card.pending { border-left: 4px solid #d97706; }
     .stat-card.verified { border-left: 4px solid #059669; }
     .stat-card.rejected { border-left: 4px solid #dc2626; }
+
+    .stat-card.pending.active { background: #fffbeb; }
+    .stat-card.verified.active { background: #ecfdf5; }
+    .stat-card.rejected.active { background: #fef2f2; }
 
     .stat-content {
       display: flex;
@@ -169,6 +209,25 @@ interface KycRequest {
 
     .stat-label {
       font-size: 14px;
+      color: #6b7280;
+    }
+
+    .list-header {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 16px;
+      gap: 12px;
+    }
+
+    .list-header h2 {
+      margin: 0;
+      font-size: 18px;
+      color: #111827;
+    }
+
+    .list-count {
+      font-size: 13px;
       color: #6b7280;
     }
 
@@ -216,8 +275,9 @@ interface KycRequest {
 
     .kyc-details {
       display: flex;
+      flex-wrap: wrap;
       gap: 24px;
-      margin-bottom: 16px;
+      margin-bottom: 12px;
 
       .detail {
         display: flex;
@@ -232,6 +292,46 @@ interface KycRequest {
           height: 18px;
         }
       }
+
+      .docs-count { color: #3b82f6; font-weight: 500; }
+    }
+
+    .rejection-reason {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      padding: 12px;
+      margin-bottom: 12px;
+      border-radius: 10px;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      color: #991b1b;
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .rejection-reason mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .doc-previews {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 14px;
+      flex-wrap: wrap;
+    }
+
+    .doc-previews img {
+      width: 72px;
+      height: 72px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 1px solid #e5e7eb;
+      cursor: pointer;
     }
 
     .kyc-actions {
@@ -240,72 +340,165 @@ interface KycRequest {
       padding-top: 16px;
       border-top: 1px solid #e5e7eb;
     }
+
+    .empty { text-align: center; color: #9ca3af; padding: 40px; }
+
+    @media (max-width: 768px) {
+      .stats-row {
+        grid-template-columns: 1fr;
+      }
+    }
   `]
 })
 export class AdminKycComponent implements OnInit {
-  kycRequests: KycRequest[] = [];
+  kycUsers: KycReviewUser[] = [];
   loading = true;
+  activeFilter: KycFilterStatus = 'pending';
   pendingCount = 0;
   verifiedCount = 0;
   rejectedCount = 0;
 
   private apiUrl = environment.apiUrl;
 
-  constructor(private http: HttpClient) {}
+  constructor(
+    private http: HttpClient,
+    private snack: MatSnackBar,
+    private dialog: MatDialog,
+  ) {}
 
   ngOnInit(): void {
-    this.loadKycRequests();
+    this.loadStats();
+    this.loadKycList();
   }
 
-  loadKycRequests(): void {
+  get listTitle(): string {
+    const titles: Record<KycFilterStatus, string> = {
+      pending: 'Demandes en attente',
+      verified: 'Comptes vérifiés',
+      rejected: 'Demandes rejetées',
+    };
+    return titles[this.activeFilter];
+  }
+
+  get emptyMessage(): string {
+    const messages: Record<KycFilterStatus, string> = {
+      pending: 'Aucune demande KYC en attente',
+      verified: 'Aucun compte KYC vérifié',
+      rejected: 'Aucune demande KYC rejetée',
+    };
+    return messages[this.activeFilter];
+  }
+
+  private h(): HttpHeaders {
+    return new HttpHeaders({ Authorization: `Bearer ${localStorage.getItem('access_token')}` });
+  }
+
+  setFilter(status: KycFilterStatus): void {
+    if (this.activeFilter === status) return;
+    this.activeFilter = status;
+    this.loadKycList();
+  }
+
+  loadStats(): void {
+    this.http.get<any>(`${this.apiUrl}/users/admin/stats/`, { headers: this.h() }).subscribe({
+      next: (s) => {
+        this.pendingCount = s.pending_kyc ?? 0;
+        this.verifiedCount = s.verified_kyc ?? 0;
+        this.rejectedCount = s.rejected_kyc ?? 0;
+      },
+    });
+  }
+
+  loadKycList(): void {
     this.loading = true;
-    // TODO: Replace with actual API endpoint
-    setTimeout(() => {
-      this.kycRequests = [
-        {
-          id: '1',
-          user: { id: 'u1', email: 'user1@test.com', first_name: 'Jean', last_name: 'Dupont' },
-          status: 'pending',
-          document_type: 'Passeport',
-          submitted_at: '2026-06-12T10:00:00Z'
-        },
-        {
-          id: '2',
-          user: { id: 'u2', email: 'user2@test.com', first_name: 'Marie', last_name: 'Martin' },
-          status: 'pending',
-          document_type: 'Carte d\'identité',
-          submitted_at: '2026-06-12T09:30:00Z'
-        }
-      ];
-      this.updateCounts();
-      this.loading = false;
-    }, 500);
+    const params = new HttpParams()
+      .set('kyc_status', this.activeFilter)
+      .set('page_size', '200');
+
+    this.http.get<any>(`${this.apiUrl}/users/`, { headers: this.h(), params }).subscribe({
+      next: (r) => {
+        this.kycUsers = (Array.isArray(r) ? r : r?.results ?? []) as KycReviewUser[];
+        this.loading = false;
+      },
+      error: () => { this.loading = false; },
+    });
   }
 
-  updateCounts(): void {
-    this.pendingCount = this.kycRequests.filter(k => k.status === 'pending').length;
-    this.verifiedCount = this.kycRequests.filter(k => k.status === 'verified').length;
-    this.rejectedCount = this.kycRequests.filter(k => k.status === 'rejected').length;
+  countDocs(user: KycReviewUser): number {
+    let n = 0;
+    if (user.has_id_card_front) n++;
+    if (user.has_id_card_back) n++;
+    if (user.has_selfie_verification) n++;
+    return n;
+  }
+
+  hasAnyDoc(user: KycReviewUser): boolean {
+    return this.countDocs(user) > 0;
   }
 
   getStatusLabel(status: string): string {
-    const labels: { [key: string]: string } = {
-      'pending': 'En attente',
-      'verified': 'Vérifié',
-      'rejected': 'Rejeté'
+    const labels: Record<string, string> = {
+      pending: 'En attente',
+      verified: 'Vérifié',
+      rejected: 'Rejeté',
     };
     return labels[status] || status;
   }
 
-  approveKyc(kyc: KycRequest): void {
-    console.log('Approving KYC:', kyc);
-    kyc.status = 'verified';
-    this.updateCounts();
+  getUserTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      client: 'Client',
+      provider: 'Prestataire',
+      enterprise: 'Entreprise',
+      admin: 'Admin',
+    };
+    return labels[type] || type;
   }
 
-  rejectKyc(kyc: KycRequest): void {
-    console.log('Rejecting KYC:', kyc);
-    kyc.status = 'rejected';
-    this.updateCounts();
+  openReview(user: KycReviewUser): void {
+    const ref = this.dialog.open(KycReviewDialogComponent, {
+      width: '900px',
+      maxWidth: '96vw',
+      maxHeight: '92vh',
+      autoFocus: false,
+      data: {
+        user,
+        canDecide: user.kyc_status === 'pending',
+      },
+    });
+
+    ref.afterClosed().subscribe((result: KycReviewDialogResult | null) => {
+      if (result?.action === 'approve') {
+        this.approveKyc(user);
+      } else if (result?.action === 'reject' && result.reason) {
+        this.rejectKyc(user, result.reason);
+      }
+    });
+  }
+
+  approveKyc(user: KycReviewUser): void {
+    this.http.patch(`${this.apiUrl}/users/${user.id}/`, { kyc_status: 'verified' }, { headers: this.h() }).subscribe({
+      next: () => {
+        this.snack.open('KYC approuvé', 'Fermer', { duration: 3000 });
+        this.loadStats();
+        this.loadKycList();
+      },
+      error: () => this.snack.open('Erreur', 'Fermer', { duration: 3000 }),
+    });
+  }
+
+  rejectKyc(user: KycReviewUser, reason: string): void {
+    this.http.patch(
+      `${this.apiUrl}/users/${user.id}/`,
+      { kyc_status: 'rejected', kyc_rejection_reason: reason.trim() },
+      { headers: this.h() },
+    ).subscribe({
+      next: () => {
+        this.snack.open('KYC rejeté', 'Fermer', { duration: 3000 });
+        this.loadStats();
+        this.loadKycList();
+      },
+      error: () => this.snack.open('Erreur', 'Fermer', { duration: 3000 }),
+    });
   }
 }

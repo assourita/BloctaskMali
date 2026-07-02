@@ -23,6 +23,17 @@ export interface AdminActivity {
   time_display: string;
 }
 
+export interface PlatformSettings {
+  maintenance_mode: boolean;
+  registration_open: boolean;
+  email_notifications: boolean;
+  service_fee_percent: number;
+  default_currency: string;
+  require_2fa_admin: boolean;
+  require_kyc: boolean;
+  updated_at?: string;
+}
+
 @Injectable({
   providedIn: 'root'
 })
@@ -37,5 +48,13 @@ export class AdminService {
 
   getRecentActivity(): Observable<AdminActivity[]> {
     return this.http.get<AdminActivity[]>(`${this.apiUrl}/users/admin/activity/`);
+  }
+
+  getPlatformSettings(): Observable<PlatformSettings> {
+    return this.http.get<PlatformSettings>(`${this.apiUrl}/config/platform-settings/`);
+  }
+
+  updatePlatformSettings(data: Partial<PlatformSettings>): Observable<PlatformSettings> {
+    return this.http.patch<PlatformSettings>(`${this.apiUrl}/config/platform-settings/`, data);
   }
 }

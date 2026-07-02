@@ -1,0 +1,26 @@
+---
+title: Figure 3.2 — Diagramme de conteneurs BlockTask (C4)
+---
+C4Container
+    title Diagramme de conteneurs — Architecture BlockTask
+
+    Person(user, "Utilisateur", "Client, Prestataire, Entreprise ou Admin")
+
+    Container(spa, "Application Web Angular 17", "TypeScript, Material, ethers.js", "SPA multi-rôles, connexion MetaMask")
+    Container(api, "API REST Django", "Python, DRF, SimpleJWT", "Logique métier, authentification, orchestration")
+    Container(ws, "Serveur WebSocket", "Django Channels", "Suivi GPS temps réel")
+    Container(worker, "Worker Celery", "Python", "Tâches asynchrones notifications")
+    ContainerDb(pg, "PostgreSQL", "SGBD", "Utilisateurs, missions, paiements, preuves, litiges")
+    ContainerDb(redis, "Redis", "Cache / broker", "Channels, file Celery")
+    ContainerDb(media, "Stockage média", "Fichiers", "KYC, photos de preuves")
+    ContainerDb(chain, "Smart Contracts", "Solidity / EVM", "Escrow, Réputation, Litigation")
+
+    Rel(user, spa, "Utilise", "HTTPS")
+    Rel(spa, api, "Appels API", "JSON + JWT")
+    Rel(spa, ws, "Suivi live", "WebSocket")
+    Rel(api, pg, "ORM Django")
+    Rel(api, redis, "Pub/Sub Channels")
+    Rel(api, media, "Upload fichiers")
+    Rel(api, chain, "Ancrage / sync", "Web3.py")
+    Rel(worker, redis, "Broker")
+    Rel(worker, api, "Jobs async")

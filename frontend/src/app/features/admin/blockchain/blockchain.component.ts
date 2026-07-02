@@ -15,6 +15,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { MatChipsModule } from '@angular/material/chips';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
+import { BlockchainService, BlockchainStatus } from '../../../core/services/blockchain.service';
 
 interface EscrowTx {
   id: string;
@@ -88,14 +89,17 @@ interface BlockchainEvent {
           <p>Escrow, cautions prestataires, réputation et événements on-chain</p>
         </div>
         <div class="header-right" style="display:flex;gap:8px;align-items:center">
-          <div class="chain-badge" [class.connected]="chainConnected">
-            <mat-icon>{{ chainConnected ? 'cloud_done' : 'link_off' }}</mat-icon>
-            {{ chainConnected ? 'APIs opérationnelles' : 'Chargement...' }}
+          <div class="chain-badge" [class.connected]="chainStatus?.blockchain_enabled">
+            <mat-icon>{{ chainStatus?.connected ? 'link' : 'link_off' }}</mat-icon>
+            {{ chainStatus?.connected ? 'RPC connecté' : 'RPC hors ligne' }}
           </div>
-          <div class="chain-badge contract-badge" *ngIf="chainConnected">
+          <div class="chain-badge contract-badge" *ngIf="chainStatus?.escrow_address">
             <mat-icon>account_tree</mat-icon>
-            Contrats Sepolia — à déployer
+            Escrow {{ chainStatus?.escrow_address | slice:0:8 }}...
           </div>
+          <button mat-stroked-button type="button" (click)="syncChainEvents()" [disabled]="syncing">
+            <mat-icon>sync</mat-icon> Sync événements
+          </button>
         </div>
       </div>
 
@@ -107,7 +111,7 @@ interface BlockchainEvent {
         </div>
         <div class="kpi-card" style="border-left: 4px solid #059669">
           <div class="kpi-icon" style="background:#d1fae5;color:#059669"><mat-icon>payments</mat-icon></div>
-          <div class="kpi-body"><span class="kpi-value">{{ escrowStats.total_volume | number:'1.0-0' }}</span><span class="kpi-label">Volume USDT</span></div>
+          <div class="kpi-body"><span class="kpi-value">{{ escrowStats.total_volume | number:'1.0-0' }}</span><span class="kpi-label">Volume FCFA</span></div>
         </div>
         <div class="kpi-card" style="border-left: 4px solid #d97706">
           <div class="kpi-icon" style="background:#fef3c7;color:#d97706"><mat-icon>pending</mat-icon></div>
@@ -565,7 +569,8 @@ export class AdminBlockchainComponent implements OnInit, AfterViewInit {
 
   escrowStats: any = null;
   repStats: any = null;
-  chainConnected = false;
+  chainStatus: BlockchainStatus | null = null;
+  syncing = false;
 
   escrowFilterType = '';
   escrowFilterStatus = '';
@@ -579,11 +584,39 @@ export class AdminBlockchainComponent implements OnInit, AfterViewInit {
 
   private apiUrl = environment.apiUrl;
 
-  constructor(private http: HttpClient, private snackBar: MatSnackBar, private fb: FormBuilder) {}
+  constructor(
+    private http: HttpClient,
+    private snackBar: MatSnackBar,
+    private fb: FormBuilder,
+    private blockchainService: BlockchainService,
+  ) {}
 
   ngOnInit(): void {
+    this.loadChainStatus();
     this.loadEscrowStats();
     this.loadEscrow();
+  }
+
+  loadChainStatus(): void {
+    this.blockchainService.getStatus().subscribe({
+      next: (s) => { this.chainStatus = s; },
+    });
+  }
+
+  syncChainEvents(): void {
+    this.syncing = true;
+    this.blockchainService.syncEvents().subscribe({
+      next: (r) => {
+        this.syncing = false;
+        this.snackBar.open(`${r.synced} événement(s) synchronisé(s)`, 'Fermer', { duration: 4000 });
+        this.loadEvents();
+        this.loadEscrowStats();
+      },
+      error: () => {
+        this.syncing = false;
+        this.snackBar.open('Sync impossible — vérifiez RPC et adresses contrats', 'Fermer', { duration: 5000 });
+      },
+    });
   }
 
   ngAfterViewInit(): void {
@@ -606,10 +639,9 @@ export class AdminBlockchainComponent implements OnInit, AfterViewInit {
 
   loadEscrowStats(): void {
     this.http.get<any>(`${this.apiUrl}/escrow/transactions/stats/`, { headers: this.h() }).subscribe({
-      next: (s) => { this.escrowStats = s; this.chainConnected = true; },
+      next: (s) => { this.escrowStats = s; },
       error: () => {
         this.escrowStats = { total_transactions: 0, total_volume: 0, pending_transactions: 0, active_deposits: 0, blockchain_events_unprocessed: 0 };
-        this.chainConnected = false;
       }
     });
   }

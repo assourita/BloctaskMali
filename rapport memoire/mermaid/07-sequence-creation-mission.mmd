@@ -1,0 +1,35 @@
+---
+title: Figure 3.7 — Séquence — Création mission, paiement FCFA et ancrage optionnel
+---
+sequenceDiagram
+    autonumber
+    actor Client
+    participant FE as Angular<br/>create-mission
+    participant API as Django REST<br/>/api/missions/
+    participant Pay as PaymentService
+    participant MM as Mobile Money<br/>Orange / Moov
+    participant ESC as EscrowService
+    participant MM as MetaMask
+    participant SC as EscrowContract<br/>Solidity
+
+    Client->>FE: Remplit formulaire (titre, budget XOF, adresses Mali)
+    FE->>API: POST /api/missions/
+    API-->>FE: Mission status=pending + Payment créé
+
+    Client->>FE: Choisit opérateur, saisit OTP
+    FE->>API: POST /api/payments/.../confirm_payment/
+    API->>MM: process_payment()
+    MM-->>API: Paiement confirmé
+    API->>ESC: confirm_escrow_deposit()
+    API-->>FE: Mission status=funded
+
+    opt Ancrage blockchain optionnel
+        Client->>FE: Confirme MetaMask
+        FE->>MM: createMission(hash, deadline, value)
+        MM->>SC: Transaction on-chain
+        SC-->>MM: missionId, txHash
+        FE->>API: POST /api/escrow/blockchain/record-mission/
+        API-->>FE: blockchain_status=funded
+    end
+
+    FE-->>Client: Mission publiée — visible aux prestataires

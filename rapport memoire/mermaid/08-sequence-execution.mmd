@@ -1,0 +1,55 @@
+---
+title: Figure 3.8 — Séquence — Caution, exécution, preuves et validation
+---
+sequenceDiagram
+    autonumber
+    actor Prestataire
+    actor Client
+    participant FE as Angular
+    participant API as Django REST
+    participant ESC as EscrowService
+    participant MM as MetaMask
+    participant SC as EscrowContract
+    participant WS as WebSocket<br/>Channels
+
+    Prestataire->>FE: Postule à la mission
+    FE->>API: POST /api/missions/{id}/apply/
+    API-->>FE: Candidature pending
+
+    Client->>FE: Accepte la candidature
+    FE->>API: POST /api/missions/{id}/accept_application/
+    API-->>FE: status=accepted, deposit_deadline=+4h
+
+    Prestataire->>FE: Dépose caution (solde FCFA)
+    FE->>API: POST /api/missions/{id}/pay_deposit/
+    API->>ESC: lock_provider_deposit()
+    API-->>FE: deposit_paid=true
+
+    opt Ancrage caution on-chain
+        FE->>MM: acceptMission(missionContractId)
+        MM->>SC: Transaction
+        FE->>API: POST .../record-provider-deposit/
+    end
+
+    Prestataire->>FE: Démarrer la mission
+    FE->>API: POST /api/missions/{id}/start/
+    API-->>FE: status=in_progress
+
+    loop Suivi GPS
+        Prestataire->>WS: Position GPS
+        WS-->>Client: Mise à jour temps réel
+    end
+
+    Prestataire->>FE: Upload photos + Finaliser
+    FE->>API: POST /api/missions/{id}/submit_proof/
+    API-->>FE: status=submitted
+
+    opt Ancrage preuve on-chain
+        FE->>MM: submitProof(missionId, proofHash)
+        FE->>API: POST .../record-proof/
+    end
+
+    Client->>FE: Valide la mission
+    FE->>API: POST /api/missions/{id}/validate/
+    API->>ESC: release_payment_to_provider()
+    API-->>FE: status=completed, 95% libérés

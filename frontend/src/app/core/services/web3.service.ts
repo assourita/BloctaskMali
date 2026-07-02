@@ -13,7 +13,7 @@ export interface WalletInfo {
 
 export interface TransactionResult {
   hash: string;
-  wait: () => Promise<any>;
+  wait: () => Promise<{ receipt: any; missionId?: number }>;
 }
 
 @Injectable({
@@ -22,6 +22,9 @@ export interface TransactionResult {
 export class Web3Service {
   private provider: ethers.BrowserProvider | null = null;
   private signer: ethers.JsonRpcSigner | null = null;
+  private escrowAddress = environment.contracts.escrow;
+  private reputationAddress = environment.contracts.reputation;
+  private litigationAddress = environment.contracts.litigation;
   
   private walletSubject = new BehaviorSubject<WalletInfo | null>(null);
   public wallet$ = this.walletSubject.asObservable();
@@ -145,27 +148,46 @@ export class Web3Service {
     }
   }
   
+  configureContracts(addresses: { escrow?: string; reputation?: string; litigation?: string }): void {
+    if (addresses.escrow) this.escrowAddress = addresses.escrow;
+    if (addresses.reputation) this.reputationAddress = addresses.reputation;
+    if (addresses.litigation) this.litigationAddress = addresses.litigation;
+  }
+
   getEscrowContract(): ethers.Contract | null {
-    if (!this.signer || !environment.contracts.escrow) return null;
-    
+    if (!this.signer || !this.escrowAddress) return null;
+
     return new ethers.Contract(
-      environment.contracts.escrow,
+      this.escrowAddress,
       this.escrowAbi,
       this.signer
     );
   }
   
-  async createMissionOnChain(missionHash: string, deadline: number, amount: string): Promise<TransactionResult> {
+  async createMissionOnChain(missionHash: string, deadline: number, amount: string): Promise<TransactionResult & { missionId?: number }> {
     const contract = this.getEscrowContract();
-    if (!contract) throw new Error('Escrow contract not available');
-    
+    if (!contract) throw new Error('Contrat escrow non configuré. Déployez sur Sepolia et renseignez ESCROW_CONTRACT_ADDRESS.');
+
     const value = ethers.parseEther(amount);
     const tx = await contract['createMission'](missionHash, deadline, { value });
-    
-    return {
-      hash: tx.hash,
-      wait: () => tx.wait()
+    const wait = async () => {
+      const receipt = await tx.wait();
+      let missionId: number | undefined;
+      if (receipt?.logs) {
+        for (const log of receipt.logs) {
+          try {
+            const parsed = contract.interface.parseLog({ topics: [...log.topics], data: log.data });
+            if (parsed?.name === 'MissionCreated') {
+              missionId = Number(parsed.args['missionId']);
+              break;
+            }
+          } catch { /* skip unrelated logs */ }
+        }
+      }
+      return { receipt, missionId };
     };
+
+    return { hash: tx.hash, wait };
   }
   
   async acceptMissionOnChain(missionId: number, deposit: string): Promise<TransactionResult> {

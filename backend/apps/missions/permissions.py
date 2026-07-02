@@ -1,82 +1,80 @@
 from rest_framework import permissions
 
+from apps.users.roles import can_act_as_provider, get_effective_role
+from apps.users.kyc_access import can_access_platform, get_kyc_block_message
+from apps.users.models import User
+from .requirements import mission_requires_id_verification
+
 
 class IsMissionOwner(permissions.BasePermission):
-    """
-    Permission qui vérifie que l'utilisateur est le client (propriétaire) de la mission.
-    """
+    """Permission qui vérifie que l'utilisateur est le client (propriétaire) de la mission."""
+
     def has_object_permission(self, request, view, obj):
-        # Lire est autorisé pour tout utilisateur authentifié
         if request.method in permissions.SAFE_METHODS:
             return True
-        
-        # Écrire est réservé au client
         return obj.client == request.user
 
 
 class IsMissionProvider(permissions.BasePermission):
-    """
-    Permission qui vérifie que l'utilisateur est le prestataire assigné à la mission.
-    """
+    """Permission qui vérifie que l'utilisateur est le prestataire assigné à la mission."""
+
     def has_object_permission(self, request, view, obj):
-        # Le prestataire peut agir sur la mission
         return obj.provider == request.user
 
 
 class CanApplyToMission(permissions.BasePermission):
     """
-    Permission qui vérifie qu'un utilisateur peut postuler à une mission.
-    Doit être un prestataire avec profil complet.
+    Permission pour postuler à une mission.
+    Autorise tout utilisateur ayant le rôle prestataire (primaire ou secondaire activé).
     """
+
     def has_permission(self, request, view):
-        # Vérifier que l'utilisateur est authentifié
         if not request.user or not request.user.is_authenticated:
             return False
-        
-        # Vérifier que c'est un prestataire
-        if request.user.user_type != 'provider':
+
+        if not can_act_as_provider(request.user):
             return False
-        
-        # Vérifier que le profil prestataire existe et est actif
+
+        if get_effective_role(request.user) != 'provider':
+            return False
+
+        if not can_access_platform(request.user):
+            return False
+
         try:
             provider_profile = request.user.provider_profile
-            return provider_profile.is_available and provider_profile.verification_status == 'verified'
-        except:
+            return provider_profile.is_available
+        except Exception:
             return False
-    
+
     def has_object_permission(self, request, view, obj):
-        # Vérifier les permissions de base
         if not self.has_permission(request, view):
             return False
-        
-        # Ne pas pouvoir postuler à sa propre mission
         if obj.client == request.user:
             return False
-        
+        if obj.requires_verified_provider and request.user.kyc_status != User.KYCStatus.VERIFIED:
+            return False
+        if mission_requires_id_verification(obj) and request.user.kyc_status != User.KYCStatus.VERIFIED:
+            return False
         return True
 
 
 class IsEnterpriseMember(permissions.BasePermission):
-    """
-    Permission pour les membres d'une entreprise.
-    """
+    """Permission pour les membres d'une entreprise."""
+
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
             return False
-        
-        # Vérifier si l'utilisateur est employé d'une entreprise
         return hasattr(request.user, 'employee_profile')
-    
+
     def has_object_permission(self, request, view, obj):
-        # Vérifier que l'employé appartient à l'entreprise de la mission
         if hasattr(request.user, 'employee_profile'):
             return obj.client == request.user.employee_profile.enterprise
         return False
 
 
 class IsClientOrProvider(permissions.BasePermission):
-    """
-    Permission qui autorise le client ou le prestataire d'une mission.
-    """
+    """Permission qui autorise le client ou le prestataire d'une mission."""
+
     def has_object_permission(self, request, view, obj):
         return request.user in [obj.client, obj.provider]

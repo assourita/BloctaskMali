@@ -1,0 +1,40 @@
+---
+title: Figure 3.10 — Diagramme de déploiement
+---
+flowchart TB
+    subgraph ClientLayer["Poste utilisateur"]
+        Browser["Navigateur web"]
+        SPA["Angular SPA<br/>localhost:4200"]
+        MetaMask["Extension MetaMask"]
+        Browser --- SPA
+        Browser --- MetaMask
+    end
+
+    subgraph ServerLayer["Serveur applicatif"]
+        Django["Django REST API<br/>localhost:8000"]
+        Channels["Django Channels<br/>WebSocket"]
+        Celery["Celery Worker"]
+    end
+
+    subgraph DataLayer["Couche données"]
+        PG[("PostgreSQL<br/>:5432")]
+        Redis[("Redis<br/>:6379")]
+        Media["Dossier media/<br/>KYC, preuves"]
+    end
+
+    subgraph ExternalLayer["Services externes"]
+        MM_API["Orange / Moov Money<br/>sandbox API"]
+        ETH["Ethereum<br/>Sepolia ou Hardhat :8545"]
+    end
+
+    SPA -->|REST JSON JWT| Django
+    SPA -->|WebSocket| Channels
+    MetaMask -->|RPC| ETH
+    Django --> PG
+    Django --> Redis
+    Django --> Media
+    Django -->|Web3.py| ETH
+    Django -->|HTTP| MM_API
+    Channels --> Redis
+    Celery --> Redis
+    Celery --> Django

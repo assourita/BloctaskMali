@@ -21,6 +21,7 @@ web3>=6.11.0
 # Async & Real-time
 channels>=4.0.0
 channels-redis>=4.1.0
+daphne>=4.0.0
 
 # Task Queue
 Celery[redis]>=5.3.0
@@ -46,6 +47,7 @@ sendgrid>=6.10.0
 # Utilities
 python-dateutil>=2.8.0
 pytz>=2023.3
+qrcode[pil]>=7.4.2
 
 # Production
 gunicorn>=21.2.0

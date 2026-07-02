@@ -2,13 +2,15 @@ from django.urls import path, include
 from rest_framework.routers import DefaultRouter
 from .views import (
     CategoryViewSet, MissionViewSet,
-    MissionApplicationViewSet, MissionBookmarkViewSet
+    MissionApplicationViewSet, MissionSolicitationViewSet,
+    MissionBookmarkViewSet
 )
 
 router = DefaultRouter()
 router.register(r'categories', CategoryViewSet, basename='category')
 router.register(r'', MissionViewSet, basename='mission')
 router.register(r'applications', MissionApplicationViewSet, basename='application')
+router.register(r'solicitations', MissionSolicitationViewSet, basename='solicitation')
 router.register(r'bookmarks', MissionBookmarkViewSet, basename='bookmark')
 
 urlpatterns = [

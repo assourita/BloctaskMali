@@ -70,7 +70,11 @@ Gère les litiges et l'arbitrage:
 
 ## 🚀 Guide de démarrage rapide
 
-### Étape 1: Déployer les contrats avec Remix
+### Mali (phase 1)
+
+Suivez le guide : [README_MALI.md](README_MALI.md) — modèle hybride FCFA + blockchain Sepolia.
+
+### Déploiement général (Remix)
 
 Suivez le guide détaillé: [README_REMIX_GUIDE.md](README_REMIX_GUIDE.md)
 
@@ -211,7 +215,7 @@ MIT License - Voir le fichier LICENSE pour plus de détails.
 
 ## 👥 Équipe
 
-BlockTask Team - Master MrMaiga
+BlockTask Team - 
 
 ---
 

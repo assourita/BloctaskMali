@@ -2,16 +2,15 @@ import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule } from '@angular/forms';
-import { MatCardModule } from '@angular/material/card';
 import { MatFormFieldModule } from '@angular/material/form-field';
 import { MatInputModule } from '@angular/material/input';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatDividerModule } from '@angular/material/divider';
 
 import { AuthService } from '../../../core/services/auth.service';
+import { GoogleSignInButtonComponent } from '../../../shared/components/google-sign-in/google-sign-in.component';
 
 @Component({
   selector: 'app-login',
@@ -20,367 +19,349 @@ import { AuthService } from '../../../core/services/auth.service';
     CommonModule,
     RouterModule,
     ReactiveFormsModule,
-    MatCardModule,
     MatFormFieldModule,
     MatInputModule,
     MatButtonModule,
     MatIconModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
-    MatDividerModule
+    GoogleSignInButtonComponent,
   ],
   template: `
-    <div class="login-container">
-      <!-- Back Button -->
-      <button mat-button class="back-btn" routerLink="/">
-        <mat-icon>arrow_back</mat-icon>
-        Retour à l'accueil
-      </button>
-
-      <mat-card class="login-card">
-        <mat-card-header class="login-header">
-          <div class="logo" routerLink="/" style="cursor: pointer;">
+    <div class="auth-page">
+      <aside class="auth-brand">
+        <button mat-button class="back-btn" routerLink="/">
+          <mat-icon>arrow_back</mat-icon> Accueil
+        </button>
+        <div class="brand-content">
+          <div class="logo">
             <span class="logo-icon">⚡</span>
             <span class="logo-text">BlockTask</span>
           </div>
-          <p class="subtitle">Connexion sécurisée</p>
-        </mat-card-header>
-
-        <!-- Session Expired Alert -->
-        <div *ngIf="sessionExpired" class="session-alert">
-          <mat-icon>access_time</mat-icon>
-          <span>Votre session a expiré. Veuillez vous reconnecter pour continuer.</span>
+          <h1>Bienvenue</h1>
+          <p>Connectez-vous pour gérer vos missions, suivre vos prestataires et sécuriser vos paiements en FCFA.</p>
+          <ul class="brand-features">
+            <li><mat-icon>shield</mat-icon> Escrow sécurisé</li>
+            <li><mat-icon>my_location</mat-icon> Suivi GPS en temps réel</li>
+            <li><mat-icon>verified</mat-icon> Prestataires vérifiés KYC</li>
+          </ul>
         </div>
+      </aside>
 
-        <mat-card-content>
-          <form [formGroup]="loginForm" (ngSubmit)="onSubmit()">
-            <mat-form-field appearance="fill" class="full-width">
-              <mat-label>Email</mat-label>
-              <input matInput formControlName="email" type="email" placeholder="votre@email.com">
-              <mat-icon matPrefix class="field-icon">email</mat-icon>
-              <mat-error *ngIf="loginForm.get('email')?.hasError('required')">
-                L'email est requis
-              </mat-error>
-              <mat-error *ngIf="loginForm.get('email')?.hasError('email')">
-                Format d'email invalide
-              </mat-error>
+      <main class="auth-panel">
+        <div class="panel-inner">
+          <div class="panel-header">
+            <h2>Connexion</h2>
+            <p>Accédez à votre espace BlockTask</p>
+          </div>
+
+          <div *ngIf="sessionExpired" class="alert alert-warn">
+            <mat-icon>access_time</mat-icon>
+            <span>Votre session a expiré. Reconnectez-vous pour continuer.</span>
+          </div>
+
+          <form [formGroup]="loginForm" (ngSubmit)="onSubmit()" class="auth-form">
+            <mat-form-field appearance="outline" class="full-width">
+              <mat-label>Adresse email</mat-label>
+              <mat-icon matPrefix>email</mat-icon>
+              <input matInput formControlName="email" type="email" placeholder="vous@exemple.com" autocomplete="email">
+              <mat-error *ngIf="loginForm.get('email')?.hasError('required')">Email requis</mat-error>
+              <mat-error *ngIf="loginForm.get('email')?.hasError('email')">Format invalide</mat-error>
             </mat-form-field>
 
-            <mat-form-field appearance="fill" class="full-width">
+            <mat-form-field appearance="outline" class="full-width">
               <mat-label>Mot de passe</mat-label>
-              <input matInput formControlName="password" [type]="hidePassword ? 'password' : 'text'" placeholder="Votre mot de passe">
-              <mat-icon matPrefix class="field-icon">lock</mat-icon>
-              <button mat-icon-button matSuffix (click)="hidePassword = !hidePassword" type="button" class="visibility-btn">
+              <mat-icon matPrefix>lock</mat-icon>
+              <input matInput formControlName="password" [type]="hidePassword ? 'password' : 'text'" autocomplete="current-password">
+              <button mat-icon-button matSuffix type="button" (click)="hidePassword = !hidePassword" tabindex="-1">
                 <mat-icon>{{ hidePassword ? 'visibility_off' : 'visibility' }}</mat-icon>
               </button>
-              <mat-error *ngIf="loginForm.get('password')?.hasError('required')">
-                Le mot de passe est requis
-              </mat-error>
+              <mat-error *ngIf="loginForm.get('password')?.hasError('required')">Mot de passe requis</mat-error>
             </mat-form-field>
 
-            <div class="form-options">
-              <a routerLink="/forgot-password" class="forgot-password">Mot de passe oublié ?</a>
+            <div class="form-row-end">
+              <a routerLink="/forgot-password" class="text-link">Mot de passe oublié ?</a>
             </div>
 
-            <button 
-              mat-raised-button 
-              color="primary" 
-              type="submit" 
-              class="full-width login-btn"
-              [disabled]="loginForm.invalid || isLoading"
-            >
+            <button mat-raised-button type="submit" class="submit-btn" [disabled]="loginForm.invalid || isLoading">
               <mat-spinner diameter="20" *ngIf="isLoading"></mat-spinner>
               <span *ngIf="!isLoading">Se connecter</span>
             </button>
-
-            <div class="wallet-connect-section">
-              <mat-divider></mat-divider>
-              <span class="divider-text">ou</span>
-              <button 
-                mat-stroked-button 
-                type="button" 
-                class="wallet-btn"
-                (click)="connectWallet()"
-                [disabled]="isLoading"
-              >
-                <mat-icon>account_balance_wallet</mat-icon>
-                Se connecter avec un Wallet
-              </button>
-            </div>
           </form>
-        </mat-card-content>
 
-        <mat-card-footer>
-          <p class="register-link">
-            Pas encore de compte ? 
-            <a routerLink="/register" class="link">S'inscrire</a>
+          <div class="auth-divider"><span>ou</span></div>
+          <app-google-sign-in text="signin_with" (credential)="onGoogleCredential($event)"></app-google-sign-in>
+
+          <p class="switch-auth">
+            Pas encore de compte ?
+            <a routerLink="/register" class="text-link strong">Créer un compte</a>
           </p>
-        </mat-card-footer>
-      </mat-card>
+        </div>
+      </main>
     </div>
   `,
   styles: [`
-    .login-container {
+    .auth-page {
       min-height: 100vh;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .auth-brand {
+      background: linear-gradient(145deg, #059669 0%, #3CB371 45%, #047857 100%);
+      color: white;
+      padding: 32px 48px;
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-      padding: 20px;
       position: relative;
+      overflow: hidden;
+    }
+
+    .auth-brand::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(circle at 20% 80%, rgba(255,255,255,0.12) 0%, transparent 50%),
+                  radial-gradient(circle at 80% 20%, rgba(255,255,255,0.08) 0%, transparent 40%);
+      pointer-events: none;
     }
 
     .back-btn {
-      position: absolute;
-      top: 24px;
-      left: 24px;
-      color: #6c757d;
-      font-weight: 500;
+      align-self: flex-start;
+      color: rgba(255,255,255,0.9) !important;
+      z-index: 1;
     }
 
-    .back-btn:hover {
-      color: #3CB371;
-    }
-
-    .login-card {
-      width: 100%;
-      max-width: 440px;
-      padding: 40px;
-      border-radius: 16px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-      border: none;
-      background: white;
-    }
-
-    .login-header {
-      text-align: center;
-      margin-bottom: 32px;
-    }
-
-    .session-alert {
+    .brand-content {
+      flex: 1;
       display: flex;
-      align-items: center;
-      gap: 12px;
-      background: #fff3cd;
-      border: 1px solid #ffc107;
-      border-radius: 8px;
-      padding: 16px;
-      margin: 0 0 24px 0;
-      color: #856404;
-      font-size: 14px;
-    }
-
-    .session-alert mat-icon {
-      color: #ffc107;
-      flex-shrink: 0;
+      flex-direction: column;
+      justify-content: center;
+      max-width: 420px;
+      z-index: 1;
     }
 
     .logo {
       display: flex;
       align-items: center;
-      justify-content: center;
       gap: 10px;
-      margin-bottom: 12px;
+      margin-bottom: 32px;
     }
 
-    .logo-icon {
-      font-size: 28px;
-    }
+    .logo-icon { font-size: 32px; }
 
     .logo-text {
-      font-size: 26px;
-      font-weight: 700;
-      color: #3CB371;
+      font-size: 28px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
     }
 
-    .subtitle {
-      color: #6c757d;
+    .brand-content h1 {
+      font-size: 36px;
+      font-weight: 700;
+      margin: 0 0 16px;
+      line-height: 1.15;
+    }
+
+    .brand-content > p {
+      font-size: 16px;
+      line-height: 1.6;
+      opacity: 0.92;
+      margin: 0 0 32px;
+    }
+
+    .brand-features {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .brand-features li {
+      display: flex;
+      align-items: center;
+      gap: 12px;
       font-size: 15px;
       font-weight: 500;
     }
 
-    /* ===== CHAMPS DE SAISIE ===== */
-    .full-width,
-    mat-form-field {
+    .brand-features mat-icon {
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
+      opacity: 0.95;
+    }
+
+    .auth-panel {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 40px 24px;
+      background: #f8fafc;
+    }
+
+    .panel-inner {
       width: 100%;
-      margin-bottom: 16px;
+      max-width: 420px;
+      background: white;
+      border-radius: 20px;
+      padding: 40px 36px;
+      box-shadow: 0 4px 24px rgba(15, 23, 42, 0.06);
+      border: 1px solid #e2e8f0;
     }
 
-    ::ng-deep .mat-mdc-form-field {
-      width: 100%;
+    .panel-header {
+      margin-bottom: 28px;
     }
 
-    ::ng-deep .mat-mdc-text-field-wrapper {
-      background: #f8fafc !important;
-      border-radius: 16px !important;
+    .panel-header h2 {
+      margin: 0 0 6px;
+      font-size: 26px;
+      font-weight: 700;
+      color: #0f172a;
     }
 
-    ::ng-deep .mat-mdc-form-field-appearance-fill .mat-mdc-form-field-infix {
-      padding-top: 20px !important;
-      padding-bottom: 12px !important;
+    .panel-header p {
+      margin: 0;
+      color: #64748b;
+      font-size: 15px;
     }
 
-    ::ng-deep .mat-mdc-form-field-appearance-fill .mat-mdc-floating-label {
-      top: 28px !important;
+    .alert {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      font-size: 14px;
+      margin-bottom: 20px;
     }
 
-    ::ng-deep .mat-mdc-form-field-appearance-fill .mat-mdc-floating-label--float-above {
-      top: 20px !important;
-      transform: translateY(-50%) scale(0.85) !important;
-      color: #3CB371 !important;
+    .alert-warn {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      color: #92400e;
     }
 
-    ::ng-deep .mat-mdc-form-field-appearance-fill .mat-mdc-form-field-subscript-wrapper {
-      display: none;
+    .alert-warn mat-icon {
+      color: #f59e0b;
+      flex-shrink: 0;
     }
 
-    ::ng-deep .mat-mdc-form-field-infix {
-      min-height: 56px !important;
-      padding-top: 16px !important;
-      padding-bottom: 12px !important;
+    .auth-form {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
     }
 
-    ::ng-deep .mdc-floating-label {
-      font-size: 14px !important;
-    }
+    .full-width { width: 100%; }
 
-    ::ng-deep .mat-mdc-form-field.mat-focused .mdc-floating-label {
-      color: #3CB371 !important;
-    }
-
-    ::ng-deep .mat-mdc-form-field.mat-focused .mdc-notched-outline {
-      border-color: #3CB371 !important;
-    }
-
-    ::ng-deep .mat-mdc-input-element {
-      font-size: 15px !important;
-    }
-
-    ::ng-deep .mat-mdc-form-field-icon-prefix,
-    ::ng-deep .mat-mdc-form-field-icon-suffix {
-      color: #9ca3af;
-    }
-
-    ::ng-deep .mat-mdc-form-field-error {
-      font-size: 12px;
-    }
-
-    ::ng-deep .mat-mdc-form-field-hint {
-      font-size: 12px;
-      color: #6c757d;
-    }
-
-    ::ng-deep .mat-mdc-form-field-subscript-wrapper {
-      margin-top: 4px;
-    }
-
-    .field-icon {
-      color: #adb5bd;
-      margin-right: 8px;
-    }
-
-    .visibility-btn {
-      color: #adb5bd;
-    }
-
-    .form-options {
+    .form-row-end {
       display: flex;
       justify-content: flex-end;
-      margin-bottom: 24px;
+      margin: -4px 0 12px;
     }
 
-    .forgot-password {
+    .text-link {
       color: #3CB371;
-      font-size: 14px;
       text-decoration: none;
+      font-size: 14px;
       font-weight: 500;
-      transition: opacity 0.2s;
     }
 
-    .forgot-password:hover {
-      opacity: 0.8;
-    }
+    .text-link:hover { text-decoration: underline; }
+    .text-link.strong { font-weight: 600; }
 
-    .login-btn {
-      height: 52px;
-      font-size: 16px;
-      font-weight: 600;
+    .submit-btn {
+      width: 100%;
+      height: 52px !important;
+      font-size: 16px !important;
+      font-weight: 600 !important;
+      border-radius: 12px !important;
       background: #3CB371 !important;
-      border-radius: 8px;
-      box-shadow: 0 4px 12px rgba(60, 179, 113, 0.3);
-      transition: all 0.2s ease;
+      color: white !important;
+      margin-top: 8px;
+      box-shadow: 0 4px 14px rgba(60, 179, 113, 0.35);
     }
 
-    .login-btn:hover {
-      transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(60, 179, 113, 0.4);
-    }
-
-    .login-btn:disabled {
-      background: #adb5bd !important;
-      transform: none;
+    .submit-btn:disabled {
+      background: #cbd5e1 !important;
       box-shadow: none;
     }
 
-    .wallet-connect-section {
-      margin-top: 28px;
+    .auth-divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0 16px;
+      color: #94a3b8;
+      font-size: 13px;
+    }
+
+    .auth-divider::before,
+    .auth-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: #e2e8f0;
+    }
+
+    .switch-auth {
       text-align: center;
-      position: relative;
-    }
-
-    .divider-text {
-      background: white;
-      padding: 0 16px;
-      color: #adb5bd;
-      font-size: 14px;
-      position: relative;
-      top: -12px;
-    }
-
-    .wallet-btn {
-      width: 100%;
-      height: 48px;
-      border-color: #3CB371;
-      color: #3CB371;
-      border-radius: 8px;
-      font-weight: 500;
-      transition: all 0.2s ease;
-    }
-
-    .wallet-btn:hover {
-      background: rgba(60, 179, 113, 0.05);
-    }
-
-    .wallet-btn mat-icon {
-      margin-right: 8px;
-    }
-
-    mat-card-footer {
-      padding: 24px 0 0 0;
-      text-align: center;
-      margin: 0;
-    }
-
-    .register-link {
-      color: #6c757d;
+      margin: 28px 0 0;
+      color: #64748b;
       font-size: 15px;
     }
 
-    .link {
+    ::ng-deep .auth-form .mat-mdc-form-field-icon-prefix {
+      padding-right: 8px;
+      color: #94a3b8;
+    }
+
+    ::ng-deep .auth-form .mat-mdc-form-field.mat-focused .mat-mdc-form-field-icon-prefix {
       color: #3CB371;
-      font-weight: 600;
-      text-decoration: none;
-      transition: opacity 0.2s;
     }
 
-    .link:hover {
-      opacity: 0.8;
+    ::ng-deep .auth-form .mdc-notched-outline__leading,
+    ::ng-deep .auth-form .mdc-notched-outline__notch,
+    ::ng-deep .auth-form .mdc-notched-outline__trailing {
+      border-color: #e2e8f0 !important;
     }
 
-    mat-spinner {
-      display: inline-block;
-      margin-right: 8px;
+    ::ng-deep .auth-form .mat-mdc-form-field.mat-focused .mdc-notched-outline__leading,
+    ::ng-deep .auth-form .mat-mdc-form-field.mat-focused .mdc-notched-outline__notch,
+    ::ng-deep .auth-form .mat-mdc-form-field.mat-focused .mdc-notched-outline__trailing {
+      border-color: #3CB371 !important;
+      border-width: 2px !important;
+    }
+
+    @media (max-width: 900px) {
+      .auth-page {
+        grid-template-columns: 1fr;
+      }
+
+      .auth-brand {
+        padding: 24px;
+        min-height: auto;
+      }
+
+      .brand-content {
+        padding: 16px 0 24px;
+      }
+
+      .brand-content h1 { font-size: 28px; }
+      .brand-features { display: none; }
+
+      .panel-inner {
+        padding: 32px 24px;
+        box-shadow: none;
+        border: none;
+        background: transparent;
+      }
+
+      .auth-panel { padding: 0 16px 32px; background: white; }
     }
   `]
 })
@@ -405,7 +386,6 @@ export class LoginComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    // Check for session expired message
     this.route.queryParams.subscribe(params => {
       this.sessionExpired = params['message'] === 'session_expired';
       if (params['returnUrl']) {
@@ -421,33 +401,54 @@ export class LoginComponent implements OnInit {
     const { email, password } = this.loginForm.value;
 
     this.authService.login({ email, password }).subscribe({
-      next: (user: any) => {
+      next: () => {
         this.isLoading = false;
         this.snackBar.open('Connexion réussie !', 'Fermer', { duration: 3000 });
-        
-        // Redirect to returnUrl if exists, otherwise to dashboard
         if (this.returnUrl && this.returnUrl !== '/') {
-          console.log('Redirection vers:', this.returnUrl);
           this.router.navigate([this.returnUrl]);
         } else {
-          // Rediriger vers le dashboard approprié
-          const userType = user?.user_type || 'client';
-          console.log('Navigation vers:', `/${userType}/dashboard`);
-          this.router.navigate([`/${userType}/dashboard`]);
+          this.authService.navigateAfterAuth();
         }
       },
       error: (error) => {
         this.isLoading = false;
+        if (error.status === 403 && error.error?.code === 'email_not_verified') {
+          this.snackBar.open('Vérifiez votre email avant de vous connecter.', 'Fermer', { duration: 6000 });
+          this.router.navigate(['/verify-email'], {
+            queryParams: { email: error.error?.email || this.loginForm.value.email },
+          });
+          return;
+        }
         this.snackBar.open(
-          error.error?.message || 'Erreur de connexion', 
-          'Fermer', 
+          error.error?.detail || error.error?.message || 'Erreur de connexion',
+          'Fermer',
           { duration: 5000 }
         );
       }
     });
   }
 
-  connectWallet(): void {
-    this.router.navigate(['/wallet-connect']);
+  onGoogleCredential(idToken: string): void {
+    this.isLoading = true;
+    this.authService.loginWithGoogle(idToken).subscribe({
+      next: () => {
+        this.isLoading = false;
+        this.snackBar.open('Connexion Google réussie', 'Fermer', { duration: 3000 });
+        if (this.returnUrl && this.returnUrl !== '/') {
+          this.router.navigate([this.returnUrl]);
+        } else {
+          this.authService.navigateAfterAuth();
+        }
+      },
+      error: (error) => {
+        this.isLoading = false;
+        const msg =
+          error.error?.error ||
+          error.error?.detail ||
+          error.message ||
+          'Connexion Google impossible';
+        this.snackBar.open(msg, 'Fermer', { duration: 7000 });
+      },
+    });
   }
 }

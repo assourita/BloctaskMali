@@ -1,0 +1,41 @@
+---
+title: Figure 3.4 — Cas d'utilisation BlockTask
+---
+flowchart LR
+    subgraph Acteurs
+        C((Client))
+        P((Prestataire))
+        E((Entreprise))
+        A((Admin))
+    end
+
+    subgraph BlockTask["Système BlockTask"]
+        direction TB
+        UC01["UC01<br/>S'inscrire / Se connecter"]
+        UC02["UC02<br/>Soumettre KYC NINA"]
+        UC03["UC03<br/>Créer une mission"]
+        UC04["UC04<br/>Payer escrow FCFA"]
+        UC05["UC05<br/>Consulter missions"]
+        UC06["UC06<br/>Postuler"]
+        UC07["UC07<br/>Accepter candidature"]
+        UC08["UC08<br/>Déposer caution"]
+        UC09["UC09<br/>Démarrer mission"]
+        UC10["UC10<br/>Soumettre preuves"]
+        UC11["UC11<br/>Suivre GPS"]
+        UC12["UC12<br/>Valider mission"]
+        UC13["UC13<br/>Ouvrir litige"]
+        UC14["UC14<br/>Arbitrer litige"]
+        UC15["UC15<br/>Ancrer on-chain"]
+        UC16["UC16<br/>Gérer employés B2B"]
+        UC17["UC17<br/>Superviser plateforme"]
+    end
+
+    C --- UC01 & UC02 & UC03 & UC04 & UC07 & UC11 & UC12 & UC13 & UC15
+    P --- UC01 & UC02 & UC05 & UC06 & UC08 & UC09 & UC10 & UC13 & UC15
+    E --- UC01 & UC03 & UC11 & UC16
+    A --- UC14 & UC17
+
+    UC03 -.-> UC04
+    UC07 -.-> UC08
+    UC09 -.-> UC10
+    UC10 -.-> UC12

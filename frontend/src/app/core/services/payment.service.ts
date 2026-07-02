@@ -2,6 +2,7 @@ import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
 import { environment } from '../../../environments/environment';
+import { getOperatorsForCountry, MOBILE_MONEY_OPERATORS } from '../constants/africa.constants';
 
 export interface PaymentMethod {
   id?: string;
@@ -107,10 +108,10 @@ export class PaymentService {
     );
   }
 
-  confirmPayment(id: string): Observable<any> {
+  confirmPayment(id: string, otp?: string): Observable<any> {
     return this.http.post(
       `${this.apiUrl}/payments/payments/${id}/confirm_payment/`,
-      {},
+      { otp },
       { headers: this.getHeaders() }
     );
   }
@@ -123,14 +124,23 @@ export class PaymentService {
     );
   }
 
-  // Mobile Money Operators
-  getMobileMoneyOperators(): MobileMoneyOperator[] {
-    return [
-      { id: 'orange', name: 'Orange Money', icon: 'phone_android', color: '#FF6600' },
-      { id: 'wave', name: 'Wave', icon: 'waves', color: '#00BFFF' },
-      { id: 'mtn', name: 'MTN Mobile Money', icon: 'phone_android', color: '#FFD700' },
-      { id: 'moov', name: 'Moov Money', icon: 'phone_android', color: '#4169E1' }
-    ];
+  // Mobile Money — opérateurs selon le pays UEMOA
+  getMobileMoneyOperators(countryCode = 'ML'): MobileMoneyOperator[] {
+    return getOperatorsForCountry(countryCode).map(op => ({
+      id: op.id,
+      name: op.name,
+      icon: op.icon,
+      color: op.color
+    }));
+  }
+
+  getAllOperators(): MobileMoneyOperator[] {
+    return Object.values(MOBILE_MONEY_OPERATORS).map(op => ({
+      id: op.id,
+      name: op.name,
+      icon: op.icon,
+      color: op.color
+    }));
   }
 
   // Calculations

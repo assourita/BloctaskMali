@@ -1,0 +1,39 @@
+---
+title: Figure 3.11 — Modèle hybride BlockTask (FCFA + Blockchain)
+---
+flowchart TB
+    subgraph OffChain["Couche OFF-CHAIN — Métier & paiements réels"]
+        direction TB
+        UI["Angular 17<br/>Interfaces par rôle"]
+        API["Django REST API"]
+        DB[("PostgreSQL")]
+        MM["Mobile Money<br/>Orange / Moov — XOF"]
+        KYC["KYC NINA<br/>Validation admin"]
+        GPS["Suivi GPS<br/>WebSocket"]
+        PROOFS["Preuves photos<br/>Stockage média"]
+    end
+
+    subgraph OnChain["Couche ON-CHAIN — Confiance & traçabilité"]
+        direction TB
+        MM2["MetaMask"]
+        ESC["EscrowContract"]
+        REP["ReputationContract"]
+        LIT["LitigationContract"]
+    end
+
+    UI --> API
+    API --> DB
+    API --> MM
+    API --> KYC
+    API --> GPS
+    API --> PROOFS
+
+    UI -.->|Optionnel| MM2
+    MM2 --> ESC & REP & LIT
+    API -.->|Sync / record / relayer| ESC
+
+    MM -->|Paiement réel FCFA| API
+    ESC -.->|Ancrage symbolique ETH test| API
+
+    style OffChain fill:#e3f2fd
+    style OnChain fill:#fff3e0

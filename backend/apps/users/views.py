@@ -3,23 +3,39 @@ BlockTask Users Views
 """
 
 from rest_framework import generics, status, permissions
+from rest_framework.pagination import PageNumberPagination
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth import get_user_model
 from django.db import transaction
+from django.db.models import Q, Avg, Count
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 
+from .enterprise_helpers import enterprise_profile_defaults
 from .models import ProviderProfile, EnterpriseProfile, Employee, WalletTransaction
-from apps.missions.models import Mission
+from apps.missions.models import Mission, MissionReview
 from apps.disputes.models import Dispute
 from .serializers import (
     UserRegistrationSerializer, UserSerializer, UserProfileSerializer,
     ProviderProfileSerializer, EnterpriseProfileSerializer, EmployeeSerializer,
     WalletTransactionSerializer, KYCSerializer, WalletConnectSerializer,
-    ChangePasswordSerializer, UserListSerializer, AdminUserSerializer
+    ChangePasswordSerializer, UserListSerializer, AdminUserSerializer,
+    AdminKycListSerializer,
+    PasswordResetRequestSerializer, PasswordResetConfirmSerializer,
+    PhoneVerificationRequestSerializer, PhoneVerificationConfirmSerializer,
+    EmailVerificationConfirmSerializer, EmailResendSerializer,
 )
+from .kyc_verification import request_phone_verification, confirm_phone_verification
+from .password_reset import get_user_from_uid, send_password_reset_email
+from .email_verification import send_verification_email, verify_email, email_verification_required
+from django.contrib.auth.tokens import default_token_generator
+from .roles import get_effective_role, can_act_as_provider
 
 User = get_user_model()
 
@@ -31,6 +47,19 @@ class RegisterView(generics.CreateAPIView):
     permission_classes = [permissions.AllowAny]
     
     def create(self, request, *args, **kwargs):
+        from apps.common.models import PlatformSettings
+        platform = PlatformSettings.get_solo()
+        if platform.maintenance_mode:
+            return Response(
+                {'error': 'La plateforme est en maintenance. Réessayez plus tard.'},
+                status=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
+        if not platform.registration_open:
+            return Response(
+                {'error': 'Les inscriptions sont temporairement fermées.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
@@ -40,18 +69,72 @@ class RegisterView(generics.CreateAPIView):
             ProviderProfile.objects.get_or_create(user=user, defaults={})
         elif user.user_type == User.UserType.ENTERPRISE:
             EnterpriseProfile.objects.get_or_create(
-                user=user, 
-                defaults={'company_name': user.first_name or user.username}
+                user=user,
+                defaults=enterprise_profile_defaults(user),
             )
-        
-        # Générer les tokens JWT
-        refresh = RefreshToken.for_user(user)
+
+        try:
+            send_verification_email(user)
+            email_sent = True
+        except Exception:
+            email_sent = False
         
         return Response({
+            'message': (
+                'Compte créé. Consultez votre boîte email pour activer votre compte.'
+                if email_sent else
+                'Compte créé. L\'envoi de l\'email de vérification a échoué — utilisez « Renvoyer l\'email ».'
+            ),
+            'email_verification_required': email_verification_required(user),
+            'email_sent': email_sent,
+            'email': user.email,
             'user': UserSerializer(user).data,
-            'refresh': str(refresh),
-            'access': str(refresh.access_token),
         }, status=status.HTTP_201_CREATED)
+
+
+class EmailVerifyView(APIView):
+    """Confirme l'adresse email via uid + token."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = EmailVerificationConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        ok, message, user = verify_email(
+            serializer.validated_data['uid'],
+            serializer.validated_data['token'],
+        )
+        if not ok:
+            return Response({'error': message}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            'message': message,
+            'email_verified': True,
+            'user': UserSerializer(user).data if user else None,
+        })
+
+
+class EmailResendVerificationView(APIView):
+    """Renvoie l'email de vérification."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = EmailResendSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email'].strip().lower()
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+        if user and not user.email_verified:
+            try:
+                send_verification_email(user)
+            except Exception:
+                return Response(
+                    {'error': 'Impossible d\'envoyer l\'email. Réessayez plus tard.'},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+        return Response({
+            'message': (
+                'Si un compte non vérifié existe avec cette adresse, '
+                'un email de confirmation a été envoyé.'
+            ),
+        })
 
 
 class UserProfileView(generics.RetrieveUpdateAPIView):
@@ -72,11 +155,26 @@ class UserDetailView(generics.RetrieveUpdateDestroyAPIView):
     http_method_names = ['get', 'patch', 'delete', 'options']
 
 
+class UserListPagination(PageNumberPagination):
+    page_size = 50
+    page_size_query_param = 'page_size'
+    max_page_size = 200
+
+
 class UserListView(generics.ListAPIView):
     """Liste des utilisateurs (admin)"""
     queryset = User.objects.all()
     serializer_class = UserListSerializer
     permission_classes = [permissions.IsAuthenticated]
+    pagination_class = UserListPagination
+
+    def get_serializer_class(self):
+        if (
+            self.request.user.is_staff
+            and self.request.query_params.get('kyc_status')
+        ):
+            return AdminKycListSerializer
+        return UserListSerializer
     
     def get_queryset(self):
         queryset = User.objects.all()
@@ -89,10 +187,24 @@ class UserListView(generics.ListAPIView):
         kyc_status = self.request.query_params.get('kyc_status')
         if kyc_status:
             queryset = queryset.filter(kyc_status=kyc_status)
+            queryset = queryset.order_by('-kyc_submitted_at', '-created_at')
         
         is_active = self.request.query_params.get('is_active')
         if is_active is not None:
             queryset = queryset.filter(is_active=is_active.lower() == 'true')
+
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            queryset = queryset.filter(
+                Q(email__icontains=search)
+                | Q(username__icontains=search)
+                | Q(first_name__icontains=search)
+                | Q(last_name__icontains=search)
+                | Q(phone_number__icontains=search)
+            )
+        
+        if not kyc_status:
+            queryset = queryset.order_by('-created_at')
         
         return queryset.select_related('provider_profile', 'enterprise_profile')
 
@@ -104,8 +216,8 @@ class ProviderProfileView(generics.RetrieveUpdateAPIView):
     
     def get_object(self):
         user = self.request.user
-        if user.user_type != User.UserType.PROVIDER:
-            raise permissions.PermissionDenied("Vous n'êtes pas un prestataire.")
+        if not can_act_as_provider(user):
+            raise PermissionDenied("Vous n'êtes pas un prestataire.")
         
         profile, created = ProviderProfile.objects.get_or_create(user=user)
         return profile
@@ -119,11 +231,11 @@ class EnterpriseProfileView(generics.RetrieveUpdateAPIView):
     def get_object(self):
         user = self.request.user
         if user.user_type != User.UserType.ENTERPRISE:
-            raise permissions.PermissionDenied("Vous n'êtes pas une entreprise.")
+            raise PermissionDenied("Vous n'êtes pas une entreprise.")
         
         profile, created = EnterpriseProfile.objects.get_or_create(
             user=user,
-            defaults={'company_name': user.first_name or user.email}
+            defaults=enterprise_profile_defaults(user),
         )
         return profile
 
@@ -142,7 +254,35 @@ class EmployeeListCreateView(generics.ListCreateAPIView):
     def perform_create(self, serializer):
         user = self.request.user
         enterprise = user.enterprise_profile
-        serializer.save(enterprise=enterprise)
+        data = serializer.validated_data
+        from .enterprise_services import create_employee_account
+        try:
+            employee, temp_password = create_employee_account(
+                enterprise=enterprise,
+                first_name=data['first_name'],
+                last_name=data['last_name'],
+                email=data.get('email') or '',
+                phone=data.get('phone') or '',
+                position=data.get('position') or '',
+                role=data.get('role') or 'agent',
+            )
+        except ValueError as e:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'detail': str(e)})
+        serializer.instance = employee
+        self._temp_password = temp_password
+
+    def create(self, request, *args, **kwargs):
+        response = super().create(request, *args, **kwargs)
+        if hasattr(self, '_temp_password'):
+            data = response.data if isinstance(response.data, dict) else {}
+            data['temporary_password'] = self._temp_password
+            data['message'] = (
+                'Compte employé créé. Communiquez le mot de passe temporaire '
+                'à l\'agent pour sa première connexion.'
+            )
+            response.data = data
+        return response
 
 
 class EmployeeDetailView(generics.RetrieveUpdateDestroyAPIView):
@@ -156,6 +296,15 @@ class EmployeeDetailView(generics.RetrieveUpdateDestroyAPIView):
         if user.user_type == User.UserType.ENTERPRISE:
             return Employee.objects.filter(enterprise=user.enterprise_profile)
         return Employee.objects.none()
+
+    def perform_update(self, serializer):
+        from .enterprise_services import update_employee_record
+        employee = serializer.instance
+        update_employee_record(employee, **serializer.validated_data)
+
+    def perform_destroy(self, instance):
+        from .enterprise_services import deactivate_employee
+        deactivate_employee(instance)
 
 
 class WalletTransactionListView(generics.ListAPIView):
@@ -171,12 +320,47 @@ class KYCSubmissionView(generics.UpdateAPIView):
     """Soumission KYC"""
     serializer_class = KYCSerializer
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     
     def get_object(self):
         return self.request.user
     
     def perform_update(self, serializer):
-        serializer.save(kyc_status=User.KYCStatus.PENDING, kyc_submitted_at=timezone.now())
+        serializer.save(
+            kyc_status=User.KYCStatus.PENDING,
+            kyc_submitted_at=timezone.now(),
+            kyc_rejection_reason='',
+        )
+
+
+class PhoneVerificationRequestView(APIView):
+    """Demande de vérification téléphone liée au NINA (simulation SMS)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = PhoneVerificationRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = request_phone_verification(
+            request.user,
+            serializer.validated_data['nina'],
+            serializer.validated_data['phone_number'],
+        )
+        if not result.get('ok'):
+            return Response({'error': result['error']}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result)
+
+
+class PhoneVerificationConfirmView(APIView):
+    """Confirmation du code OTP (simulation)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request):
+        serializer = PhoneVerificationConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = confirm_phone_verification(request.user, serializer.validated_data['otp'])
+        if not result.get('ok'):
+            return Response({'error': result['error']}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(result)
 
 
 class WalletConnectView(APIView):
@@ -225,14 +409,70 @@ class ChangePasswordView(APIView):
         return Response({'message': 'Mot de passe changé avec succès.'})
 
 
+class PasswordResetRequestView(APIView):
+    """Demande de réinitialisation du mot de passe (email)."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        email = serializer.validated_data['email'].strip().lower()
+        user = User.objects.filter(email__iexact=email, is_active=True).first()
+        if user:
+            try:
+                send_password_reset_email(user)
+            except Exception:
+                return Response(
+                    {'error': 'Impossible d\'envoyer l\'email. Réessayez plus tard.'},
+                    status=status.HTTP_503_SERVICE_UNAVAILABLE,
+                )
+        return Response({
+            'message': (
+                'Si un compte existe avec cette adresse email, '
+                'un lien de réinitialisation a été envoyé.'
+            ),
+        })
+
+
+class PasswordResetValidateView(APIView):
+    """Vérifie la validité d'un lien de réinitialisation."""
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        uid = request.query_params.get('uid', '')
+        token = request.query_params.get('token', '')
+        user = get_user_from_uid(uid)
+        if not user or not default_token_generator.check_token(user, token):
+            return Response({'valid': False, 'error': 'Lien invalide ou expiré.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'valid': True, 'email': user.email})
+
+
+class PasswordResetConfirmView(APIView):
+    """Confirme la réinitialisation avec uid + token."""
+    permission_classes = [AllowAny]
+
+    def post(self, request):
+        serializer = PasswordResetConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = get_user_from_uid(serializer.validated_data['uid'])
+        token = serializer.validated_data['token']
+        if not user or not default_token_generator.check_token(user, token):
+            return Response({'error': 'Lien invalide ou expiré.'}, status=status.HTTP_400_BAD_REQUEST)
+        user.set_password(serializer.validated_data['new_password'])
+        user.save(update_fields=['password'])
+        return Response({'message': 'Mot de passe réinitialisé avec succès.'})
+
+
 @api_view(['GET'])
 @permission_classes([permissions.IsAuthenticated])
 def get_user_stats(request):
     """Statistiques utilisateur pour le dashboard"""
     user = request.user
-    
+    role = get_effective_role(user)
+
     stats = {
         'user_type': user.user_type,
+        'active_role': role,
         'total_missions': 0,
         'active_missions': 0,
         'completed_missions': 0,
@@ -241,17 +481,16 @@ def get_user_stats(request):
         'wallet_balance': 0,
         'reputation_score': 50.0,
     }
-    
-    if user.user_type == User.UserType.CLIENT:
+
+    if role == User.UserType.CLIENT:
         missions = user.client_missions.all()
         stats['total_missions'] = missions.count()
         stats['active_missions'] = missions.filter(
             status__in=['funded', 'accepted', 'in_progress', 'submitted']
         ).count()
         stats['completed_missions'] = missions.filter(status='completed').count()
-        # Calculer le total dépensé
-        
-    elif user.user_type == User.UserType.PROVIDER:
+
+    elif role == User.UserType.PROVIDER:
         if hasattr(user, 'provider_profile'):
             profile = user.provider_profile
             stats['total_missions'] = profile.total_missions_completed
@@ -272,8 +511,8 @@ def get_user_stats(request):
 def toggle_availability(request):
     """Changer la disponibilité du prestataire"""
     user = request.user
-    
-    if user.user_type != User.UserType.PROVIDER:
+
+    if not can_act_as_provider(user):
         return Response(
             {'error': 'Seuls les prestataires peuvent changer leur disponibilité.'},
             status=status.HTTP_403_FORBIDDEN
@@ -309,6 +548,8 @@ def admin_stats(request):
         'total_enterprises': User.objects.filter(user_type='enterprise').count(),
         'total_missions': Mission.objects.count(),
         'pending_kyc': User.objects.filter(kyc_status='pending').count(),
+        'verified_kyc': User.objects.filter(kyc_status='verified').count(),
+        'rejected_kyc': User.objects.filter(kyc_status='rejected').count(),
         'pending_disputes': Dispute.objects.filter(status='open').count(),
         'active_missions': Mission.objects.filter(status__in=['assigned', 'in_progress']).count(),
         'completed_missions': Mission.objects.filter(status='completed').count(),
@@ -369,6 +610,7 @@ def switch_active_role(request):
     user.save(update_fields=['active_role'])
     return Response({
         'active_role': user.active_role,
+        'effective_role': get_effective_role(user),
         'user': UserSerializer(user).data
     })
 
@@ -410,3 +652,87 @@ def admin_recent_activity(request):
     activity.sort(key=lambda x: x['time'], reverse=True)
     
     return Response(activity[:10])
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def provider_public_profile(request, id):
+    """Profil public d'un prestataire (page vitrine, sans données sensibles)."""
+    user = get_object_or_404(
+        User.objects.select_related('provider_profile'),
+        id=id,
+        provider_profile__isnull=False,
+        is_active=True,
+    )
+    profile = user.provider_profile
+    review_stats = MissionReview.objects.filter(
+        mission__provider=user,
+        client_rating__isnull=False,
+    ).aggregate(
+        count=Count('id'),
+        avg=Avg('client_rating'),
+    )
+
+    return Response({
+        'id': str(user.id),
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'city': user.city,
+        'country': user.country,
+        'bio': user.bio,
+        'profile_picture': (
+            request.build_absolute_uri(user.profile_picture.url)
+            if user.profile_picture else None
+        ),
+        'skills': profile.skills or [],
+        'categories': profile.categories or [],
+        'level': profile.level,
+        'reputation_score': profile.reputation_score,
+        'completed_missions': profile.total_missions_completed,
+        'review_count': review_stats['count'] or 0,
+        'avg_rating': round(float(review_stats['avg']), 1) if review_stats['avg'] else None,
+        'identity_verified': user.kyc_status == User.KYCStatus.VERIFIED,
+        'is_available': profile.is_available,
+        'member_since': user.date_joined.isoformat(),
+        'vehicle_type': profile.vehicle_type or '',
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def enterprise_public_profile(request, id):
+    """Profil public d'une entreprise (page vitrine landing)."""
+    profile = get_object_or_404(
+        EnterpriseProfile.objects.select_related('user'),
+        user_id=id,
+        user__is_active=True,
+    )
+    user = profile.user
+    defaults = enterprise_profile_defaults(user)
+    company_name = (profile.company_name or defaults['company_name'] or user.get_full_name() or user.username).strip()
+    city = (profile.city or defaults['city'] or user.city or '').strip()
+    employee_count = Employee.objects.filter(enterprise=profile, is_active=True).count()
+    missions_count = profile.total_missions_posted or Mission.objects.filter(
+        client=user,
+    ).exclude(status=Mission.Status.DRAFT).count()
+
+    return Response({
+        'id': str(user.id),
+        'company_name': company_name,
+        'city': city,
+        'country': user.country or 'Mali',
+        'address': profile.address or '',
+        'website': profile.website or '',
+        'description': user.bio or '',
+        'logo': (
+            request.build_absolute_uri(user.profile_picture.url)
+            if user.profile_picture else None
+        ),
+        'total_employees': employee_count or profile.total_employees or 0,
+        'total_missions_posted': missions_count,
+        'reputation_score': profile.reputation_score,
+        'is_verified': profile.is_verified,
+        'member_since': profile.created_at.isoformat(),
+        'company_email': profile.company_email or '',
+        'company_phone': profile.company_phone or user.phone_number or '',
+    })

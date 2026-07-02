@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from apps.missions.models import Mission
 from .models import Dispute, DisputeEvidence, DisputeMessage
 
 User = get_user_model()
@@ -79,3 +80,62 @@ class DisputeResolveSerializer(serializers.Serializer):
 
 class DisputeStatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Dispute.Status.choices)
+
+
+class DisputeCreateSerializer(serializers.ModelSerializer):
+    mission_id = serializers.UUIDField(write_only=True)
+
+    class Meta:
+        model = Dispute
+        fields = ['mission_id', 'reason', 'description', 'requested_resolution']
+
+    def validate_mission_id(self, value):
+        try:
+            mission = Mission.objects.get(id=value)
+        except Mission.DoesNotExist:
+            raise serializers.ValidationError('Mission introuvable')
+        request = self.context['request']
+        if request.user not in (mission.client, mission.provider):
+            raise serializers.ValidationError('Non autorisé')
+        if mission.status not in [
+            Mission.Status.IN_PROGRESS,
+            Mission.Status.SUBMITTED,
+            Mission.Status.COMPLETED,
+            Mission.Status.DISPUTED,
+        ]:
+            raise serializers.ValidationError('Mission non éligible au litige')
+        self.context['mission'] = mission
+        return value
+
+    def create(self, validated_data):
+        mission = self.context['mission']
+        user = self.context['request'].user
+        defendant = mission.provider if user == mission.client else mission.client
+        if not defendant:
+            raise serializers.ValidationError('Mission sans contrepartie')
+
+        dispute = Dispute.objects.create(
+            mission=mission,
+            plaintiff=user,
+            defendant=defendant,
+            reason=validated_data['reason'],
+            description=validated_data['description'],
+            requested_resolution=validated_data.get('requested_resolution', ''),
+        )
+
+        if mission.status != Mission.Status.DISPUTED:
+            mission.status = Mission.Status.DISPUTED
+            mission.save(update_fields=['status'])
+
+        return dispute
+
+
+class DisputeEvidenceCreateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = DisputeEvidence
+        fields = ['evidence_type', 'title', 'description', 'file']
+
+    def create(self, validated_data):
+        validated_data['submitted_by'] = self.context['request'].user
+        validated_data['dispute'] = self.context['dispute']
+        return super().create(validated_data)

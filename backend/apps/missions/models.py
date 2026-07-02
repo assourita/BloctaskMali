@@ -67,6 +67,22 @@ class Mission(models.Model):
         blank=True,
         null=True
     )
+    assigned_enterprise = models.ForeignKey(
+        'users.EnterpriseProfile',
+        on_delete=models.SET_NULL,
+        related_name='provider_missions',
+        blank=True,
+        null=True,
+        help_text='Entreprise prestataire contractuelle (caution sur solde entreprise)',
+    )
+    executing_employee = models.ForeignKey(
+        'users.Employee',
+        on_delete=models.SET_NULL,
+        related_name='executed_missions',
+        blank=True,
+        null=True,
+        help_text='Employé terrain qui exécute la mission',
+    )
     category = models.ForeignKey(
         Category,
         on_delete=models.SET_NULL,
@@ -104,12 +120,28 @@ class Mission(models.Model):
     deposit_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     deposit_paid = models.BooleanField(default=False)
     deposit_tx_hash = models.CharField(max_length=66, blank=True, null=True)
+    deposit_deadline = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text='Délai pour déposer la caution après acceptation (4h par défaut)',
+    )
     
     # Timing
     deadline = models.DateTimeField()
     expected_duration = models.PositiveIntegerField(help_text="Durée estimée en minutes", default=60)
     started_at = models.DateTimeField(blank=True, null=True)
     completed_at = models.DateTimeField(blank=True, null=True)
+
+    # Expiration : décision client requise si échéance dépassée avec prestataire assigné
+    expiry_decision_pending = models.BooleanField(
+        default=False,
+        help_text='Le client doit choisir de continuer ou annuler après expiration de l\'échéance',
+    )
+    expiry_decision_due_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text='Date limite pour la décision client avant annulation automatique',
+    )
     
     # Statut
     status = models.CharField(
@@ -220,6 +252,69 @@ class MissionApplication(models.Model):
     
     def __str__(self):
         return f"{self.provider} → {self.mission}"
+
+
+class MissionSolicitation(models.Model):
+    """Sollicitation directe d'un prestataire ou d'une entreprise par un client."""
+
+    class TargetType(models.TextChoices):
+        PROVIDER = 'provider', 'Prestataire'
+        ENTERPRISE = 'enterprise', 'Entreprise'
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'En attente'
+        ACCEPTED = 'accepted', 'Acceptée'
+        REJECTED = 'rejected', 'Refusée'
+        CANCELLED = 'cancelled', 'Annulée'
+        EXPIRED = 'expired', 'Expirée'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    mission = models.ForeignKey(
+        Mission,
+        on_delete=models.CASCADE,
+        related_name='solicitations',
+    )
+    target_type = models.CharField(
+        max_length=20,
+        choices=TargetType.choices,
+        default=TargetType.PROVIDER,
+    )
+    provider = models.ForeignKey(
+        'users.User',
+        on_delete=models.CASCADE,
+        related_name='received_solicitations',
+        blank=True,
+        null=True,
+    )
+    enterprise = models.ForeignKey(
+        'users.EnterpriseProfile',
+        on_delete=models.CASCADE,
+        related_name='received_solicitations',
+        blank=True,
+        null=True,
+    )
+    client = models.ForeignKey(
+        'users.User',
+        on_delete=models.CASCADE,
+        related_name='sent_solicitations',
+    )
+    message = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    responded_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'mission_solicitations'
+        ordering = ['-created_at']
+
+    def __str__(self):
+        target = self.provider or self.enterprise
+        return f"{self.client} → {target} ({self.mission})"
 
 
 class MissionStatusHistory(models.Model):

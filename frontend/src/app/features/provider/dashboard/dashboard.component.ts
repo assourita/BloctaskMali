@@ -8,8 +8,14 @@ import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSliderModule } from '@angular/material/slider';
 import { Observable } from 'rxjs';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AuthService, User } from '../../../core/services/auth.service';
-import { DashboardHeaderComponent } from '../../../shared/components/dashboard-header/dashboard-header.component';
+import { MissionService, Mission } from '../../../core/services/mission.service';
+import { PaymentMethodFlowService } from '../../../core/services/payment-method-flow.service';
+import { formatXOF, DEFAULT_MAP_CENTER } from '../../../core/constants/africa.constants';
+import { environment } from '../../../../environments/environment';
 
 @Component({
   selector: 'app-provider-dashboard',
@@ -23,11 +29,10 @@ import { DashboardHeaderComponent } from '../../../shared/components/dashboard-h
     MatChipsModule,
     MatProgressBarModule,
     MatSliderModule,
-    DashboardHeaderComponent
+    MatSnackBarModule,
+    MatDialogModule,
   ],
   template: `
-    <app-dashboard-header></app-dashboard-header>
-    
     <div class="dashboard-container">
       <!-- Welcome Section -->
       <div class="welcome-section">
@@ -129,8 +134,8 @@ import { DashboardHeaderComponent } from '../../../shared/components/dashboard-h
             <mat-progress-bar mode="determinate" [value]="currentMission.progress"></mat-progress-bar>
           </div>
 
-          <div class="client-info">
-            <img [src]="currentMission.client.avatar" alt="Client" class="avatar">
+          <div class="client-info" *ngIf="currentMission.client">
+            <img [src]="currentMission.client.avatar || ''" alt="Client" class="avatar">
             <div class="client-details">
               <span class="name">{{ currentMission.client.name }}</span>
               <span class="rating">⭐ {{ currentMission.client.rating }}</span>
@@ -593,89 +598,134 @@ export class ProviderDashboardComponent implements OnInit {
   currentUser$: Observable<User | null>;
   
   // Earnings
-  totalEarnings = 1250;
-  currency = 'FCFA';
-  completedMissions = 24;
-  averageRating = 4.8;
+  totalEarnings = '0 XOF';
+  currency = 'XOF';
+  completedMissions = 0;
+  averageRating = 4.5;
   responseTime = 1.5;
   
-  // Reputation
-  reputationLevel = 'Gold';
-  reputationScore = 87;
+  reputationLevel = 'Bronze';
+  reputationScore = 50;
   
-  // Availability
   isAvailable = true;
-  
-  // Deposit
   depositAmount = 25;
   
-  // Current Mission
-  currentMission = {
-    id: 1,
-    title: 'Livraison colis urgent - Zone industrielle',
-    budget: 75,
-    currency: 'FCFA',
-    pickup: 'Cocody',
-    delivery: 'Plateau',
-    deadline: '18:30',
-    progress: 45,
-    client: {
-      name: 'Amadou D.',
-      avatar: 'assets/images/client1.jpg',
-      rating: 4.9
-    }
-  };
+  currentMission: {
+    id: string;
+    title: string;
+    budget: number;
+    currency: string;
+    pickup: string;
+    delivery: string;
+    deadline: string;
+    progress: number;
+    client?: { name: string; avatar?: string; rating: number };
+  } | null = null;
   
-  // Nearby Missions
-  nearbyMissions = [
-    {
-      id: 1,
-      title: 'Course pharmacie',
-      distance: 0.8,
-      budget: 30,
-      currency: 'FCFA',
-      pickup: 'Pharmacie du plateau',
-      delivery: 'Cocody Angré',
-      estimatedTime: 25
-    },
-    {
-      id: 2,
-      title: 'Livraison documents',
-      distance: 1.2,
-      budget: 20,
-      currency: 'FCFA',
-      pickup: 'Cocody',
-      delivery: 'Marcory',
-      estimatedTime: 20
-    },
-    {
-      id: 3,
-      title: 'Achat supermarché',
-      distance: 2.1,
-      budget: 45,
-      currency: 'FCFA',
-      pickup: 'Super U',
-      delivery: 'Treichville',
-      estimatedTime: 40
-    }
-  ];
+  nearbyMissions: Array<{
+    id: string;
+    title: string;
+    distance: number;
+    budget: number;
+    currency: string;
+    pickup: string;
+    delivery: string;
+    estimatedTime: number;
+  }> = [];
   
-  // Weekly Stats
-  weeklyEarnings = 320;
-  weeklyMissions = 8;
+  weeklyEarnings = 0;
+  weeklyMissions = 0;
   avgCompletionTime = 2.5;
   satisfactionRate = 98;
   
-  constructor(private authService: AuthService) {
+  constructor(
+    private authService: AuthService,
+    private missionService: MissionService,
+    private http: HttpClient,
+    private snackBar: MatSnackBar,
+    private dialog: MatDialog,
+    private paymentMethodFlow: PaymentMethodFlowService,
+  ) {
     this.currentUser$ = this.authService.currentUser$;
   }
 
-  ngOnInit(): void {}
+  ngOnInit(): void {
+    this.loadDashboard();
+  }
+
+  private headers(): HttpHeaders {
+    return new HttpHeaders({ Authorization: `Bearer ${localStorage.getItem('access_token')}` });
+  }
+
+  loadDashboard(): void {
+    this.missionService.getDashboardStats('provider').subscribe({
+      next: (s) => {
+        this.completedMissions = s.completed_missions || 0;
+        this.totalEarnings = formatXOF(s.earned_this_month || 0);
+        this.weeklyEarnings = Number(s.earned_this_month) || 0;
+        this.reputationScore = s.reputation_score || 50;
+        this.reputationLevel = (s.reputation_level || 'bronze').replace(/^./, c => c.toUpperCase());
+      }
+    });
+    this.missionService.getMyMissions('provider').subscribe({
+      next: (missions) => {
+        const current = missions.find(m => m.status === 'in_progress' || m.status === 'accepted');
+        this.currentMission = current ? {
+          id: current.id,
+          title: current.title,
+          budget: Number(current.budget),
+          currency: current.currency || 'XOF',
+          pickup: current.pickup_address || '—',
+          delivery: current.delivery_address || '—',
+          deadline: current.deadline || '',
+          progress: current.status === 'in_progress' ? 50 : 10,
+          client: current.client ? {
+            name: `${current.client.first_name} ${current.client.last_name?.[0] || ''}.`,
+            rating: 4.5
+          } : undefined
+        } : null;
+      }
+    });
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(pos => {
+        this.missionService.getAvailable(pos.coords.latitude, pos.coords.longitude).subscribe({
+          next: (missions) => {
+            this.nearbyMissions = missions.slice(0, 5).map(m => ({
+              id: m.id,
+              title: m.title,
+              distance: 1,
+              budget: Number(m.budget),
+              currency: m.currency || 'XOF',
+              pickup: m.pickup_address || '—',
+              delivery: m.delivery_address || '—',
+              estimatedTime: 30
+            }));
+          }
+        });
+      }, () => {
+        this.missionService.getAvailable(DEFAULT_MAP_CENTER.lat, DEFAULT_MAP_CENTER.lng).subscribe({
+          next: (missions) => {
+            this.nearbyMissions = missions.slice(0, 5).map(m => ({
+              id: m.id,
+              title: m.title,
+              distance: 2,
+              budget: Number(m.budget),
+              currency: m.currency || 'XOF',
+              pickup: m.pickup_address || '—',
+              delivery: m.delivery_address || '—',
+              estimatedTime: 30
+            }));
+          }
+        });
+      });
+    }
+  }
   
   toggleAvailability(event: any): void {
     this.isAvailable = event.selected;
-    console.log('Availability toggled:', this.isAvailable);
-    // TODO: Appeler l'API
+    this.http.post(`${environment.apiUrl}/users/toggle-availability/`, {}, { headers: this.headers() }).subscribe({
+      error: () => this.snackBar.open('Erreur mise à jour disponibilité', 'Fermer', { duration: 3000 })
+    });
   }
   
   updateLocation(): void {
@@ -693,8 +743,39 @@ export class ProviderDashboardComponent implements OnInit {
     // TODO: API call
   }
   
-  applyToMission(mission: any): void {
-    console.log('Applying to mission:', mission);
-    // TODO: API call
+  applyToMission(mission: { id: string; title?: string }): void {
+    this.paymentMethodFlow.ensurePaymentMethod(this.dialog).subscribe({
+      next: (ready) => {
+        if (ready) {
+          this.submitApplication(mission);
+        }
+      },
+    });
+  }
+
+  private submitApplication(mission: { id: string; title?: string }): void {
+    const message = mission.title
+      ? `Bonjour, je suis disponible pour cette mission « ${mission.title} ».`
+      : '';
+    this.missionService.applyToMission(mission.id, message).subscribe({
+      next: () => {
+        this.snackBar.open('Candidature envoyée !', 'Fermer', { duration: 4000 });
+        this.loadDashboard();
+      },
+      error: (err) => {
+        const body = err.error;
+        if (body?.payment_method_required) {
+          this.paymentMethodFlow.ensurePaymentMethod(this.dialog).subscribe({
+            next: (ready) => { if (ready) this.submitApplication(mission); },
+          });
+          return;
+        }
+        if (body?.already_applied || body?.error?.includes?.('déjà postulé')) {
+          this.snackBar.open('Vous avez déjà postulé à cette mission.', 'Fermer', { duration: 5000 });
+        } else {
+          this.snackBar.open(body?.error || 'Erreur candidature', 'Fermer', { duration: 4000 });
+        }
+      }
+    });
   }
 }

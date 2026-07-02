@@ -1,3 +1,21 @@
+@use '@angular/material' as mat;
+
+@include mat.core();
+
+$blocktask-primary: mat.define-palette(mat.$green-palette, 600);
+$blocktask-accent: mat.define-palette(mat.$teal-palette, A200);
+$blocktask-warn: mat.define-palette(mat.$red-palette);
+
+$blocktask-theme: mat.define-light-theme((
+  color: (
+    primary: $blocktask-primary,
+    accent: $blocktask-accent,
+    warn: $blocktask-warn,
+  ),
+));
+
+@include mat.all-component-themes($blocktask-theme);
+
 /* Global Styles for BlockTask */
 
 :root {
@@ -601,4 +619,32 @@ a:hover {
 .cdk-overlay-pane.operator-dropdown {
   z-index: 1002 !important;
   max-width: none !important;
+}
+
+.landing-provider-dialog .mat-mdc-dialog-container,
+.landing-provider-dialog .mdc-dialog__surface {
+  padding: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+}
+
+.landing-providers-list-dialog .mat-mdc-dialog-container,
+.landing-providers-list-dialog .mdc-dialog__surface {
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+}
+
+.landing-enterprise-dialog .mat-mdc-dialog-container,
+.landing-enterprise-dialog .mdc-dialog__surface {
+  padding: 0;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+}
+
+.landing-enterprises-list-dialog .mat-mdc-dialog-container,
+.landing-enterprises-list-dialog .mdc-dialog__surface {
+  border-radius: 16px;
+  box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
 }

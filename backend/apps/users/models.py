@@ -61,7 +61,7 @@ class User(AbstractUser):
     bio = models.TextField(max_length=500, blank=True)
     address = models.TextField(blank=True)
     city = models.CharField(max_length=100, blank=True)
-    country = models.CharField(max_length=100, default='Côte d\'Ivoire')
+    country = models.CharField(max_length=100, default='Mali')
     
     # Wallet Blockchain
     wallet_address = models.CharField(max_length=42, blank=True, null=True, unique=True)
@@ -73,12 +73,13 @@ class User(AbstractUser):
         choices=KYCStatus.choices,
         default=KYCStatus.NOT_REQUIRED
     )
-    nina = models.CharField(max_length=20, blank=True, null=True)  # Numéro d'Identification Nationale
+    nina = models.CharField(max_length=20, blank=True, null=True)  # NINA / numéro d'identification nationale (Mali, Niger, Guinée…)
     id_card_front = models.ImageField(upload_to='kyc/id/', blank=True, null=True)
     id_card_back = models.ImageField(upload_to='kyc/id/', blank=True, null=True)
     selfie_verification = models.ImageField(upload_to='kyc/selfies/', blank=True, null=True)
     kyc_submitted_at = models.DateTimeField(blank=True, null=True)
     kyc_verified_at = models.DateTimeField(blank=True, null=True)
+    kyc_rejection_reason = models.TextField(blank=True, default='')
     
     # Sécurité
     two_factor_enabled = models.BooleanField(default=False)
@@ -86,6 +87,7 @@ class User(AbstractUser):
     last_login_ip = models.GenericIPAddressField(blank=True, null=True)
     email_verified = models.BooleanField(default=False)
     phone_verified = models.BooleanField(default=False)
+    google_id = models.CharField(max_length=255, blank=True, null=True, unique=True)
     
     # GPS / Localisation
     gps_tracking_enabled = models.BooleanField(default=True)
@@ -123,13 +125,29 @@ class User(AbstractUser):
             self.active_role = self.user_type
         super().save(*args, **kwargs)
 
+    def get_available_roles(self):
+        from .roles import get_available_roles
+        return get_available_roles(self)
+
+    def get_effective_role(self):
+        from .roles import get_effective_role
+        return get_effective_role(self)
+
+    def has_role(self, role: str) -> bool:
+        from .roles import has_role
+        return has_role(self, role)
+
+    def is_acting_as(self, role: str) -> bool:
+        from .roles import is_acting_as
+        return is_acting_as(self, role)
+
     @property
     def is_client(self):
-        return self.user_type == self.UserType.CLIENT
-    
+        return self.is_acting_as(self.UserType.CLIENT)
+
     @property
     def is_provider(self):
-        return self.user_type == self.UserType.PROVIDER
+        return self.is_acting_as(self.UserType.PROVIDER)
     
     @property
     def is_enterprise(self):
@@ -178,6 +196,15 @@ class ProviderProfile(models.Model):
     # Caution
     deposit_balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     deposit_locked = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+
+    # Agent terrain rattaché à une entreprise (pas prestataire indépendant)
+    managed_by_enterprise = models.ForeignKey(
+        'users.EnterpriseProfile',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='field_agents',
+    )
     
     # Véhicule (pour livraisons)
     vehicle_type = models.CharField(max_length=50, blank=True)
@@ -232,6 +259,10 @@ class EnterpriseProfile(models.Model):
     
     # Réputation entreprise
     reputation_score = models.FloatField(default=50.0)
+
+    # Caution collective (gérée par le gérant)
+    deposit_balance = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    deposit_locked = models.DecimalField(max_digits=15, decimal_places=2, default=0)
     
     # Vérification
     is_verified = models.BooleanField(default=False)

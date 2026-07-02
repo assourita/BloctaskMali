@@ -1,4 +1,5 @@
 import { Component, OnInit } from '@angular/core';
+import { lastValueFrom } from 'rxjs';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -18,8 +19,37 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { Overlay, ScrollStrategy } from '@angular/cdk/overlay';
 import { environment } from '../../../../../environments/environment';
 import { PaymentService, PaymentMethod, MobileMoneyOperator } from '../../../../core/services/payment.service';
+import { Web3Service } from '../../../../core/services/web3.service';
+import { BlockchainService } from '../../../../core/services/blockchain.service';
+import { MALI_COUNTRY, DEFAULT_PHONE_PREFIX } from '../../../../core/constants/africa.constants';
+import { AuthService } from '../../../../core/services/auth.service';
+import { EnterpriseMissionsNavComponent } from '../../../enterprise/enterprise-missions-nav.component';
 
-interface Category { id: string; name: string; icon: string; slug: string; }
+interface CategoryRules {
+  slug: string;
+  label: string;
+  mission_type: string;
+  requires_deposit: boolean;
+  deposit_mode: string;
+  deposit_percent: number;
+  deposit_reason: string;
+  requires_merchandise_value: boolean;
+  requires_vehicle: boolean;
+  requires_photo: boolean;
+  requires_signature: boolean;
+  requires_id_verification: boolean;
+  requires_gps_tracking: boolean;
+  enterprise_only: boolean;
+  min_reputation_score: number;
+  requires_pickup: boolean;
+  requires_delivery: boolean;
+  requirement_labels: string[];
+  location_label: string;
+  date_label: string;
+  show_time_range: boolean;
+}
+
+interface Category { id: string; name: string; icon: string; slug: string; rules?: CategoryRules; }
 
 // Category types for dynamic form behavior
 type CategoryType = 'delivery' | 'home_service' | 'location_based' | 'remote' | 'other';
@@ -55,9 +85,11 @@ interface CategoryConfig {
     MatDatepickerModule,
     MatNativeDateModule,
     MatProgressSpinnerModule,
-    MatSnackBarModule
+    MatSnackBarModule,
+    EnterpriseMissionsNavComponent,
   ],
   template: `
+    <app-enterprise-missions-nav *ngIf="isEnterprise" />
     <div class="create-mission-container">
       <mat-card class="form-card">
         <mat-card-header>
@@ -120,34 +152,48 @@ interface CategoryConfig {
                   </mat-form-field>
                 </div>
 
-                <!-- Dynamic Date Field -->
+                <!-- Date + heure (calendrier + horloge) -->
                 <div class="date-field-container">
                   <mat-form-field appearance="fill" class="full-width">
                     <mat-label>{{ dateLabel }}</mat-label>
-                    <input matInput [type]="dateInputType" formControlName="deadline">
+                    <input matInput [matDatepicker]="missionDatePicker" formControlName="deadline" [min]="minDate">
+                    <mat-datepicker-toggle matIconSuffix [for]="missionDatePicker"></mat-datepicker-toggle>
+                    <mat-datepicker #missionDatePicker></mat-datepicker>
                     <mat-error *ngIf="missionDetailsForm.get('deadline')?.hasError('required')">
-                      Ce champ est requis
+                      La date est requise
                     </mat-error>
                   </mat-form-field>
 
-                  <!-- Time Range for schedule/work_date types -->
+                  <!-- Une seule heure (deadline / livraison ponctuelle) -->
+                  <mat-form-field appearance="fill" class="time-field full-width" *ngIf="!showTimeRange">
+                    <mat-label>Heure</mat-label>
+                    <input matInput type="time" formControlName="start_time">
+                    <mat-icon matSuffix>schedule</mat-icon>
+                    <mat-error *ngIf="missionDetailsForm.get('start_time')?.hasError('required')">
+                      L'heure est requise
+                    </mat-error>
+                  </mat-form-field>
+
+                  <!-- Plage horaire (RDV, intervention, déménagement…) -->
                   <div class="time-range-row" *ngIf="showTimeRange">
                     <mat-form-field appearance="fill" class="time-field">
                       <mat-label>Heure de début</mat-label>
                       <input matInput type="time" formControlName="start_time">
+                      <mat-icon matSuffix>schedule</mat-icon>
+                      <mat-error *ngIf="missionDetailsForm.get('start_time')?.hasError('required')">
+                        Requis
+                      </mat-error>
                     </mat-form-field>
                     <mat-form-field appearance="fill" class="time-field">
                       <mat-label>Heure de fin (optionnel)</mat-label>
                       <input matInput type="time" formControlName="end_time">
+                      <mat-icon matSuffix>schedule</mat-icon>
                     </mat-form-field>
                   </div>
 
-                  <!-- Duration hint for work_date/schedule -->
-                  <p class="duration-hint" *ngIf="categoryConfig.dateType === 'work_date' || categoryConfig.dateType === 'schedule'">
-                    <mat-icon>schedule</mat-icon>
-                    Durée estimée : {{ estimated_duration }} minutes
-                    <input type="range" min="30" max="480" step="30" [(ngModel)]="estimated_duration" [ngModelOptions]="{standalone: true}" class="duration-slider">
-                    <span class="duration-value">{{ estimated_duration }} min</span>
+                  <p class="duration-hint" *ngIf="showTimeRange && computedDurationMinutes">
+                    <mat-icon>timelapse</mat-icon>
+                    Durée estimée : {{ computedDurationMinutes }} minutes (calculée depuis les heures)
                   </p>
                 </div>
               </form>
@@ -279,24 +325,51 @@ interface CategoryConfig {
             <mat-step>
               <ng-template matStepLabel>Options</ng-template>
               <div class="step-form">
-                <h3>Exigences spéciales</h3>
+                <h3>Exigences — {{ selectedCategory?.name || 'catégorie' }}</h3>
+
+                <div class="category-rules-info" *ngIf="apiRules">
+                  <mat-icon>policy</mat-icon>
+                  <div>
+                    <p *ngIf="apiRules.deposit_reason"><strong>Caution :</strong> {{ apiRules.deposit_reason }}</p>
+                    <p *ngIf="apiRules.requirement_labels?.length">
+                      <strong>Obligatoire :</strong> {{ apiRules.requirement_labels.join(' · ') }}
+                    </p>
+                  </div>
+                </div>
+
+                <mat-form-field appearance="fill" class="full-width" *ngIf="requiresMerchandiseValue">
+                  <mat-label>Valeur de la marchandise (XOF)</mat-label>
+                  <input matInput type="number" min="1000" [(ngModel)]="merchandiseValue"
+                    [ngModelOptions]="{standalone: true}" (ngModelChange)="refreshDepositPreview()" />
+                  <mat-hint>Caution prestataire basée sur cette valeur (colis, achats, médicaments…)</mat-hint>
+                </mat-form-field>
+
+                <div class="deposit-preview" *ngIf="estimatedDepositPreview > 0">
+                  <mat-icon>security</mat-icon>
+                  Caution prestataire estimée : <strong>{{ estimatedDepositPreview | number:'1.0-0' }} XOF</strong>
+                </div>
+
                 <div class="checkbox-group">
-                  <mat-checkbox [(ngModel)]="requirements.requires_vehicle" [ngModelOptions]="{standalone: true}">
+                  <mat-checkbox [(ngModel)]="requirements.requires_vehicle" [ngModelOptions]="{standalone: true}"
+                    [disabled]="!!apiRules?.requires_vehicle">
                     <mat-icon>local_shipping</mat-icon>
                     Véhicule requis
                   </mat-checkbox>
                   
-                  <mat-checkbox [(ngModel)]="requirements.requires_photo" [ngModelOptions]="{standalone: true}">
+                  <mat-checkbox [(ngModel)]="requirements.requires_photo" [ngModelOptions]="{standalone: true}"
+                    [disabled]="!!apiRules?.requires_photo">
                     <mat-icon>photo_camera</mat-icon>
                     Photo obligatoire
                   </mat-checkbox>
                   
-                  <mat-checkbox [(ngModel)]="requirements.requires_signature" [ngModelOptions]="{standalone: true}">
+                  <mat-checkbox [(ngModel)]="requirements.requires_signature" [ngModelOptions]="{standalone: true}"
+                    [disabled]="!!apiRules?.requires_signature">
                     <mat-icon>draw</mat-icon>
                     Signature requise
                   </mat-checkbox>
                   
-                  <mat-checkbox [(ngModel)]="requires_id_verification" [ngModelOptions]="{standalone: true}">
+                  <mat-checkbox [(ngModel)]="requires_id_verification" [ngModelOptions]="{standalone: true}"
+                    [disabled]="!!apiRules?.requires_id_verification">
                     <mat-icon>badge</mat-icon>
                     Vérification ID
                   </mat-checkbox>
@@ -328,11 +401,9 @@ interface CategoryConfig {
                     <strong>{{ missionDetailsForm.value.budget ? (missionDetailsForm.value.budget | number) + ' FCFA' : '-' }}</strong>
                   </div>
                   <div class="summary-item">
-                    <span>Deadline:</span>
-                    <strong>{{ missionDetailsForm.value.deadline ? (missionDetailsForm.value.deadline | date:'dd/MM/yyyy HH:mm') : '-' }}</strong>
+                    <span>{{ dateLabel }}:</span>
+                    <strong>{{ scheduleSummary }}</strong>
                   </div>
-
-                  <!-- Delivery type itinerary -->
                   <div class="summary-item" *ngIf="isDeliveryType">
                     <span>Itinéraire:</span>
                     <strong>{{ locationsForm.value.pickup_address || 'Départ' }} → {{ locationsForm.value.delivery_address || 'Arrivée' }}</strong>
@@ -342,22 +413,6 @@ interface CategoryConfig {
                   <div class="summary-item" *ngIf="isHomeServiceType">
                     <span>Lieu:</span>
                     <strong>{{ locationsForm.value.service_location || '-' }}</strong>
-                  </div>
-
-                  <!-- Date/Time summary - adaptive -->
-                  <div class="summary-item">
-                    <span>{{ dateLabel }}:</span>
-                    <strong>
-                      <ng-container *ngIf="missionDetailsForm.value.deadline">
-                        {{ missionDetailsForm.value.deadline | date:'dd/MM/yyyy' }}
-                        <ng-container *ngIf="showTimeRange && missionDetailsForm.value.start_time">
-                          de {{ missionDetailsForm.value.start_time }}
-                          <ng-container *ngIf="missionDetailsForm.value.end_time">à {{ missionDetailsForm.value.end_time }}</ng-container>
-                        </ng-container>
-                        <ng-container *ngIf="!showTimeRange">{{ missionDetailsForm.value.deadline | date:'HH:mm' }}</ng-container>
-                      </ng-container>
-                      <ng-container *ngIf="!missionDetailsForm.value.deadline">-</ng-container>
-                    </strong>
                   </div>
 
                   <!-- Escrow info -->
@@ -436,29 +491,32 @@ interface CategoryConfig {
                       </div>
                     </div>
 
-                    <!-- Country code selector -->
+                    <!-- Numéro Mali (+223) -->
                     <div class="phone-row">
-                      <div class="country-select-wrapper">
-                        <label class="operator-label">Pays</label>
-                        <select formControlName="country_code" class="country-native-select">
-                          <option *ngFor="let country of countryCodes" [value]="country.code">
-                            {{ country.flag }} {{ country.name }} ({{ country.code }})
-                          </option>
-                        </select>
+                      <div class="mali-prefix-badge">
+                        <span>{{ maliCountry.flag }} Mali</span>
+                        <strong>{{ maliCountry.phonePrefix }}</strong>
                       </div>
 
                       <mat-form-field appearance="fill" class="phone-input">
-                        <mat-label>Numéro de téléphone</mat-label>
-                        <input matInput formControlName="phone_number" type="tel" [placeholder]="selectedCountry?.placeholder || '0123456789'">
+                        <mat-label>Numéro Mobile Money</mat-label>
+                        <input matInput formControlName="phone_number" type="tel" [placeholder]="maliCountry.phonePlaceholder">
                         <mat-icon matPrefix>phone</mat-icon>
                         <mat-error *ngIf="paymentForm.get('phone_number')?.hasError('required')">
                           Le numéro est requis
                         </mat-error>
                         <mat-error *ngIf="paymentForm.get('phone_number')?.hasError('pattern')">
-                          Format invalide ({{ selectedCountry?.phoneLength || 10 }} chiffres)
+                          Format invalide (8 chiffres, ex. 70 XX XX XX)
                         </mat-error>
                       </mat-form-field>
                     </div>
+
+                    <mat-form-field appearance="fill" class="full-width">
+                      <mat-label>Code OTP (reçu sur votre téléphone)</mat-label>
+                      <input matInput formControlName="otp" type="text" maxlength="6" placeholder="1234">
+                      <mat-icon matPrefix>pin</mat-icon>
+                      <mat-hint>Mode test : utilisez 1234</mat-hint>
+                    </mat-form-field>
 
                     <p class="payment-info">
                       <mat-icon>info</mat-icon>
@@ -471,9 +529,10 @@ interface CategoryConfig {
                 <div class="security-notice">
                   <mat-icon>verified_user</mat-icon>
                   <div>
-                    <strong>Paiement 100% sécurisé</strong>
+                    <strong>Paiement sécurisé — Mali</strong>
                     <p>
-                      Vos fonds seront bloqués en escrow sur la blockchain. Si la mission est annulée avant acceptation par un prestataire, vous serez remboursé intégralement.
+                      Paiement en <strong>FCFA</strong> via Orange Money ou Moov Money.
+                      Si votre wallet MetaMask est connecté, la mission sera également ancrée sur la blockchain Sepolia (couche de confiance escrow).
                     </p>
                   </div>
                 </div>
@@ -894,6 +953,20 @@ interface CategoryConfig {
       }
     }
 
+    .category-rules-info {
+      display: flex; gap: 12px; align-items: flex-start;
+      background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 10px;
+      padding: 12px 14px; margin-bottom: 16px; font-size: 13px; color: #0c4a6e;
+      mat-icon { color: #0284c7; flex-shrink: 0; }
+      p { margin: 0 0 6px; &:last-child { margin: 0; } }
+    }
+    .deposit-preview {
+      display: flex; align-items: center; gap: 8px;
+      background: #fef3c7; border-radius: 8px; padding: 10px 12px;
+      margin-bottom: 16px; font-size: 14px; color: #92400e;
+      mat-icon { color: #d97706; }
+    }
+
     .checkbox-group {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
@@ -1019,12 +1092,18 @@ interface CategoryConfig {
         margin-top: 16px;
 
         .time-field {
-          flex: 1;
+        flex: 1;
 
-          input[type="time"] {
-            font-size: 15px;
-          }
+        input[type="time"] {
+          font-size: 15px;
+          cursor: pointer;
         }
+
+        &.full-width {
+          width: 100%;
+          margin-top: 8px;
+        }
+      }
       }
 
       .duration-hint {
@@ -1047,9 +1126,7 @@ interface CategoryConfig {
         }
 
         .duration-slider {
-          flex: 1;
-          min-width: 120px;
-          margin: 0 8px;
+          display: none;
         }
 
         .duration-value {
@@ -1309,10 +1386,20 @@ interface CategoryConfig {
       display: flex;
       gap: 12px;
       margin-bottom: 20px;
+      align-items: flex-end;
 
-      .country-select-wrapper {
-        flex: 0 0 45%;
-        min-width: 140px;
+      .mali-prefix-badge {
+        flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        padding: 10px 14px;
+        background: #f0fdf4;
+        border: 1px solid #bbf7d0;
+        border-radius: 10px;
+        font-size: 13px;
+        color: #166534;
+        strong { font-size: 15px; }
       }
 
       .phone-input {
@@ -1426,6 +1513,11 @@ interface CategoryConfig {
 })
 export class CreateMissionComponent implements OnInit {
   private apiUrl = environment.apiUrl;
+
+  get isEnterprise(): boolean {
+    return this.authService.getActiveRole() === 'enterprise';
+  }
+
   missionDetailsForm: FormGroup;
   locationsForm: FormGroup;
 
@@ -1476,6 +1568,9 @@ export class CreateMissionComponent implements OnInit {
     'default': { type: 'other', requiresPickup: true, requiresDelivery: true, showContacts: false, locationLabel: 'Adresses', requirements: [], dateType: 'deadline', dateLabel: 'Deadline', showTimeRange: false }
   };
   
+  merchandiseValue: number | null = null;
+  estimatedDepositPreview = 0;
+
   requirements = {
     requires_vehicle: false,
     requires_photo: true,
@@ -1483,6 +1578,7 @@ export class CreateMissionComponent implements OnInit {
   };
   requires_id_verification = false;
   special_instructions = '';
+  minDate = new Date();
   estimated_duration = 60;
 
   isSubmitting = false;
@@ -1494,19 +1590,8 @@ export class CreateMissionComponent implements OnInit {
   selectedPaymentMethod: string = 'mobile_money';
   scrollStrategy: ScrollStrategy;
 
-  // Country codes for phone validation
-  countryCodes = [
-    { code: '+225', name: 'Côte d\'Ivoire', flag: '🇨🇮', phoneLength: 10, placeholder: '07 XX XX XX XX' },
-    { code: '+221', name: 'Sénégal', flag: '🇸🇳', phoneLength: 9, placeholder: '77 XXX XX XX' },
-    { code: '+223', name: 'Mali', flag: '🇲🇱', phoneLength: 8, placeholder: 'XX XX XX XX' },
-    { code: '+226', name: 'Burkina Faso', flag: '🇧🇫', phoneLength: 8, placeholder: 'XX XX XX XX' },
-    { code: '+227', name: 'Niger', flag: '🇳🇪', phoneLength: 8, placeholder: 'XX XX XX XX' },
-    { code: '+228', name: 'Togo', flag: '🇹🇬', phoneLength: 8, placeholder: 'XX XX XX XX' },
-    { code: '+229', name: 'Bénin', flag: '🇧🇯', phoneLength: 8, placeholder: 'XX XX XX XX' },
-    { code: '+233', name: 'Ghana', flag: '🇬🇭', phoneLength: 9, placeholder: 'XX XXX XXXX' },
-    { code: '+237', name: 'Cameroun', flag: '🇨🇲', phoneLength: 9, placeholder: '6XX XXX XXX' },
-    { code: '+242', name: 'Congo', flag: '🇨🇬', phoneLength: 9, placeholder: 'XX XXX XXXX' }
-  ];
+  maliCountry = MALI_COUNTRY;
+  blockchainAvailable = false;
 
   constructor(
     private fb: FormBuilder,
@@ -1514,7 +1599,10 @@ export class CreateMissionComponent implements OnInit {
     private snackBar: MatSnackBar,
     private http: HttpClient,
     private paymentService: PaymentService,
-    private overlay: Overlay
+    private web3Service: Web3Service,
+    private blockchainService: BlockchainService,
+    private overlay: Overlay,
+    private authService: AuthService,
   ) {
     this.scrollStrategy = this.overlay.scrollStrategies.reposition();
     this.missionDetailsForm = this.fb.group({
@@ -1522,8 +1610,8 @@ export class CreateMissionComponent implements OnInit {
       description: ['', Validators.required],
       category: ['', Validators.required],
       budget: ['', [Validators.required, Validators.min(5000)]],
-      deadline: ['', Validators.required],
-      start_time: [''],
+      deadline: [null as Date | null, Validators.required],
+      start_time: ['09:00', Validators.required],
       end_time: ['']
     });
 
@@ -1539,57 +1627,81 @@ export class CreateMissionComponent implements OnInit {
 
     this.paymentForm = this.fb.group({
       payment_method: ['mobile_money', Validators.required],
-      country_code: ['+225', Validators.required],
-      phone_number: ['', [Validators.required]],
-      operator: ['', Validators.required]
+      country_code: [DEFAULT_PHONE_PREFIX, Validators.required],
+      phone_number: ['', [Validators.required, Validators.pattern(/^\d{8}$/)]],
+      operator: ['orange', Validators.required],
+      otp: ['1234', [Validators.required, Validators.minLength(4)]],
     });
-
-    // Watch country_code changes to update phone validation
-    this.paymentForm.get('country_code')?.valueChanges.subscribe((countryCode) => {
-      this.updatePhoneValidation(countryCode);
-    });
-
   }
 
   ngOnInit(): void {
-    // Initialize mobile money operators
-    this.mobileMoneyOperators = this.paymentService.getMobileMoneyOperators();
-    console.log('Mobile Money Operators loaded:', this.mobileMoneyOperators);
-    
+    this.mobileMoneyOperators = this.paymentService.getMobileMoneyOperators('ML');
     this.loadCategories();
+    this.blockchainService.getStatus().subscribe({
+      next: (s) => { this.blockchainAvailable = s.blockchain_enabled || !!s.escrow_address; },
+    });
 
-    // Watch category changes to update form dynamically
     this.missionDetailsForm.get('category')?.valueChanges.subscribe((categoryId) => {
       this.onCategoryChange(categoryId);
     });
-
-    // Initialize phone validation with default country
-    this.updatePhoneValidation('+225');
-  }
-
-  updatePhoneValidation(countryCode: string): void {
-    const country = this.countryCodes.find(c => c.code === countryCode);
-    if (country) {
-      const phoneControl = this.paymentForm.get('phone_number');
-      const pattern = new RegExp(`^[0-9]{${country.phoneLength}}$`);
-      phoneControl?.setValidators([Validators.required, Validators.pattern(pattern)]);
-      phoneControl?.updateValueAndValidity();
-    }
-  }
-
-  get selectedCountry() {
-    return this.countryCodes.find(c => c.code === this.paymentForm.value.country_code);
   }
 
   onCategoryChange(categoryId: string): void {
     this.selectedCategory = this.categories.find(c => c.id === categoryId) || null;
-    console.log('Category changed to:', this.selectedCategory);
+    this.applyApiRules();
     this.updateFormForCategory();
-    console.log('After updateFormForCategory - locationsForm valid:', this.locationsForm.valid);
-    console.log('After updateFormForCategory - locationsForm value:', this.locationsForm.value);
+    this.refreshDepositPreview();
+  }
+
+  get apiRules(): CategoryRules | null {
+    return this.selectedCategory?.rules || null;
+  }
+
+  get requiresMerchandiseValue(): boolean {
+    return !!this.apiRules?.requires_merchandise_value;
+  }
+
+  private applyApiRules(): void {
+    const r = this.apiRules;
+    if (!r) return;
+    this.requirements.requires_vehicle = r.requires_vehicle;
+    this.requirements.requires_photo = r.requires_photo;
+    this.requirements.requires_signature = r.requires_signature;
+    this.requires_id_verification = r.requires_id_verification;
+  }
+
+  refreshDepositPreview(): void {
+    const budget = parseFloat(this.missionDetailsForm?.value?.budget);
+    if (!this.selectedCategory?.slug || !budget) {
+      this.estimatedDepositPreview = 0;
+      return;
+    }
+    const params = new URLSearchParams({ budget: String(budget) });
+    if (this.merchandiseValue) params.set('merchandise_value', String(this.merchandiseValue));
+    this.http.get<{ estimated_deposit: number }>(
+      `${this.apiUrl}/categories/${this.selectedCategory.slug}/deposit_preview/?${params}`,
+      { headers: this.h() },
+    ).subscribe({
+      next: (res) => { this.estimatedDepositPreview = res.estimated_deposit || 0; },
+      error: () => { this.estimatedDepositPreview = 0; },
+    });
   }
 
   get categoryConfig(): CategoryConfig {
+    const api = this.apiRules;
+    if (api) {
+      return {
+        type: (api.mission_type as CategoryType) || 'other',
+        requiresPickup: api.requires_pickup,
+        requiresDelivery: api.requires_delivery,
+        showContacts: api.mission_type === 'delivery',
+        locationLabel: api.location_label || 'Adresses',
+        requirements: api.requirement_labels || [],
+        dateType: api.show_time_range ? 'schedule' : 'deadline',
+        dateLabel: api.date_label || 'Échéance',
+        showTimeRange: api.show_time_range,
+      };
+    }
     if (!this.selectedCategory) return this.categoryConfigs['default'];
 
     // Try exact match first
@@ -1644,9 +1756,41 @@ export class CreateMissionComponent implements OnInit {
     return this.categoryConfig.showTimeRange;
   }
 
-  get dateInputType(): string {
-    // For work_date, just show date picker. For schedule/deadline, show datetime
-    return this.categoryConfig.dateType === 'work_date' ? 'date' : 'datetime-local';
+  get computedDurationMinutes(): number {
+    const start = this.missionDetailsForm?.value?.start_time as string;
+    const end = this.missionDetailsForm?.value?.end_time as string;
+    if (!start || !end) return 0;
+    const [sh, sm] = start.split(':').map(Number);
+    const [eh, em] = end.split(':').map(Number);
+    const diff = (eh * 60 + em) - (sh * 60 + sm);
+    return diff > 0 ? diff : 0;
+  }
+
+  get scheduleSummary(): string {
+    const dateVal = this.missionDetailsForm?.value?.deadline as Date | null;
+    if (!dateVal) return '-';
+    const dateStr = dateVal.toLocaleDateString('fr-FR');
+    const start = this.missionDetailsForm.value.start_time;
+    const end = this.missionDetailsForm.value.end_time;
+    if (this.showTimeRange && start) {
+      return end ? `${dateStr}, ${start} → ${end}` : `${dateStr}, à partir de ${start}`;
+    }
+    return start ? `${dateStr} à ${start}` : dateStr;
+  }
+
+  private formatPickerDate(d: Date): string {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  private resolveEstimatedDuration(): number {
+    if (this.showTimeRange) {
+      const computed = this.computedDurationMinutes;
+      return computed > 0 ? computed : 60;
+    }
+    return 60;
   }
 
   private getInvalidFields(form: FormGroup): string[] {
@@ -1691,6 +1835,10 @@ export class CreateMissionComponent implements OnInit {
       serviceLocationControl?.clearValidators();
     }
     serviceLocationControl?.updateValueAndValidity();
+
+    const startCtrl = this.missionDetailsForm.get('start_time');
+    startCtrl?.setValidators(Validators.required);
+    startCtrl?.updateValueAndValidity();
   }
 
   private h(): HttpHeaders {
@@ -1736,32 +1884,20 @@ export class CreateMissionComponent implements OnInit {
       return;
     }
 
-    this.isSubmitting = true;
-
-    // Handle date based on category type
-    let deadline: Date;
-    const deadlineValue = this.missionDetailsForm.value.deadline;
-    const startTime = this.missionDetailsForm.value.start_time;
-    const endTime = this.missionDetailsForm.value.end_time;
-
-    console.log('dateType:', this.categoryConfig.dateType);
-    console.log('deadlineValue:', deadlineValue);
-    console.log('startTime:', startTime);
-
-    if (this.categoryConfig.dateType === 'work_date') {
-      // For work_date: deadlineValue is just a date (YYYY-MM-DD), add start time
-      const timePart = startTime || '00:00:00';
-      deadline = new Date(deadlineValue + 'T' + timePart);
-    } else if (this.categoryConfig.dateType === 'schedule' && startTime) {
-      // For schedule: deadlineValue is datetime-local, use it directly but replace time
-      const datePart = deadlineValue.split('T')[0]; // Get just the date YYYY-MM-DD
-      deadline = new Date(datePart + 'T' + startTime);
-    } else {
-      // Default: datetime-local format
-      deadline = new Date(deadlineValue);
+    if (this.requiresMerchandiseValue && (!this.merchandiseValue || this.merchandiseValue < 1000)) {
+      this.snackBar.open('Indiquez la valeur de la marchandise (min. 1 000 XOF)', 'Fermer', { duration: 4000 });
+      return;
     }
 
-    console.log('Computed deadline:', deadline);
+    this.isSubmitting = true;
+
+    // Date calendrier + heure horloge
+    const deadlineValue = this.missionDetailsForm.value.deadline as Date;
+    const startTime = (this.missionDetailsForm.value.start_time as string) || '09:00';
+    const endTime = this.missionDetailsForm.value.end_time as string;
+    const datePart = this.formatPickerDate(deadlineValue);
+    const deadline = new Date(`${datePart}T${startTime}`);
+    const estimatedDuration = this.resolveEstimatedDuration();
 
     // Build location data based on category type
     let locationData: any = {};
@@ -1813,14 +1949,15 @@ export class CreateMissionComponent implements OnInit {
       requires_photo: this.requirements.requires_photo,
       requires_signature: this.requirements.requires_signature,
       requires_id_verification: this.requires_id_verification,
+      merchandise_value: this.merchandiseValue || undefined,
       special_instructions: this.special_instructions,
-      estimated_duration: this.estimated_duration,
+      estimated_duration: estimatedDuration,
       start_time: startTime || null,
       end_time: endTime || null,
       // Payment data
       payment_method: this.paymentForm.value.payment_method,
       country_code: this.paymentForm.value.country_code,
-      phone_number: this.paymentForm.value.phone_number,
+      phone_number: `${DEFAULT_PHONE_PREFIX}${this.paymentForm.value.phone_number}`,
       operator: this.paymentForm.value.operator,
       // Escrow fields
       escrow_enabled: true,
@@ -1830,11 +1967,29 @@ export class CreateMissionComponent implements OnInit {
 
     console.log('Creating mission with payment data:', missionData);
 
-    this.http.post(`${this.apiUrl}/missions/`, missionData, { headers: this.h() }).subscribe({
-      next: () => {
-        this.isSubmitting = false;
-        this.snackBar.open('Mission créée avec succès!', 'Fermer', { duration: 3000 });
-        this.router.navigate(['/client/missions']);
+    this.http.post<any>(`${this.apiUrl}/missions/`, missionData, { headers: this.h() }).subscribe({
+      next: (mission) => {
+        const paymentId = mission.payment_id;
+        if (!paymentId) {
+          this.isSubmitting = false;
+          this.snackBar.open('Mission créée mais paiement introuvable', 'Fermer', { duration: 4000 });
+          this.router.navigate(['/client/missions']);
+          return;
+        }
+        this.paymentService.confirmPayment(paymentId, this.paymentForm.value.otp).subscribe({
+          next: () => {
+            this.anchorMissionOnChain(mission, deadline).finally(() => {
+              this.isSubmitting = false;
+              this.router.navigate(['/client/missions', mission.id]);
+            });
+          },
+          error: (payErr) => {
+            this.isSubmitting = false;
+            const msg = payErr.error?.detail || 'Erreur paiement Mobile Money';
+            this.snackBar.open(msg, 'Fermer', { duration: 5000 });
+            this.router.navigate(['/client/missions', mission.id]);
+          }
+        });
       },
       error: (err) => {
         this.isSubmitting = false;
@@ -1842,5 +1997,45 @@ export class CreateMissionComponent implements OnInit {
         this.snackBar.open(msg, 'Fermer', { duration: 5000 });
       }
     });
+  }
+
+  private async anchorMissionOnChain(mission: any, deadline: Date): Promise<void> {
+    this.snackBar.open('Mission créée et paiement Mobile Money confirmé !', 'Fermer', { duration: 3500 });
+
+    if (!this.blockchainAvailable && !environment.contracts.escrow) {
+      return;
+    }
+
+    try {
+      if (!this.web3Service.getAddress()) {
+        await this.web3Service.connectWallet();
+      }
+
+      const missionHash = this.blockchainService.buildMissionHash(mission.id, mission.title || '');
+      const deadlineUnix = Math.floor(deadline.getTime() / 1000);
+      const ethAmount = this.blockchainService.xofToTestEth(
+        mission.budget || parseFloat(this.missionDetailsForm.value.budget),
+      );
+
+      const tx = await this.web3Service.createMissionOnChain(missionHash, deadlineUnix, ethAmount);
+      const result = await tx.wait();
+      const missionContractId = result?.missionId;
+
+      await lastValueFrom(this.blockchainService.recordMission({
+        mission_id: mission.id,
+        tx_hash: tx.hash,
+        mission_contract_id: missionContractId,
+        block_number: result?.receipt?.blockNumber,
+        gas_used: result?.receipt?.gasUsed ? Number(result.receipt.gasUsed) : undefined,
+      }));
+
+      this.snackBar.open('Mission ancrée sur la blockchain Sepolia', 'Voir', { duration: 6000 });
+    } catch (err: any) {
+      console.warn('Ancrage blockchain optionnel non effectué:', err);
+      const msg = err?.message?.includes('MetaMask')
+        ? 'Mission créée. Connectez MetaMask (Sepolia) pour l\'ancrage blockchain.'
+        : 'Mission créée. Ancrage blockchain non effectué (vérifiez Sepolia et le contrat escrow).';
+      this.snackBar.open(msg, 'Fermer', { duration: 5000 });
+    }
   }
 }

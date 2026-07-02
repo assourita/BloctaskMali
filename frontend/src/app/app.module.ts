@@ -34,10 +34,7 @@ import { MatCheckboxModule } from '@angular/material/checkbox';
 import { MatRadioModule } from '@angular/material/radio';
 import { MatTooltipModule } from '@angular/material/tooltip';
 
-// Components
-import { AppComponent } from './app.component';
-import { HeaderComponent } from './shared/components/header/header.component';
-import { SidebarComponent } from './shared/components/sidebar/sidebar.component';
+// Components (bootstrapped via main.ts)
 
 // Core
 import { AuthInterceptor } from './core/interceptors/auth.interceptor';
@@ -55,7 +52,6 @@ import { routes } from './app.routes';
     ReactiveFormsModule,
     FormsModule,
     RouterModule.forRoot(routes),
-    AppComponent,
 
     // Material
     MatButtonModule,
@@ -90,7 +86,6 @@ import { routes } from './app.routes';
     { provide: HTTP_INTERCEPTORS, useClass: AuthInterceptor, multi: true },
     { provide: HTTP_INTERCEPTORS, useClass: ErrorInterceptor, multi: true }
   ],
-  bootstrap: [AppComponent],
   schemas: [CUSTOM_ELEMENTS_SCHEMA]
 })
 export class AppModule { }

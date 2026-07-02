@@ -1,0 +1,47 @@
+---
+title: Figure 3.3 — Composants backend Django
+---
+flowchart TB
+    subgraph Frontend["Couche présentation"]
+        SPA["Angular 17 SPA"]
+    end
+
+    subgraph API["API Django REST"]
+        GW["Routeur DRF / JWT"]
+    end
+
+    subgraph Apps["Apps Django — apps/"]
+        users["users<br/>Auth, KYC, profils"]
+        missions["missions<br/>Cycle de vie"]
+        payments["payments<br/>Mobile Money"]
+        escrow["escrow<br/>Caution, blockchain"]
+        proofs["proofs<br/>Preuves, GPS"]
+        tracking["tracking<br/>WebSocket live"]
+        disputes["disputes<br/>Litiges"]
+        reputation["reputation<br/>Scores"]
+        enterprises["enterprises<br/>B2B"]
+        notifications["notifications<br/>Alertes"]
+        analytics["analytics<br/>Statistiques"]
+        common["common<br/>Config Mali"]
+    end
+
+    subgraph External["Externe"]
+        MM["Orange / Moov Money"]
+        ETH["Ethereum RPC"]
+        PG[("PostgreSQL")]
+    end
+
+    SPA --> GW
+    GW --> users & missions & payments & escrow & proofs & tracking
+    GW --> disputes & reputation & enterprises & notifications & analytics & common
+
+    missions --> payments
+    missions --> escrow
+    payments --> escrow
+    proofs --> missions
+    tracking --> proofs
+    disputes --> missions
+    reputation --> users
+    escrow --> ETH
+    payments --> MM
+    users & missions & payments --> PG

@@ -1,0 +1,48 @@
+---
+title: Figure 3.9 — Diagramme d'activité — Processus global mission (vue compacte)
+---
+flowchart TB
+    subgraph R1["① Flux nominal — gauche vers droite"]
+        direction LR
+        Start([Début]) --> A["Besoin client"]
+        A --> B["Création mission"]
+        B --> C{"Paiement ?"}
+        C -->|Oui| D["Mission funded"]
+        D --> E["Candidatures"]
+        E --> F["Acceptation"]
+        F --> G{"Caution 4h ?"}
+        G -->|Oui| J["En cours"]
+        J --> K["GPS + photos"]
+        K --> L["Preuves soumises"]
+        L --> M{"Validé ?"}
+        M -->|Oui| N["Libération fonds"]
+        N --> O["Réputation"]
+        O --> P["Completed"]
+        P --> EndOK([Fin])
+    end
+
+    subgraph R2["② Sorties anticipées"]
+        direction LR
+        Z1["Annulée ou en attente"] --> E1([Fin])
+        I["Retour funded — prestataire retiré"] --> E2([Fin])
+    end
+
+    subgraph R3["③ Résolution litige"]
+        direction LR
+        Q["Litige ouvert"] --> R["Arbitrage admin"]
+        R --> S{"Décision"}
+        S --> T["Remboursement client"]
+        S --> U["Paiement prestataire"]
+        S --> V["Montants partagés"]
+        T --> E3([Fin])
+        U --> E3
+        V --> E3
+    end
+
+    C -->|Non| Z1
+    G -->|Non| I
+    M -->|Litige| Q
+
+    style D fill:#e8f5e9
+    style P fill:#c8e6c9
+    style Q fill:#ffecb3

@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import (
-    Category, Mission, MissionApplication, 
+    Category, Mission, MissionApplication, MissionSolicitation,
     MissionStatusHistory, MissionBookmark, MissionReview
 )
 
@@ -15,17 +15,82 @@ class UserBasicSerializer(serializers.ModelSerializer):
         fields = ['id', 'username', 'first_name', 'last_name', 'profile_picture']
 
 
+class MissionCounterpartySerializer(serializers.ModelSerializer):
+    """Profil complet de la contrepartie — visible mission démarrée (client ↔ prestataire)."""
+    reputation_score = serializers.FloatField(
+        source='provider_profile.reputation_score', read_only=True, default=None,
+    )
+    completed_missions = serializers.IntegerField(
+        source='provider_profile.total_missions_completed', read_only=True, default=None,
+    )
+    identity_verified = serializers.SerializerMethodField()
+    enterprise_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'first_name', 'last_name', 'profile_picture',
+            'email', 'phone_number', 'bio', 'city', 'country',
+            'reputation_score', 'completed_missions', 'identity_verified',
+            'enterprise_name',
+        ]
+
+    def get_identity_verified(self, obj):
+        return obj.kyc_status == User.KYCStatus.VERIFIED
+
+    def get_enterprise_name(self, obj):
+        ent = getattr(obj, 'enterprise_profile', None)
+        return ent.company_name if ent else None
+
+
+class ProviderApplicationSerializer(serializers.ModelSerializer):
+    """Prestataire — infos visibles par le client sur une candidature (sans contact direct)"""
+    reputation_score = serializers.FloatField(
+        source='provider_profile.reputation_score', read_only=True, default=50.0
+    )
+    completed_missions = serializers.IntegerField(
+        source='provider_profile.total_missions_completed', read_only=True, default=0
+    )
+    level = serializers.CharField(
+        source='provider_profile.level', read_only=True, default='bronze'
+    )
+    skills = serializers.JSONField(
+        source='provider_profile.skills', read_only=True, default=list
+    )
+    is_available = serializers.BooleanField(
+        source='provider_profile.is_available', read_only=True, default=True
+    )
+    identity_verified = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'first_name', 'last_name', 'profile_picture',
+            'bio', 'city', 'country',
+            'reputation_score', 'completed_missions', 'level', 'skills', 'is_available',
+            'identity_verified',
+        ]
+
+    def get_identity_verified(self, obj):
+        return obj.kyc_status == User.KYCStatus.VERIFIED
+
+
 class CategorySerializer(serializers.ModelSerializer):
     """Serializer pour les catégories de missions"""
     mission_count = serializers.IntegerField(source='missions.count', read_only=True)
+    rules = serializers.SerializerMethodField()
 
     class Meta:
         model = Category
         fields = [
             'id', 'name', 'slug', 'icon', 'description',
-            'order', 'is_active', 'mission_count', 'created_at'
+            'order', 'is_active', 'mission_count', 'rules', 'created_at'
         ]
         read_only_fields = ['created_at']
+
+    def get_rules(self, obj):
+        from .category_rules import get_category_rule
+        return get_category_rule(obj).to_dict()
 
 
 class MissionListSerializer(serializers.ModelSerializer):
@@ -34,40 +99,79 @@ class MissionListSerializer(serializers.ModelSerializer):
     provider = UserBasicSerializer(read_only=True)
     category_name = serializers.CharField(source='category.name', read_only=True)
     category_icon = serializers.CharField(source='category.icon', read_only=True)
+    category_slug = serializers.CharField(source='category.slug', read_only=True, allow_null=True)
+    requirements = serializers.SerializerMethodField()
+    deposit_required = serializers.SerializerMethodField()
+    requirement_labels = serializers.SerializerMethodField()
     application_count = serializers.IntegerField(source='applications.count', read_only=True)
     distance_km = serializers.SerializerMethodField()
+    is_applied = serializers.SerializerMethodField()
+    can_apply = serializers.SerializerMethodField()
     
     class Meta:
         model = Mission
         fields = [
-            'id', 'title', 'mission_hash', 'category', 'category_name', 'category_icon',
+            'id', 'title', 'mission_hash', 'category', 'category_name', 'category_icon', 'category_slug',
             'client', 'provider', 'status', 'priority',
-            'budget', 'deposit_amount', 'currency',
+            'budget', 'deposit_amount', 'required_deposit', 'deposit_paid', 'deposit_deadline', 'currency',
+            'deposit_required', 'requirement_labels', 'requirements',
+            'expiry_decision_pending', 'expiry_decision_due_at',
             'pickup_address', 'delivery_address',
             'deadline', 'expected_duration',
-            'requires_verified_provider', 'application_count',
-            'distance_km', 'created_at'
+            'requires_verified_provider', 'enterprise_only', 'requires_gps_tracking',
+            'application_count',
+            'mission_contract_id', 'blockchain_status', 'escrow_tx_hash',
+            'distance_km', 'is_applied', 'can_apply', 'created_at'
         ]
     
+    def get_is_applied(self, obj):
+        request = self.context.get('request')
+        if request and request.user.is_authenticated:
+            return obj.applications.filter(provider=request.user).exists()
+        return False
+
+    def get_can_apply(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        from .eligibility import can_apply_to_mission
+        return can_apply_to_mission(request.user, obj)
+
+    def get_requirements(self, obj):
+        from .requirements import parse_mission_requirements
+        return parse_mission_requirements(obj)
+
+    def get_deposit_required(self, obj):
+        return bool(obj.required_deposit and float(obj.required_deposit) > 0)
+
+    def get_requirement_labels(self, obj):
+        from .requirements import parse_mission_requirements
+        from .category_rules import get_category_rule
+        req = parse_mission_requirements(obj)
+        labels = list(req.get('requirement_labels') or [])
+        if not labels:
+            rule = get_category_rule(obj.category)
+            labels = list(rule.requirement_labels)
+        return labels
+
     def get_distance_km(self, obj):
-        """Calcule la distance si les coordonnées sont disponibles"""
+        """Calcule la distance si les coordonnées sont disponibles."""
         if obj.pickup_latitude and obj.pickup_longitude and obj.delivery_latitude and obj.delivery_longitude:
-            # Calcul simplifié - en production utiliser geopy
             from math import radians, sin, cos, sqrt, atan2
-            
+
             R = 6371  # Rayon de la Terre en km
-            
+
             lat1 = radians(float(obj.pickup_latitude))
             lon1 = radians(float(obj.pickup_longitude))
             lat2 = radians(float(obj.delivery_latitude))
             lon2 = radians(float(obj.delivery_longitude))
-            
+
             dlat = lat2 - lat1
             dlon = lon2 - lon1
-            
-            a = sin(dlat/2)**2 + cos(lat1) * cos(lat2) * sin(dlon/2)**2
-            c = 2 * atan2(sqrt(a), sqrt(1-a))
-            
+
+            a = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlon / 2) ** 2
+            c = 2 * atan2(sqrt(a), sqrt(1 - a))
+
             return round(R * c, 1)
         return None
 
@@ -83,6 +187,18 @@ class MissionDetailSerializer(serializers.ModelSerializer):
     
     requirements = serializers.SerializerMethodField()
     
+    payment_id = serializers.SerializerMethodField()
+    payment_status = serializers.SerializerMethodField()
+    assigned_enterprise_id = serializers.UUIDField(read_only=True, allow_null=True)
+    assigned_enterprise_name = serializers.CharField(
+        source='assigned_enterprise.company_name', read_only=True, allow_null=True,
+    )
+    executing_employee = serializers.SerializerMethodField()
+    category_rule = serializers.SerializerMethodField()
+    counterparty = serializers.SerializerMethodField()
+    can_view_counterparty = serializers.SerializerMethodField()
+    deposit_policy = serializers.SerializerMethodField()
+
     class Meta:
         model = Mission
         fields = [
@@ -91,14 +207,18 @@ class MissionDetailSerializer(serializers.ModelSerializer):
             'pickup_address', 'pickup_latitude', 'pickup_longitude',
             'delivery_address', 'delivery_latitude', 'delivery_longitude',
             'budget', 'final_price', 'currency',
-            'required_deposit', 'deposit_amount', 'deposit_paid', 'deposit_tx_hash',
+            'required_deposit', 'deposit_amount', 'deposit_paid', 'deposit_tx_hash', 'deposit_deadline',
+            'deposit_policy', 'category_rule',
+            'expiry_decision_pending', 'expiry_decision_due_at',
             'deadline', 'expected_duration', 'started_at', 'completed_at',
             'requires_verified_provider', 'min_reputation_score', 'enterprise_only',
             'requires_gps_tracking', 'requires_qr_validation',
             'auto_validation_delay', 'auto_validation_scheduled_at',
             'escrow_tx_hash', 'mission_contract_id', 'blockchain_status',
             'views_count', 'applications_count',
-            'requirements',
+            'requirements', 'payment_id', 'payment_status',
+            'assigned_enterprise_id', 'assigned_enterprise_name', 'executing_employee',
+            'counterparty', 'can_view_counterparty',
             'created_at', 'updated_at',
             'status_history', 'is_applied', 'can_apply'
         ]
@@ -121,23 +241,68 @@ class MissionDetailSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request or not request.user.is_authenticated:
             return False
-        if request.user.user_type != 'provider':
-            return False
-        if obj.status != 'open':
-            return False
-        if obj.applications.filter(provider=request.user).exists():
-            return False
-        return False
+        from .eligibility import can_apply_to_mission
+        return can_apply_to_mission(request.user, obj)
+
+    def get_payment_id(self, obj):
+        payment = getattr(obj, 'payment', None)
+        return str(payment.id) if payment else None
+
+    def get_payment_status(self, obj):
+        payment = getattr(obj, 'payment', None)
+        return payment.status if payment else None
+
+    def get_executing_employee(self, obj):
+        emp = getattr(obj, 'executing_employee', None)
+        if not emp:
+            return None
+        return {
+            'id': str(emp.id),
+            'first_name': emp.first_name,
+            'last_name': emp.last_name,
+            'email': emp.email or '',
+        }
     
     def get_requirements(self, obj):
-        """Parse les requirements JSON"""
-        if obj.requirements:
-            try:
-                import json
-                return json.loads(obj.requirements)
-            except (json.JSONDecodeError, TypeError):
-                return {}
-        return {}
+        from .requirements import parse_mission_requirements
+        return parse_mission_requirements(obj)
+
+    def get_category_rule(self, obj):
+        from .category_rules import get_category_rule
+        return get_category_rule(obj.category).to_dict()
+
+    def get_deposit_policy(self, obj):
+        from .requirements import parse_mission_requirements
+        from .category_rules import get_category_rule
+        rule = get_category_rule(obj.category)
+        req = parse_mission_requirements(obj)
+        return {
+            'requires_deposit': bool(obj.required_deposit and float(obj.required_deposit) > 0),
+            'required_deposit': float(obj.required_deposit or 0),
+            'deposit_paid': obj.deposit_paid,
+            'deposit_mode': req.get('deposit_mode') or rule.deposit_mode,
+            'deposit_reason': req.get('deposit_reason') or rule.deposit_reason,
+            'merchandise_value': req.get('merchandise_value'),
+        }
+
+    def get_can_view_counterparty(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return False
+        from .counterparty import can_view_counterparty_profile
+        return can_view_counterparty_profile(request.user, obj)
+
+    def get_counterparty(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+        from .counterparty import can_view_counterparty_profile, get_counterparty_user
+        if not can_view_counterparty_profile(request.user, obj):
+            return None
+        other = get_counterparty_user(obj, request.user)
+        if not other:
+            return None
+        return MissionCounterpartySerializer(other, context=self.context).data
 
 
 class MissionCreateSerializer(serializers.ModelSerializer):
@@ -157,6 +322,9 @@ class MissionCreateSerializer(serializers.ModelSerializer):
     requires_photo = serializers.BooleanField(required=False, default=False)
     requires_signature = serializers.BooleanField(required=False, default=False)
     requires_id_verification = serializers.BooleanField(required=False, default=False)
+    merchandise_value = serializers.DecimalField(
+        max_digits=15, decimal_places=2, required=False, allow_null=True,
+    )
     special_instructions = serializers.CharField(required=False, allow_blank=True)
     estimated_duration = serializers.IntegerField(required=False, default=60)
     escrow_enabled = serializers.BooleanField(required=False, default=True)
@@ -185,6 +353,7 @@ class MissionCreateSerializer(serializers.ModelSerializer):
             'requires_gps_tracking', 'requires_qr_validation',
             'special_instructions', 'requirements',
             'requires_vehicle', 'requires_photo', 'requires_signature', 'requires_id_verification',
+            'merchandise_value',
             'escrow_enabled', 'escrow_amount', 'platform_fee',
             'start_time', 'end_time', 'estimated_duration',
             'payment_method', 'country_code', 'phone_number', 'operator'
@@ -210,46 +379,56 @@ class MissionCreateSerializer(serializers.ModelSerializer):
             raise
 
     def validate(self, data):
-        """Validation personnalisée"""
-        # Vérifier que le budget est positif
-        if data.get('budget', 0) <= 0:
-            raise serializers.ValidationError(
-                "Le budget doit être supérieur à 0"
-            )
-
-        # Vérifier la deadline
-        from django.utils import timezone
-        if data.get('deadline') and data['deadline'] < timezone.now():
-            raise serializers.ValidationError(
-                "La deadline ne peut pas être dans le passé"
-            )
-
-        # Calculer automatiquement le dépôt (10% par défaut)
         from decimal import Decimal
-        if data.get('budget'):
-            data['required_deposit'] = data['budget'] * Decimal('0.10')
-            data['deposit_amount'] = data.get('escrow_amount', data['budget'] * Decimal('0.10'))
+        from django.utils import timezone
+        from .category_rules import (
+            apply_category_defaults_to_mission_data,
+            build_requirements_payload,
+            calculate_category_deposit,
+            get_category_rule,
+        )
 
-        # Store requirements as JSON
-        requirements = {}
-        if data.get('requires_vehicle'):
-            requirements['requires_vehicle'] = True
-        if data.get('requires_photo'):
-            requirements['requires_photo'] = True
-        if data.get('requires_signature'):
-            requirements['requires_signature'] = True
-        if data.get('requires_id_verification'):
-            requirements['requires_id_verification'] = True
-        if data.get('special_instructions'):
-            requirements['special_instructions'] = data['special_instructions']
-        if data.get('estimated_duration'):
-            requirements['estimated_duration'] = data['estimated_duration']
-        if data.get('start_time'):
-            requirements['start_time'] = data['start_time']
-        if data.get('end_time'):
-            requirements['end_time'] = data['end_time']
+        if data.get('budget', 0) <= 0:
+            raise serializers.ValidationError('Le budget doit être supérieur à 0')
 
-        data['requirements'] = requirements
+        if data.get('deadline') and data['deadline'] < timezone.now():
+            raise serializers.ValidationError('La deadline ne peut pas être dans le passé')
+
+        category = data.get('category')
+        rule = get_category_rule(category)
+        data = apply_category_defaults_to_mission_data(data, category)
+
+        if rule.requires_merchandise_value:
+            mv = data.get('merchandise_value')
+            if mv is None or Decimal(str(mv)) <= 0:
+                raise serializers.ValidationError({
+                    'merchandise_value': (
+                        f'Pour « {rule.label} », indiquez la valeur de la marchandise confiée (XOF).'
+                    ),
+                })
+
+        if rule.requires_pickup and not data.get('pickup_address'):
+            raise serializers.ValidationError({'pickup_address': 'Adresse de retrait requise pour cette catégorie.'})
+        if rule.requires_delivery and not data.get('delivery_address'):
+            raise serializers.ValidationError({'delivery_address': 'Adresse de livraison requise pour cette catégorie.'})
+
+        # Requirements JSON + caution estimée
+        req_payload = {**data, 'requires_vehicle': rule.requires_vehicle or data.get('requires_vehicle')}
+        requirements_dict = build_requirements_payload(req_payload, rule)
+        data['_requirements_dict'] = requirements_dict
+
+        import json
+        from types import SimpleNamespace
+        preview_mission = SimpleNamespace(
+            category=category,
+            budget=data['budget'],
+            final_price=None,
+            requirements=json.dumps(requirements_dict),
+        )
+        deposit = calculate_category_deposit(preview_mission)
+        data['required_deposit'] = deposit
+        data['deposit_amount'] = data.get('escrow_amount', deposit)
+        data['requirements'] = json.dumps(requirements_dict)
 
         return data
 
@@ -261,7 +440,7 @@ class MissionCreateSerializer(serializers.ModelSerializer):
         
         # Extract payment data
         payment_method = validated_data.pop('payment_method', 'mobile_money')
-        country_code = validated_data.pop('country_code', '+225')
+        country_code = validated_data.pop('country_code', '+223')
         phone_number = validated_data.pop('phone_number', '')
         operator = validated_data.pop('operator', '')
         escrow_amount = validated_data.pop('escrow_amount', validated_data.get('budget', 0))
@@ -276,6 +455,7 @@ class MissionCreateSerializer(serializers.ModelSerializer):
         validated_data.pop('requires_photo', None)
         validated_data.pop('requires_signature', None)
         validated_data.pop('requires_id_verification', None)
+        validated_data.pop('merchandise_value', None)
         validated_data.pop('special_instructions', None)
         validated_data.pop('estimated_duration', None)
         validated_data.pop('expected_duration', None)
@@ -314,50 +494,119 @@ class MissionCreateSerializer(serializers.ModelSerializer):
 
 class MissionApplicationSerializer(serializers.ModelSerializer):
     """Serializer pour les candidatures"""
-    provider = UserBasicSerializer(read_only=True)
+    provider = ProviderApplicationSerializer(read_only=True)
     mission_title = serializers.CharField(source='mission.title', read_only=True)
-    
+    mission_budget = serializers.DecimalField(
+        source='mission.budget', max_digits=15, decimal_places=2, read_only=True
+    )
+    mission_currency = serializers.CharField(source='mission.currency', read_only=True)
+
     class Meta:
         model = MissionApplication
         fields = [
-            'id', 'mission', 'mission_title', 'provider',
-            'proposed_price', 'estimated_duration',
-            'cover_message', 'proposed_deadline',
-            'status', 'auto_assignment_score',
-            'client_notes', 'provider_notes',
-            'accepted_at', 'rejected_at', 'created_at'
+            'id', 'mission', 'mission_title', 'mission_budget', 'mission_currency',
+            'provider', 'proposed_price', 'estimated_duration', 'message',
+            'status', 'responded_at', 'created_at'
         ]
-        read_only_fields = ['status', 'accepted_at', 'rejected_at', 'created_at']
-    
+        read_only_fields = ['status', 'responded_at', 'created_at']
+
     def validate(self, data):
-        """Validation de la candidature"""
         mission = data.get('mission')
         request = self.context.get('request')
-        
+
         if mission and request:
-            # Vérifier que l'utilisateur n'a pas déjà postulé
             if MissionApplication.objects.filter(
-                mission=mission,
-                provider=request.user
+                mission=mission, provider=request.user
             ).exists():
                 raise serializers.ValidationError(
                     "Vous avez déjà postulé à cette mission"
                 )
-            
-            # Vérifier que la mission est ouverte
-            if mission.status != 'open':
+            if mission.status != Mission.Status.FUNDED:
                 raise serializers.ValidationError(
                     "Cette mission n'est plus ouverte aux candidatures"
                 )
-        
         return data
-    
+
     def create(self, validated_data):
-        """Création de la candidature"""
         validated_data['provider'] = self.context['request'].user
-        validated_data['status'] = 'pending'
-        
+        validated_data['status'] = MissionApplication.Status.PENDING
+        if not validated_data.get('proposed_price') and validated_data.get('mission'):
+            validated_data['proposed_price'] = validated_data['mission'].budget
         return super().create(validated_data)
+
+
+class MissionSolicitationSerializer(serializers.ModelSerializer):
+    """Sollicitation directe client → prestataire ou entreprise."""
+    provider = ProviderApplicationSerializer(read_only=True)
+    client = UserBasicSerializer(read_only=True)
+    enterprise_id = serializers.UUIDField(source='enterprise.user_id', read_only=True, allow_null=True)
+    enterprise_name = serializers.CharField(source='enterprise.company_name', read_only=True, allow_null=True)
+    enterprise_city = serializers.CharField(source='enterprise.city', read_only=True, allow_null=True)
+    enterprise_logo = serializers.SerializerMethodField()
+    mission_title = serializers.CharField(source='mission.title', read_only=True)
+    mission_budget = serializers.DecimalField(
+        source='mission.budget', max_digits=15, decimal_places=2, read_only=True
+    )
+    mission_currency = serializers.CharField(source='mission.currency', read_only=True)
+    mission_status = serializers.CharField(source='mission.status', read_only=True)
+    pickup_address = serializers.CharField(source='mission.pickup_address', read_only=True)
+    deadline = serializers.DateTimeField(source='mission.deadline', read_only=True)
+
+    class Meta:
+        model = MissionSolicitation
+        fields = [
+            'id', 'mission', 'mission_title', 'mission_budget', 'mission_currency',
+            'mission_status', 'pickup_address', 'deadline', 'target_type',
+            'provider', 'enterprise_id', 'enterprise_name', 'enterprise_city', 'enterprise_logo',
+            'client', 'message', 'status', 'responded_at', 'created_at',
+        ]
+        read_only_fields = ['status', 'responded_at', 'created_at', 'client']
+
+    def get_enterprise_logo(self, obj):
+        if not obj.enterprise or not obj.enterprise.user.profile_picture:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.enterprise.user.profile_picture.url)
+        return obj.enterprise.user.profile_picture.url
+
+
+class ClientPreviewSerializer(serializers.ModelSerializer):
+    """Profil client visible avant acceptation d'une sollicitation."""
+    identity_verified = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'first_name', 'last_name', 'profile_picture',
+            'bio', 'city', 'country', 'identity_verified',
+        ]
+
+    def get_identity_verified(self, obj):
+        return obj.kyc_status == User.KYCStatus.VERIFIED
+
+
+class OtherSolicitationSerializer(serializers.ModelSerializer):
+    """Autres sollicitations directes sur la même mission."""
+    provider = UserBasicSerializer(read_only=True)
+    enterprise_name = serializers.CharField(
+        source='enterprise.company_name', read_only=True, allow_null=True,
+    )
+
+    class Meta:
+        model = MissionSolicitation
+        fields = [
+            'id', 'target_type', 'status', 'provider', 'enterprise_name', 'created_at',
+        ]
+
+
+class MissionSolicitationPreviewSerializer(serializers.Serializer):
+    """Contexte complet avant acceptation / refus."""
+    solicitation = MissionSolicitationSerializer()
+    mission = MissionDetailSerializer()
+    client = ClientPreviewSerializer()
+    applications = MissionApplicationSerializer(many=True)
+    other_solicitations = OtherSolicitationSerializer(many=True)
 
 
 class MissionStatusHistorySerializer(serializers.ModelSerializer):

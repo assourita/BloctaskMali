@@ -1,0 +1,44 @@
+---
+title: Figure 3.6 — Diagramme d'états — Cycle de vie d'une mission
+---
+stateDiagram-v2
+    [*] --> pending : Création mission
+
+    pending --> funded : Paiement Mobile Money confirmé
+    pending --> cancelled : Annulation client
+
+    funded --> accepted : Client accepte candidature
+    funded --> cancelled : Annulation
+
+    accepted --> in_progress : Caution payée + start()
+    accepted --> funded : Délai caution expiré (4h)
+
+    in_progress --> submitted : submit_proof()
+    in_progress --> disputed : Ouverture litige
+    in_progress --> cancelled : Annulation
+
+    submitted --> completed : validate() client
+    submitted --> disputed : Ouverture litige
+
+    completed --> disputed : Litige post-mission
+
+    disputed --> completed : Arbitrage admin (paiement prestataire)
+    disputed --> cancelled : Arbitrage admin (remboursement client)
+
+    completed --> [*]
+    cancelled --> [*]
+
+    note right of pending
+        Statut initial après
+        POST /api/missions/
+    end note
+
+    note right of accepted
+        deposit_deadline = +4 heures
+        Caution : 2000–5000 XOF
+    end note
+
+    note right of completed
+        Libération 95% prestataire
+        Commission plateforme 5%
+    end note

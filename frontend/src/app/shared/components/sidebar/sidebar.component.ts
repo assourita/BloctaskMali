@@ -1,12 +1,13 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
-import { Observable } from 'rxjs';
+import { Observable, combineLatest, map, filter } from 'rxjs';
 import { MatListModule } from '@angular/material/list';
 import { MatIconModule } from '@angular/material/icon';
 import { MatDividerModule } from '@angular/material/divider';
 
 import { AuthService, User } from '../../../core/services/auth.service';
+import { SidebarService } from '../../../core/services/sidebar.service';
 
 interface NavItem {
   path: string;
@@ -25,12 +26,12 @@ interface NavItem {
     MatDividerModule
   ],
   template: `
-    <aside class="sidebar" *ngIf="currentUser$ | async as user">
+    <aside class="sidebar" [class.open]="sidebarService.isOpen" *ngIf="viewModel$ | async as vm">
       <div class="user-info">
         <mat-icon class="user-avatar-icon">account_circle</mat-icon>
         <div class="user-details">
-          <span class="user-name">{{ user.first_name }} {{ user.last_name }}</span>
-          <span class="user-type">{{ getRoleLabel(user.user_type) }}</span>
+          <span class="user-name">{{ vm.user.first_name }} {{ vm.user.last_name }}</span>
+          <span class="user-type">{{ getRoleLabel(vm.activeRole) }}</span>
         </div>
       </div>
 
@@ -38,10 +39,11 @@ interface NavItem {
 
       <nav class="nav-menu">
         <a 
-          *ngFor="let item of getNavItems(user.user_type)" 
+          *ngFor="let item of getNavItems(vm.activeRole)" 
           [routerLink]="item.path"
           routerLinkActive="active"
           class="nav-item"
+          (click)="onNavClick()"
         >
           <mat-icon>{{ item.icon }}</mat-icon>
           <span>{{ item.label }}</span>
@@ -75,6 +77,12 @@ interface NavItem {
       z-index: 100;
       box-shadow: 1px 0 3px rgba(0,0,0,0.1);
       border-right: 1px solid #e9ecef;
+      transform: translateX(-100%);
+      transition: transform 0.3s ease;
+    }
+
+    .sidebar.open {
+      transform: translateX(0);
     }
 
     .user-info {
@@ -202,7 +210,6 @@ interface NavItem {
     @media (max-width: 768px) {
       .sidebar {
         transform: translateX(-100%);
-        transition: transform 0.3s ease;
       }
 
       .sidebar.open {
@@ -212,12 +219,14 @@ interface NavItem {
   `]
 })
 export class SidebarComponent implements OnInit {
-  currentUser$: Observable<User | null>;
+  viewModel$: Observable<{ user: User; activeRole: string }>;
 
   private clientNav: NavItem[] = [
     { path: '/client/dashboard', label: 'Tableau de bord', icon: 'dashboard' },
-    { path: '/client/missions', label: 'Mes missions', icon: 'assignment' },
+    { path: '/client/missions', label: 'Mes missions créées', icon: 'assignment' },
     { path: '/client/missions/create', label: 'Nouvelle mission', icon: 'add_circle' },
+    { path: '/client/providers', label: 'Attribuer une mission', icon: 'assignment_ind' },
+    { path: '/client/solicitations', label: 'Sollicitations envoyées', icon: 'send' },
     { path: '/client/tracking', label: 'Suivi en temps réel', icon: 'my_location' },
     { path: '/client/payments', label: 'Paiements', icon: 'payment' },
     { path: '/client/disputes', label: 'Litiges', icon: 'gavel' },
@@ -226,7 +235,8 @@ export class SidebarComponent implements OnInit {
 
   private providerNav: NavItem[] = [
     { path: '/provider/dashboard', label: 'Tableau de bord', icon: 'dashboard' },
-    { path: '/provider/missions', label: 'Mes missions', icon: 'assignment' },
+    { path: '/provider/missions', label: 'Mes missions assignées', icon: 'assignment' },
+    { path: '/provider/missions/solicitations', label: 'Mes sollicitations', icon: 'mail' },
     { path: '/provider/missions/available', label: 'Missions disponibles', icon: 'search' },
     { path: '/provider/tracking', label: 'Suivi GPS', icon: 'my_location' },
     { path: '/provider/earnings', label: 'Mes revenus', icon: 'attach_money' },
@@ -237,12 +247,14 @@ export class SidebarComponent implements OnInit {
 
   private enterpriseNav: NavItem[] = [
     { path: '/enterprise/dashboard', label: 'Tableau de bord', icon: 'dashboard' },
-    { path: '/enterprise/employees', label: 'Mes employés', icon: 'people' },
+    { path: '/enterprise/employees', label: 'Employés', icon: 'people' },
     { path: '/enterprise/missions', label: 'Missions', icon: 'assignment' },
+    { path: '/enterprise/solicitations', label: 'Sollicitations reçues', icon: 'mail' },
     { path: '/enterprise/tracking', label: 'Carte GPS', icon: 'my_location' },
     { path: '/enterprise/analytics', label: 'Analytics', icon: 'analytics' },
     { path: '/enterprise/finances', label: 'Finances', icon: 'account_balance' },
-    { path: '/enterprise/disputes', label: 'Litiges', icon: 'gavel' }
+    { path: '/enterprise/disputes', label: 'Litiges', icon: 'gavel' },
+    { path: '/enterprise/profile', label: 'Mon entreprise', icon: 'business' },
   ];
 
   private adminNav: NavItem[] = [
@@ -256,11 +268,29 @@ export class SidebarComponent implements OnInit {
     { path: '/admin/settings', label: 'Paramètres', icon: 'settings' }
   ];
 
-  constructor(private authService: AuthService) {
-    this.currentUser$ = this.authService.currentUser$;
+  constructor(
+    private authService: AuthService,
+    public sidebarService: SidebarService,
+  ) {
+    this.viewModel$ = combineLatest([
+      this.authService.currentUser$,
+      this.authService.activeRole$,
+    ]).pipe(
+      map(([user, activeRole]) => user ? {
+        user,
+        activeRole: activeRole || user.active_role || user.user_type || 'client',
+      } : null),
+      filter((vm): vm is { user: User; activeRole: string } => vm !== null),
+    );
   }
 
   ngOnInit(): void {}
+
+  onNavClick(): void {
+    if (typeof window !== 'undefined' && window.innerWidth <= 768) {
+      this.sidebarService.setOpen(false);
+    }
+  }
 
   getNavItems(userType: string): NavItem[] {
     switch (userType) {
