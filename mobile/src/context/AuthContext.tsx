@@ -45,9 +45,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       const stored = await loadStoredUser();
       if (stored) setUser(stored);
-      const profile = await fetchProfile();
-      setUser(profile);
-      await registerDevicePushToken();
+      try {
+        const profile = await fetchProfile();
+        setUser(profile);
+      } catch {
+        /* backend injoignable : conserver la session locale */
+      }
+  void registerDevicePushToken().catch(() => {});
     } catch {
       setUser(null);
     } finally {
@@ -62,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const login = useCallback(async (payload: LoginPayload) => {
     const profile = await apiLogin(payload);
     setUser(profile);
-    await registerDevicePushToken();
+    void registerDevicePushToken();
     return profile;
   }, []);
 

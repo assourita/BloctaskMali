@@ -19,6 +19,7 @@ urlpatterns = [
     
     # Provider
     path('providers/<uuid:id>/public/', views.provider_public_profile, name='provider-public'),
+    path('clients/<uuid:id>/public/', views.client_public_profile, name='client-public'),
     path('enterprises/<uuid:id>/public/', views.enterprise_public_profile, name='enterprise-public'),
     path('provider/profile/', views.ProviderProfileView.as_view(), name='provider-profile'),
     

@@ -5,20 +5,27 @@ import type { User } from '../types';
 const ALLOWED_WHEN_BLOCKED = [
   '/profile',
   '/profile-completion',
+  '/profile-edit',
+  '/kyc',
+  '/verify-phone',
   '/help',
   '/login',
   '/register',
-  '/home',
   '/forgot-password',
+  '/verify-email',
+  '/map',
 ];
 
 export function isPathAllowedWhenBlocked(pathname: string): boolean {
-  return ALLOWED_WHEN_BLOCKED.some((p) => pathname === p || pathname.includes(p));
+  const p = pathname || '';
+  if (ALLOWED_WHEN_BLOCKED.some((allowed) => p === allowed || p.includes(allowed))) return true;
+  if (p.includes('/profile') || p.includes('(tabs)/profile')) return true;
+  return false;
 }
 
 export function navigateAfterAuth(user: User | null): void {
   if (user && user.can_access_platform === false) {
-    router.replace('/(tabs)/profile');
+    router.push('/(tabs)/profile');
     return;
   }
   router.replace('/(tabs)');
@@ -27,6 +34,7 @@ export function navigateAfterAuth(user: User | null): void {
 export function guardPlatformAccess(pathname: string, user: User | null): boolean {
   if (!user || user.can_access_platform !== false) return true;
   if (isPathAllowedWhenBlocked(pathname)) return true;
-  router.replace('/(tabs)/profile');
+  if (pathname.includes('profile')) return true;
+  router.push('/(tabs)/profile');
   return false;
 }

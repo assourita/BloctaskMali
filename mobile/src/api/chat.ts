@@ -11,6 +11,8 @@ export interface ChatMessage {
   content: string;
   message_type: 'text' | 'image' | 'location' | 'system';
   is_read: boolean;
+  delivered_at?: string | null;
+  delivery_status?: 'sent' | 'delivered' | 'read' | null;
   created_at: string;
 }
 

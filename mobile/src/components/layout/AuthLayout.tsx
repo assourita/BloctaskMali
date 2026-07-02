@@ -1,6 +1,5 @@
 import { ReactNode } from 'react';
 import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing } from '../../constants/theme';
 
@@ -8,11 +7,10 @@ interface AuthLayoutProps {
   title: string;
   subtitle?: string;
   children: ReactNode;
-  showBack?: boolean;
 }
 
 /** Layout connexion / inscription — panneau vert + carte formulaire, adapté mobile. */
-export function AuthLayout({ title, subtitle, children, showBack = true }: AuthLayoutProps) {
+export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
   const insets = useSafeAreaInsets();
 
   return (
@@ -24,12 +22,6 @@ export function AuthLayout({ title, subtitle, children, showBack = true }: AuthL
         contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.lg }]}
         keyboardShouldPersistTaps="handled"
       >
-        {showBack && (
-          <Text style={styles.back} onPress={() => router.replace('/')}>
-            ← Accueil
-          </Text>
-        )}
-
         <View style={styles.brandPanel}>
           <View style={styles.logoRow}>
             <View style={styles.logoDot} />
@@ -48,7 +40,6 @@ export function AuthLayout({ title, subtitle, children, showBack = true }: AuthL
 const styles = StyleSheet.create({
   root: { flex: 1, backgroundColor: colors.background },
   scroll: { paddingHorizontal: spacing.md },
-  back: { color: colors.primary, fontWeight: '600', fontSize: 14, marginBottom: spacing.md },
   brandPanel: {
     backgroundColor: colors.primary,
     borderRadius: radius.lg,

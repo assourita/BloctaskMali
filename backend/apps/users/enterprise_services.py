@@ -72,10 +72,20 @@ def refresh_enterprise_employee_count(enterprise) -> None:
 def update_employee_record(employee, **data):
     """Met à jour la fiche employé et synchronise le compte provider lié."""
     from .models import ProviderProfile
+    import re
+
+    def _norm_phone(value):
+        if not value:
+            return ''
+        return re.sub(r'[\s\-().]', '', str(value).strip())
 
     allowed = {'first_name', 'last_name', 'email', 'phone', 'position', 'role', 'is_active', 'nina'}
     for key, value in data.items():
         if key in allowed:
+            if key == 'phone':
+                value = _norm_phone(value)
+            if key == 'position' and not (value or '').strip():
+                value = 'Agent terrain'
             setattr(employee, key, value)
 
     if employee.user_id:

@@ -33,8 +33,24 @@ function resolveApiUrl(): string {
   const envUrl = process.env.EXPO_PUBLIC_API_URL?.trim();
 
   if (envUrl) {
-    if (lanIp && /localhost|127\.0\.0\.1|10\.0\.2\.2/i.test(envUrl)) {
-      return replaceDevHosts(envUrl, lanIp);
+    if (lanIp) {
+      const envHost = envUrl.match(/\/\/([^/:]+)/)?.[1];
+      const port = envUrl.match(/:(\d+)/)?.[1] || '8000';
+      if (
+        __DEV__
+        && envHost
+        && envHost !== lanIp
+        && /^\d+\.\d+\.\d+\.\d+$/.test(envHost)
+      ) {
+        // eslint-disable-next-line no-console
+        console.warn(
+          `[BlockTask] EXPO_PUBLIC_API_URL (${envHost}) ≠ Metro (${lanIp}) → http://${lanIp}:${port}/api`,
+        );
+        return `http://${lanIp}:${port}/api`;
+      }
+      if (/localhost|127\.0\.0\.1|10\.0\.2\.2/i.test(envUrl)) {
+        return replaceDevHosts(envUrl, lanIp);
+      }
     }
     return envUrl;
   }

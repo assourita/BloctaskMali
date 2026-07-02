@@ -43,9 +43,10 @@ export interface Mission {
   category?: { id: string; name: string };
   category_name?: string;
   provider?: { id: string; first_name: string; last_name: string; profile_picture?: string; phone_number?: string };
-  client?: { id: string; first_name: string; last_name: string; profile_picture?: string; phone_number?: string };
+  client?: { id: string; first_name: string; last_name: string; profile_picture?: string; phone_number?: string; city?: string };
   application_count?: number;
   applications_count?: number;
+  pending_applications_count?: number;
   required_deposit?: number;
   deposit_amount?: number;
   deposit_paid?: boolean;
@@ -61,6 +62,8 @@ export interface Mission {
   rated?: boolean;
   is_applied?: boolean;
   can_apply?: boolean;
+  apply_block_reason?: string | null;
+  applications_open?: boolean;
   distance_km?: number;
   payment_id?: string;
   payment_status?: string;
@@ -90,6 +93,7 @@ export interface Mission {
   };
   can_view_counterparty?: boolean;
   assigned_enterprise_id?: string | null;
+  provider_gps_consent_at?: string | null;
   assigned_enterprise_name?: string | null;
   executing_employee?: {
     id: string;

@@ -13,6 +13,8 @@ import { Card, Loader } from '../src/components/ui';
 import { AppLayout } from '../src/components/layout/AppLayout';
 import { PageHeader, SoftCard, TabBar } from '../src/components/widgets';
 import { colors, radius, spacing } from '../src/constants/theme';
+import { useEnterpriseGuard } from '../src/hooks/useEnterpriseGuard';
+import { assignmentStatusLabel } from '../src/utils/enterprise';
 import { ApiError } from '../src/api/client';
 
 const ROLE_OPTIONS = [
@@ -40,6 +42,7 @@ const EMPTY_FORM = {
 };
 
 export default function EmployeesScreen() {
+  const { redirect: guardRedirect } = useEnterpriseGuard();
   const [pageTab, setPageTab] = useState<PageTab>('employees');
   const [filter, setFilter] = useState<EmployeeFilter>('all');
   const [employees, setEmployees] = useState<EnterpriseEmployee[]>([]);
@@ -103,6 +106,8 @@ export default function EmployeesScreen() {
       setSaving(false);
     }
   };
+
+  if (guardRedirect) return guardRedirect;
 
   return (
     <AppLayout
@@ -216,11 +221,17 @@ export default function EmployeesScreen() {
           <Text style={styles.empty}>Aucune affectation pour le moment.</Text>
         ) : (
           assignments.map((a) => (
-            <Card key={a.id} style={styles.assignCard}>
-              <Text style={styles.name}>{a.mission_title || 'Mission'}</Text>
-              <Text style={styles.meta}>Employé : {a.employee_name || '—'}</Text>
-              <Text style={styles.meta}>Statut : {a.assignment_status || '—'}</Text>
-            </Card>
+            <Pressable key={a.id} onPress={() => a.mission && router.push(`/mission/${a.mission}`)}>
+              <Card style={styles.assignCard}>
+                <Text style={styles.name}>{a.mission_title || 'Mission'}</Text>
+                <Text style={styles.meta}>Employé : {a.employee_name || '—'}</Text>
+                <Text style={styles.meta}>
+                  {assignmentStatusLabel(a.assignment_status)}
+                  {a.assigned_at ? ` · ${new Date(a.assigned_at).toLocaleString('fr-FR')}` : ''}
+                </Text>
+                <Text style={styles.link}>Voir la mission ›</Text>
+              </Card>
+            </Pressable>
           ))
         )
       )}
@@ -270,4 +281,5 @@ const styles = StyleSheet.create({
   inactive: { backgroundColor: '#f3f4f6' },
   badgeText: { fontSize: 11, fontWeight: '700', color: colors.text },
   chevron: { fontSize: 22, color: colors.textMuted, fontWeight: '300' },
+  link: { color: colors.primary, fontWeight: '700', marginTop: 8, fontSize: 13 },
 });

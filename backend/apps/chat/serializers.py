@@ -21,14 +21,27 @@ class SenderSerializer(serializers.Serializer):
 
 class MessageSerializer(serializers.ModelSerializer):
     sender = SenderSerializer(read_only=True)
+    delivery_status = serializers.SerializerMethodField()
 
     class Meta:
         model = Message
         fields = [
             'id', 'sender', 'content', 'message_type',
-            'attachment_url', 'is_read', 'created_at',
+            'attachment_url', 'is_read', 'delivered_at', 'delivery_status', 'created_at',
         ]
         read_only_fields = fields
+
+    def get_delivery_status(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+        if obj.sender_id != request.user.id:
+            return None
+        if obj.is_read:
+            return 'read'
+        if obj.delivered_at:
+            return 'delivered'
+        return 'sent'
 
 
 class MessageCreateSerializer(serializers.Serializer):

@@ -32,21 +32,26 @@ export default function DashboardScreen() {
   const [togglingAvail, setTogglingAvail] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [s, m] = await Promise.all([getStats(activeRole), getMyMissions(activeRole)]);
-    setStats(s);
-    setMissions(m);
-    if (isProvider) {
-      const [profile, rep] = await Promise.all([
-        getProviderProfile(),
-        getMyReputation().catch(() => null),
-      ]);
-      setIsAvailable(profile?.is_available !== false);
-      setAvgRating(rep?.average_rating ?? 0);
-    }
-    if (isEnterprise) {
-      const ep = await getEnterpriseProfile();
-      setEnterpriseDeposit(Number(ep?.deposit_balance ?? 0));
-      setEmployeeCount(ep?.total_employees ?? 0);
+    try {
+      const [s, m] = await Promise.all([getStats(activeRole), getMyMissions(activeRole)]);
+      setStats(s);
+      setMissions(m);
+      if (isProvider) {
+        const [profile, rep] = await Promise.all([
+          getProviderProfile(),
+          getMyReputation().catch(() => null),
+        ]);
+        setIsAvailable(profile?.is_available !== false);
+        setAvgRating(rep?.average_rating ?? 0);
+      }
+      if (isEnterprise) {
+        const ep = await getEnterpriseProfile();
+        setEnterpriseDeposit(Number(ep?.deposit_balance ?? 0));
+        setEmployeeCount(ep?.total_employees ?? 0);
+      }
+    } catch {
+      setStats(null);
+      setMissions([]);
     }
   }, [activeRole, isProvider, isEnterprise]);
 
@@ -161,6 +166,12 @@ export default function DashboardScreen() {
             />
             <ActionBtn label="Mes missions" onPress={() => router.push('/(tabs)/missions')} />
           </View>
+          {isEnterprise && (
+            <View style={styles.actions}>
+              <ActionBtn label="Employés" onPress={() => router.push('/employees')} />
+              <ActionBtn label="Affectations" onPress={() => router.push('/assignments')} />
+            </View>
+          )}
           {isEnterprise && (
             <View style={styles.actions}>
               <ActionBtn label="Missions disponibles" onPress={() => router.push('/(tabs)/available')} primary />

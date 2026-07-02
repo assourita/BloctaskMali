@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { MissionService } from '../../../../core/services/mission.service';
 import { FormsModule } from '@angular/forms';
 import { forkJoin } from 'rxjs';
@@ -54,7 +54,7 @@ interface Mission {
       <div class="page-hero">
         <div>
           <h1><mat-icon>search</mat-icon> Missions disponibles</h1>
-          <p>{{ filteredMissions.length }} mission(s) ouvertes — inclut vos candidatures en attente</p>
+          <p>{{ filteredMissions.length }} mission(s) ouvertes{{ enterpriseContext ? ' — postulez pour votre entreprise' : ' — inclut vos candidatures en attente' }}</p>
         </div>
         <button mat-stroked-button class="filter-btn" (click)="showFilters = !showFilters">
           <mat-icon>tune</mat-icon> Filtres
@@ -172,7 +172,7 @@ interface Mission {
           </div>
 
           <div class="card-actions">
-            <button mat-stroked-button type="button" [routerLink]="['/provider/missions', mission.id]">
+            <button mat-stroked-button type="button" [routerLink]="missionDetailLink(mission.id)">
               <mat-icon>visibility</mat-icon> Détails
             </button>
             <button mat-stroked-button type="button" class="msg-btn"
@@ -343,14 +343,25 @@ export class AvailableMissionsComponent implements OnInit {
     private snackBar: MatSnackBar,
     private dialog: MatDialog,
     private paymentMethodFlow: PaymentMethodFlowService,
+    private route: ActivatedRoute,
   ) {}
+
+  get enterpriseContext(): boolean {
+    return !!this.route.snapshot.data['enterpriseContext'];
+  }
+
+  missionDetailLink(id: string): string[] {
+    return this.enterpriseContext
+      ? ['/enterprise/missions/available', id]
+      : ['/provider/missions', id];
+  }
 
   ngOnInit(): void { this.loadMissions(); }
 
   loadMissions(): void {
     this.loading = true;
     forkJoin({
-      missions: this.missionService.listFunded(this.currentPage, this.pageSize),
+      missions: this.missionService.listFunded(this.currentPage, this.pageSize, this.enterpriseContext),
       applications: this.missionService.getMyApplications('provider'),
     }).subscribe({
       next: ({ missions: response, applications }) => {
@@ -441,7 +452,12 @@ export class AvailableMissionsComponent implements OnInit {
         this.submittingId = null;
         this.messageForMissionId = null;
         this.applyMessage = '';
-        this.snackBar.open('Candidature envoyée ! Suivez-la dans Mes missions → En attente.', 'Fermer', {
+        this.snackBar.open(
+          this.enterpriseContext
+            ? 'Candidature envoyée ! Suivez-la dans Missions reçues ou commandées.'
+            : 'Candidature envoyée ! Suivez-la dans Mes missions → En attente.',
+          'Fermer',
+          {
           duration: 5000,
           panelClass: ['snack-success'],
         });

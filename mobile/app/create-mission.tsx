@@ -28,6 +28,7 @@ import { ChipGroup, FieldLabel } from '../src/components/ui';
 import { DateField, TimeField } from '../src/components/datetime';
 import { calculateFees, DEFAULT_PHONE_PREFIX, formatXOF, MOBILE_MONEY_OPERATORS } from '../src/constants/africa';
 import { colors, radius, spacing } from '../src/constants/theme';
+import { NetworkBanner } from '../src/components/NetworkBanner';
 import { ApiError } from '../src/api/client';
 
 const OPERATOR_OPTIONS = MOBILE_MONEY_OPERATORS.map((o) => ({ id: o.id, label: o.name, color: o.color }));
@@ -93,6 +94,8 @@ export default function CreateMissionScreen() {
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(true);
+  const [categoriesError, setCategoriesError] = useState<string | null>(null);
   const [categoryId, setCategoryId] = useState<string>('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [operator, setOperator] = useState('orange');
@@ -107,9 +110,23 @@ export default function CreateMissionScreen() {
 
   const update = (key: keyof FormState, value: string) => setForm((f) => ({ ...f, [key]: value }));
 
-  useEffect(() => {
-    getCategories().then(setCategories).catch(() => setCategories([]));
+  const loadCategories = useCallback(async () => {
+    setCategoriesLoading(true);
+    setCategoriesError(null);
+    try {
+      const list = await getCategories();
+      setCategories(list);
+    } catch (e) {
+      setCategories([]);
+      setCategoriesError(e instanceof ApiError ? e.message : 'Impossible de charger les catégories');
+    } finally {
+      setCategoriesLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadCategories();
+  }, [loadCategories]);
 
   const selectedCategory = useMemo(
     () => categories.find((c) => c.id === categoryId) || null,
@@ -312,6 +329,10 @@ export default function CreateMissionScreen() {
           <ProgressStepper steps={STEPS} current={step} />
         </View>
 
+        {categoriesError ? (
+          <NetworkBanner message={categoriesError} onRetry={loadCategories} />
+        ) : null}
+
         {step === 0 && (
           <SoftCard>
             <FieldLabel>Titre de la mission *</FieldLabel>
@@ -327,9 +348,19 @@ export default function CreateMissionScreen() {
             />
 
             <FieldLabel>Catégorie *</FieldLabel>
-            <Pressable style={styles.select} onPress={() => setPickerOpen(true)}>
+            <Pressable
+              style={[styles.select, categoriesLoading && styles.selectDisabled]}
+              onPress={() => !categoriesLoading && categories.length && setPickerOpen(true)}
+              disabled={categoriesLoading || !categories.length}
+            >
               <Text style={[styles.selectText, !selectedCategory && { color: colors.textMuted }]}>
-                {selectedCategory ? selectedCategory.name : 'Choisir une catégorie'}
+                {categoriesLoading
+                  ? 'Chargement des catégories…'
+                  : selectedCategory
+                    ? selectedCategory.name
+                    : categories.length
+                      ? 'Choisir une catégorie'
+                      : 'Aucune catégorie disponible'}
               </Text>
               <Text style={styles.selectChevron}>▾</Text>
             </Pressable>
@@ -421,6 +452,10 @@ export default function CreateMissionScreen() {
                 />
                 <Text style={styles.hint}>La caution prestataire sera basée sur cette valeur.</Text>
               </>
+            ) : null}
+
+            {requiresMerchandiseValue && (!form.merchandise_value || Number(form.merchandise_value) < 1000) ? (
+              <Text style={styles.hint}>Saisissez la valeur de la marchandise pour calculer la caution prestataire.</Text>
             ) : null}
 
             {estimatedDeposit > 0 ? (
@@ -530,6 +565,11 @@ export default function CreateMissionScreen() {
         <Pressable style={styles.modalBackdrop} onPress={() => setPickerOpen(false)}>
           <View style={styles.modalSheet}>
             <Text style={styles.modalTitle}>Choisir une catégorie</Text>
+            {categories.length === 0 ? (
+              <Text style={styles.emptyCats}>
+                {categoriesError || 'Aucune catégorie. Vérifiez la connexion au serveur.'}
+              </Text>
+            ) : (
             <View style={styles.catGrid}>
               {categories.map((c) => (
                 <Pressable
@@ -546,6 +586,7 @@ export default function CreateMissionScreen() {
                 </Pressable>
               ))}
             </View>
+            )}
           </View>
         </Pressable>
       </Modal>
@@ -620,7 +661,9 @@ const styles = StyleSheet.create({
     marginBottom: spacing.sm,
   },
   selectText: { fontSize: 15, color: colors.text },
+  selectDisabled: { opacity: 0.65 },
   selectChevron: { color: colors.textMuted, fontSize: 14 },
+  emptyCats: { color: colors.textMuted, textAlign: 'center', padding: spacing.lg },
   timeRow: { flexDirection: 'row', gap: spacing.sm },
   checkRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingVertical: 10 },
   checkRowLocked: { opacity: 0.85 },

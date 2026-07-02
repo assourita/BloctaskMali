@@ -121,6 +121,38 @@ export function HelpIcon({ size = 22, color = colors.textMuted }: { size?: numbe
   );
 }
 
+/** Épingle carte (footer Carte BlockTask). */
+export function MapPinIcon({ size = 22, color = '#fff' }: { size?: number; color?: string }) {
+  const head = size * 0.34;
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          width: head,
+          height: head,
+          borderRadius: head / 2,
+          backgroundColor: color,
+          borderWidth: 2,
+          borderColor: 'rgba(255,255,255,0.5)',
+        }}
+      />
+      <View
+        style={{
+          width: 0,
+          height: 0,
+          marginTop: -2,
+          borderLeftWidth: head * 0.55,
+          borderRightWidth: head * 0.55,
+          borderTopWidth: head * 0.9,
+          borderLeftColor: 'transparent',
+          borderRightColor: 'transparent',
+          borderTopColor: color,
+        }}
+      />
+    </View>
+  );
+}
+
 /** Cloche de notification dessinée en Views natives (aucune dépendance d'icônes). */
 export function BellIcon({ size = 20, color = colors.text }: { size?: number; color?: string }) {
   const dome = size * 0.78;

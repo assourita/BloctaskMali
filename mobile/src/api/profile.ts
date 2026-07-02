@@ -19,6 +19,20 @@ export async function updateProfile(payload: UpdateProfilePayload): Promise<User
   });
 }
 
+export async function uploadProfilePicture(file: {
+  uri: string;
+  name: string;
+  type: string;
+}): Promise<User> {
+  const formData = new FormData();
+  formData.append('profile_picture', {
+    uri: file.uri,
+    name: file.name,
+    type: file.type,
+  } as unknown as Blob);
+  return apiFormRequest<User>('/users/me/', formData, true, 'PATCH');
+}
+
 export interface UserStats {
   active_missions?: number;
   completed_missions?: number;
@@ -37,6 +51,30 @@ export async function toggleAvailability(): Promise<unknown> {
 }
 
 /** Soumission KYC (NINA + photos pièce identité + selfie). */
+export async function requestPhoneVerification(nina: string, phoneNumber: string): Promise<{
+  ok?: boolean;
+  message: string;
+  simulation_otp?: string;
+  error?: string;
+}> {
+  return apiRequest('/users/kyc/verify-phone/', {
+    method: 'POST',
+    body: JSON.stringify({ nina, phone_number: phoneNumber }),
+  });
+}
+
+export async function confirmPhoneVerification(otp: string): Promise<{
+  ok?: boolean;
+  message: string;
+  phone_verified?: boolean;
+  error?: string;
+}> {
+  return apiRequest('/users/kyc/confirm-phone/', {
+    method: 'POST',
+    body: JSON.stringify({ otp }),
+  });
+}
+
 export async function submitKyc(payload: {
   nina: string;
   idFront?: { uri: string; name: string; type: string };
@@ -115,4 +153,24 @@ export interface PublicProviderProfile {
 
 export async function getProviderPublicProfile(id: string): Promise<PublicProviderProfile> {
   return apiRequest<PublicProviderProfile>(`/users/providers/${id}/public/`);
+}
+
+export interface PublicClientProfile {
+  id: string;
+  first_name: string;
+  last_name: string;
+  user_type?: string;
+  enterprise_name?: string | null;
+  city?: string;
+  country?: string;
+  bio?: string;
+  profile_picture?: string;
+  identity_verified?: boolean;
+  member_since?: string;
+  missions_posted?: number;
+  missions_completed?: number;
+}
+
+export async function getClientPublicProfile(id: string): Promise<PublicClientProfile> {
+  return apiRequest<PublicClientProfile>(`/users/clients/${id}/public/`);
 }

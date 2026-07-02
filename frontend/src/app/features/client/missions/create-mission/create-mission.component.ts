@@ -344,10 +344,13 @@ interface CategoryConfig {
                   <mat-hint>Caution prestataire basée sur cette valeur (colis, achats, médicaments…)</mat-hint>
                 </mat-form-field>
 
-                <div class="deposit-preview" *ngIf="estimatedDepositPreview > 0">
+                <div class="deposit-preview" *ngIf="showDepositPreview()">
                   <mat-icon>security</mat-icon>
                   Caution prestataire estimée : <strong>{{ estimatedDepositPreview | number:'1.0-0' }} XOF</strong>
                 </div>
+                <p class="deposit-hint" *ngIf="requiresMerchandiseValue && !merchandiseValue">
+                  Saisissez la valeur de la marchandise pour calculer la caution (équivalent au prix confié).
+                </p>
 
                 <div class="checkbox-group">
                   <mat-checkbox [(ngModel)]="requirements.requires_vehicle" [ngModelOptions]="{standalone: true}"
@@ -434,123 +437,131 @@ interface CategoryConfig {
 
             <!-- Step 4: Payment -->
             <mat-step [stepControl]="paymentForm" label="Paiement">
-              <div class="step-content" [formGroup]="paymentForm">
-                <h3 class="step-title">Paiement sécurisé</h3>
-                <p class="step-subtitle">
-                  Le montant sera bloqué sur votre compte et libéré au prestataire après validation de la mission.
-                </p>
-
-                <!-- Payment Summary -->
-                <div class="payment-summary-card">
-                  <h4>Récapitulatif du paiement</h4>
-                  <div class="payment-row">
-                    <span>Montant mission:</span>
-                    <strong>{{ missionDetailsForm.value.budget ? (missionDetailsForm.value.budget | number) + ' FCFA' : '-' }}</strong>
-                  </div>
-                  <div class="payment-row fee">
-                    <span>Frais plateforme (5%):</span>
-                    <strong>-{{ (missionDetailsForm.value.budget || 0) * 0.05 | number }} FCFA</strong>
-                  </div>
-                  <div class="payment-row total">
-                    <span>Total à payer:</span>
-                    <strong>{{ missionDetailsForm.value.budget ? (missionDetailsForm.value.budget | number) + ' FCFA' : '-' }}</strong>
-                  </div>
-                </div>
-
-                <!-- Payment Method Selection -->
-                <div class="payment-method-section">
-                  <h4>Méthode de paiement</h4>
-
-                  <div class="payment-method-cards">
-                    <div
-                      class="payment-method-card"
-                      [class.selected]="selectedPaymentMethod === 'mobile_money'"
-                      (click)="selectedPaymentMethod = 'mobile_money'; paymentForm.patchValue({payment_method: 'mobile_money'})"
-                    >
-                      <mat-icon>phone_android</mat-icon>
-                      <span>Mobile Money</span>
-                    </div>
-                  </div>
-
-                  <!-- Mobile Money Form -->
-                  <div *ngIf="selectedPaymentMethod === 'mobile_money'" class="mobile-money-form">
-                    <!-- Native select to avoid CDK overlay positioning issues -->
-                    <div class="operator-native-wrapper">
-                      <label class="operator-label">Opérateur</label>
-                      <select formControlName="operator" class="operator-native-select">
-                        <option value="" disabled selected>Sélectionnez un opérateur</option>
-                        <option *ngFor="let op of mobileMoneyOperators" [value]="op.id">
-                          {{ op.name }}
-                        </option>
-                      </select>
-                      <div class="operator-select-arrow">
-                        <mat-icon>arrow_drop_down</mat-icon>
-                      </div>
-                      <div class="operator-error" *ngIf="paymentForm.get('operator')?.hasError('required') && paymentForm.get('operator')?.touched">
-                        Veuillez sélectionner un opérateur
+              <div class="step-content checkout-step" [formGroup]="paymentForm">
+                <div class="checkout-layout">
+                  <aside class="checkout-summary">
+                    <div class="summary-header">
+                      <mat-icon>receipt_long</mat-icon>
+                      <div>
+                        <h3>Récapitulatif</h3>
+                        <p>Vérification avant débit Mobile Money</p>
                       </div>
                     </div>
 
-                    <!-- Numéro Mali (+223) -->
-                    <div class="phone-row">
-                      <div class="mali-prefix-badge">
-                        <span>{{ maliCountry.flag }} Mali</span>
+                    <div class="mission-recap">
+                      <span class="recap-label">Mission</span>
+                      <strong class="recap-title">{{ missionDetailsForm.value.title || '—' }}</strong>
+                      <span class="recap-meta" *ngIf="missionDetailsForm.value.budget">
+                        Budget · {{ missionDetailsForm.value.budget | number:'1.0-0' }} FCFA
+                      </span>
+                    </div>
+
+                    <div class="summary-lines">
+                      <div class="summary-line">
+                        <span>Montant mission</span>
+                        <strong>{{ paymentBudget | number:'1.0-0' }} FCFA</strong>
+                      </div>
+                      <div class="summary-line muted">
+                        <span>Frais plateforme (5 %)</span>
+                        <strong>{{ paymentPlatformFee | number:'1.0-0' }} FCFA</strong>
+                      </div>
+                      <div class="summary-line muted">
+                        <span>Net prestataire (après validation)</span>
+                        <strong>{{ paymentProviderNet | number:'1.0-0' }} FCFA</strong>
+                      </div>
+                      <div class="summary-line total">
+                        <span>Total débité Mobile Money</span>
+                        <strong>{{ paymentBudget | number:'1.0-0' }} FCFA</strong>
+                      </div>
+                    </div>
+
+                    <div class="escrow-pill">
+                      <mat-icon>account_balance_wallet</mat-icon>
+                      <span>Fonds bloqués en escrow jusqu'à validation de la mission</span>
+                    </div>
+                  </aside>
+
+                  <main class="checkout-payment">
+                    <div class="secure-banner">
+                      <mat-icon>lock</mat-icon>
+                      <div>
+                        <strong>Paiement Mobile Money — Mali</strong>
+                        <p>Débit sécurisé via Orange Money ou Moov Money (sandbox : OTP <code>1234</code>)</p>
+                      </div>
+                    </div>
+
+                    <h4 class="section-label">Choisissez votre opérateur</h4>
+                    <div class="operator-grid">
+                      <button
+                        type="button"
+                        class="operator-tile orange"
+                        [class.selected]="paymentForm.value.operator === 'orange'"
+                        (click)="selectOperator('orange')"
+                      >
+                        <span class="op-logo">OM</span>
+                        <span class="op-name">Orange Money</span>
+                      </button>
+                      <button
+                        type="button"
+                        class="operator-tile moov"
+                        [class.selected]="paymentForm.value.operator === 'moov'"
+                        (click)="selectOperator('moov')"
+                      >
+                        <span class="op-logo">MV</span>
+                        <span class="op-name">Moov Money</span>
+                      </button>
+                    </div>
+                    <p class="field-error" *ngIf="paymentForm.get('operator')?.invalid && paymentForm.get('operator')?.touched">
+                      Sélectionnez Orange Money ou Moov Money
+                    </p>
+
+                    <h4 class="section-label">Numéro à débiter</h4>
+                    <div class="phone-checkout">
+                      <div class="country-chip">
+                        <span>{{ maliCountry.flag }}</span>
                         <strong>{{ maliCountry.phonePrefix }}</strong>
                       </div>
-
-                      <mat-form-field appearance="fill" class="phone-input">
+                      <mat-form-field appearance="outline" class="phone-field">
                         <mat-label>Numéro Mobile Money</mat-label>
-                        <input matInput formControlName="phone_number" type="tel" [placeholder]="maliCountry.phonePlaceholder">
-                        <mat-icon matPrefix>phone</mat-icon>
-                        <mat-error *ngIf="paymentForm.get('phone_number')?.hasError('required')">
-                          Le numéro est requis
-                        </mat-error>
-                        <mat-error *ngIf="paymentForm.get('phone_number')?.hasError('pattern')">
-                          Format invalide (8 chiffres, ex. 70 XX XX XX)
-                        </mat-error>
+                        <input matInput formControlName="phone_number" type="tel" inputmode="numeric" [placeholder]="maliCountry.phonePlaceholder">
+                        <mat-icon matPrefix>smartphone</mat-icon>
+                        <mat-error *ngIf="paymentForm.get('phone_number')?.hasError('required')">Numéro requis</mat-error>
+                        <mat-error *ngIf="paymentForm.get('phone_number')?.hasError('pattern')">8 chiffres (ex. 70 XX XX XX)</mat-error>
                       </mat-form-field>
                     </div>
 
-                    <mat-form-field appearance="fill" class="full-width">
-                      <mat-label>Code OTP (reçu sur votre téléphone)</mat-label>
-                      <input matInput formControlName="otp" type="text" maxlength="6" placeholder="1234">
-                      <mat-icon matPrefix>pin</mat-icon>
-                      <mat-hint>Mode test : utilisez 1234</mat-hint>
-                    </mat-form-field>
+                    <h4 class="section-label">Confirmation OTP</h4>
+                    <div class="otp-box">
+                      <mat-form-field appearance="outline" class="otp-field">
+                        <mat-label>Code reçu sur votre téléphone</mat-label>
+                        <input matInput formControlName="otp" type="text" maxlength="6" placeholder="1234" autocomplete="one-time-code">
+                        <mat-icon matPrefix>pin</mat-icon>
+                        <mat-hint>Une notification Mobile Money simulée vous sera envoyée</mat-hint>
+                      </mat-form-field>
+                    </div>
 
-                    <p class="payment-info">
-                      <mat-icon>info</mat-icon>
-                      Vous recevrez une notification sur votre téléphone pour confirmer le paiement.
-                    </p>
-                  </div>
-                </div>
-
-                <!-- Security Notice -->
-                <div class="security-notice">
-                  <mat-icon>verified_user</mat-icon>
-                  <div>
-                    <strong>Paiement sécurisé — Mali</strong>
-                    <p>
-                      Paiement en <strong>FCFA</strong> via Orange Money ou Moov Money.
-                      Si votre wallet MetaMask est connecté, la mission sera également ancrée sur la blockchain Sepolia (couche de confiance escrow).
-                    </p>
-                  </div>
+                    <div class="trust-badges">
+                      <span><mat-icon>verified_user</mat-icon> Chiffrement</span>
+                      <span><mat-icon>shield</mat-icon> Escrow</span>
+                      <span *ngIf="blockchainAvailable"><mat-icon>link</mat-icon> Sepolia</span>
+                    </div>
+                  </main>
                 </div>
               </div>
 
-              <div class="step-actions">
+              <div class="step-actions checkout-actions">
                 <button mat-button matStepperPrevious>Retour</button>
                 <button
                   mat-raised-button
-                  color="accent"
+                  color="primary"
                   (click)="createMission()"
                   [disabled]="isSubmitting || paymentForm.invalid"
-                  class="submit-btn"
+                  class="pay-submit-btn"
                 >
                   <mat-spinner diameter="20" *ngIf="isSubmitting"></mat-spinner>
                   <span *ngIf="!isSubmitting">
-                    <mat-icon>lock</mat-icon>
-                    Payer et créer la mission
+                    <mat-icon>payments</mat-icon>
+                    Payer {{ paymentBudget | number:'1.0-0' }} FCFA et créer
                   </span>
                 </button>
               </div>
@@ -966,6 +977,9 @@ interface CategoryConfig {
       margin-bottom: 16px; font-size: 14px; color: #92400e;
       mat-icon { color: #d97706; }
     }
+    .deposit-hint {
+      font-size: 13px; color: #92400e; margin: -8px 0 16px; line-height: 1.45;
+    }
 
     .checkbox-group {
       display: grid;
@@ -1183,7 +1197,115 @@ interface CategoryConfig {
       }
     }
 
-    /* Payment Styles */
+    /* Payment / Checkout */
+    .checkout-step { padding: 0; }
+    .checkout-layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 340px) 1fr;
+      gap: 24px;
+      align-items: start;
+    }
+    .checkout-summary {
+      background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
+      color: #f8fafc;
+      border-radius: 16px;
+      padding: 24px;
+      position: sticky;
+      top: 80px;
+      box-shadow: 0 12px 40px rgba(15, 23, 42, 0.25);
+    }
+    .summary-header {
+      display: flex; gap: 12px; align-items: flex-start; margin-bottom: 20px;
+      mat-icon { color: #34d399; }
+      h3 { margin: 0; font-size: 18px; }
+      p { margin: 4px 0 0; font-size: 12px; color: #94a3b8; }
+    }
+    .mission-recap {
+      background: rgba(255,255,255,0.06);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 16px;
+      .recap-label { display: block; font-size: 11px; text-transform: uppercase; color: #94a3b8; margin-bottom: 4px; }
+      .recap-title { display: block; font-size: 16px; line-height: 1.3; margin-bottom: 6px; }
+      .recap-meta { font-size: 12px; color: #cbd5e1; }
+    }
+    .summary-lines { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; }
+    .summary-line {
+      display: flex; justify-content: space-between; gap: 12px; font-size: 14px;
+      span { color: #cbd5e1; }
+      strong { color: #fff; }
+      &.muted strong { color: #e2e8f0; font-weight: 500; }
+      &.total {
+        margin-top: 8px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.15);
+        span, strong { font-size: 17px; font-weight: 700; color: #34d399; }
+      }
+    }
+    .escrow-pill {
+      display: flex; align-items: flex-start; gap: 8px; font-size: 12px; color: #a7f3d0;
+      background: rgba(52, 211, 153, 0.12); border-radius: 10px; padding: 10px 12px;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; flex-shrink: 0; }
+    }
+    .checkout-payment {
+      background: #fff;
+      border: 1px solid #e5e7eb;
+      border-radius: 16px;
+      padding: 24px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+    }
+    .secure-banner {
+      display: flex; gap: 14px; align-items: flex-start;
+      background: linear-gradient(135deg, #ecfdf5, #d1fae5);
+      border: 1px solid #a7f3d0;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 24px;
+      mat-icon { color: #059669; }
+      strong { display: block; color: #065f46; margin-bottom: 4px; }
+      p { margin: 0; font-size: 13px; color: #047857; line-height: 1.4; }
+      code { background: rgba(255,255,255,0.7); padding: 1px 6px; border-radius: 4px; }
+    }
+    .section-label { margin: 0 0 12px; font-size: 14px; font-weight: 600; color: #374151; }
+    .operator-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 8px; }
+    .operator-tile {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      padding: 20px 12px; border-radius: 14px; border: 2px solid #e5e7eb;
+      background: #fff; cursor: pointer; transition: all 0.2s;
+      .op-logo {
+        width: 48px; height: 48px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+        font-weight: 800; font-size: 16px; color: #fff;
+      }
+      .op-name { font-size: 13px; font-weight: 600; color: #1f2937; }
+      &.orange .op-logo { background: linear-gradient(135deg, #ff7900, #e65100); }
+      &.moov .op-logo { background: linear-gradient(135deg, #0066cc, #004499); }
+      &.selected { border-color: #059669; box-shadow: 0 0 0 3px rgba(5,150,105,0.15); }
+      &.selected.orange { border-color: #ff7900; box-shadow: 0 0 0 3px rgba(255,121,0,0.15); }
+      &.selected.moov { border-color: #0066cc; box-shadow: 0 0 0 3px rgba(0,102,204,0.15); }
+    }
+    .field-error { color: #dc2626; font-size: 12px; margin: 0 0 16px; }
+    .phone-checkout { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 20px; }
+    .country-chip {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      min-width: 72px; padding: 12px 10px; background: #f3f4f6; border-radius: 12px; border: 1px solid #e5e7eb;
+      span { font-size: 20px; }
+      strong { font-size: 13px; color: #374151; margin-top: 4px; }
+    }
+    .phone-field { flex: 1; width: 100%; }
+    .otp-box { margin-bottom: 16px; }
+    .otp-field { width: 100%; }
+    .trust-badges {
+      display: flex; flex-wrap: wrap; gap: 16px; padding-top: 8px; border-top: 1px solid #f3f4f6;
+      span {
+        display: inline-flex; align-items: center; gap: 6px; font-size: 12px; color: #6b7280; font-weight: 500;
+        mat-icon { font-size: 16px; width: 16px; height: 16px; color: #059669; }
+      }
+    }
+    .checkout-actions { padding-top: 20px; border-top: 1px solid #f3f4f6; margin-top: 8px; }
+    .pay-submit-btn {
+      min-width: 280px; padding: 0 28px !important; height: 48px !important; font-size: 15px !important;
+      mat-icon { margin-right: 8px; }
+    }
+
+    /* Legacy payment styles (kept for compatibility) */
     .payment-summary-card {
       background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
       border-radius: 12px;
@@ -1486,6 +1608,23 @@ interface CategoryConfig {
         padding: 16px;
       }
 
+      .checkout-layout {
+        grid-template-columns: 1fr;
+      }
+
+      .checkout-summary {
+        position: static;
+      }
+
+      .operator-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .pay-submit-btn {
+        min-width: 100%;
+        width: 100%;
+      }
+
       .form-card {
         mat-card-header {
           padding: 20px 20px 16px;
@@ -1516,6 +1655,33 @@ export class CreateMissionComponent implements OnInit {
 
   get isEnterprise(): boolean {
     return this.authService.getActiveRole() === 'enterprise';
+  }
+
+  get paymentBudget(): number {
+    return parseFloat(this.missionDetailsForm.value.budget) || 0;
+  }
+
+  get paymentPlatformFee(): number {
+    return this.paymentService.calculateFees(this.paymentBudget).platformFee;
+  }
+
+  get paymentProviderNet(): number {
+    return Math.max(0, this.paymentBudget - this.paymentPlatformFee);
+  }
+
+  private missionsBasePath(): string {
+    return this.isEnterprise ? '/enterprise/missions' : '/client/missions';
+  }
+
+  private missionDetailPath(id: string): string[] {
+    if (this.isEnterprise) return ['/enterprise/missions', id];
+    return [this.missionsBasePath(), id];
+  }
+
+  selectOperator(id: 'orange' | 'moov'): void {
+    this.selectedPaymentMethod = 'mobile_money';
+    this.paymentForm.patchValue({ payment_method: 'mobile_money', operator: id });
+    this.paymentForm.get('operator')?.markAsTouched();
   }
 
   missionDetailsForm: FormGroup;
@@ -1659,6 +1825,13 @@ export class CreateMissionComponent implements OnInit {
 
   get requiresMerchandiseValue(): boolean {
     return !!this.apiRules?.requires_merchandise_value;
+  }
+
+  showDepositPreview(): boolean {
+    if (this.requiresMerchandiseValue && (!this.merchandiseValue || this.merchandiseValue < 1000)) {
+      return false;
+    }
+    return this.estimatedDepositPreview > 0;
   }
 
   private applyApiRules(): void {
@@ -1973,27 +2146,27 @@ export class CreateMissionComponent implements OnInit {
         if (!paymentId) {
           this.isSubmitting = false;
           this.snackBar.open('Mission créée mais paiement introuvable', 'Fermer', { duration: 4000 });
-          this.router.navigate(['/client/missions']);
+          this.router.navigate([this.missionsBasePath()]);
           return;
         }
         this.paymentService.confirmPayment(paymentId, this.paymentForm.value.otp).subscribe({
           next: () => {
             this.anchorMissionOnChain(mission, deadline).finally(() => {
               this.isSubmitting = false;
-              this.router.navigate(['/client/missions', mission.id]);
+              this.router.navigate(this.missionDetailPath(mission.id));
             });
           },
           error: (payErr) => {
             this.isSubmitting = false;
-            const msg = payErr.error?.detail || 'Erreur paiement Mobile Money';
+            const msg = payErr.error?.detail || payErr.error?.error || 'Erreur paiement Mobile Money';
             this.snackBar.open(msg, 'Fermer', { duration: 5000 });
-            this.router.navigate(['/client/missions', mission.id]);
+            this.router.navigate(this.missionDetailPath(mission.id));
           }
         });
       },
       error: (err) => {
         this.isSubmitting = false;
-        const msg = err.error?.detail || 'Erreur création mission';
+        const msg = err.error?.detail || err.error?.error || err.error?.non_field_errors?.[0] || 'Erreur création mission';
         this.snackBar.open(msg, 'Fermer', { duration: 5000 });
       }
     });

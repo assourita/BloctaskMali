@@ -160,6 +160,11 @@ class Mission(models.Model):
     min_reputation_score = models.FloatField(default=0)
     enterprise_only = models.BooleanField(default=False)
     requires_gps_tracking = models.BooleanField(default=True)
+    provider_gps_consent_at = models.DateTimeField(
+        blank=True,
+        null=True,
+        help_text="Prestataire a accepté le partage GPS jusqu'à la fin de la mission",
+    )
     requires_qr_validation = models.BooleanField(default=False)
     
     # Validation automatique

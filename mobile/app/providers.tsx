@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { Alert, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../src/context/AuthContext';
@@ -37,24 +37,17 @@ export default function ProvidersScreen() {
   const [loadingEnterprises, setLoadingEnterprises] = useState(false);
 
   const loadData = useCallback(async () => {
-    const [p, m] = await Promise.all([
+    const [p, m, e] = await Promise.all([
       getAllProviders(),
       getMyMissions(missionRole),
+      getAllEnterprises().catch(() => [] as LandingEnterprise[]),
     ]);
     setProviders(p);
     setMissions(m);
+    setEnterprises(e);
   }, [missionRole]);
 
   const { loading, refreshing, refresh } = useScreenLoad(loadData, [loadData]);
-
-  useEffect(() => {
-    if (tab !== 'enterprises' || enterprises.length > 0 || loadingEnterprises) return;
-    setLoadingEnterprises(true);
-    getAllEnterprises()
-      .then(setEnterprises)
-      .catch(() => setEnterprises([]))
-      .finally(() => setLoadingEnterprises(false));
-  }, [tab, enterprises.length, loadingEnterprises]);
 
   const filteredProviders = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -173,7 +166,7 @@ export default function ProvidersScreen() {
             </SoftCard>
           ))
         )
-      ) : tab === 'enterprises' && loadingEnterprises ? (
+      ) : tab === 'enterprises' && loading ? (
         <Loader />
       ) : filteredEnterprises.length === 0 ? (
         <Text style={styles.empty}>Aucune entreprise trouvée.</Text>

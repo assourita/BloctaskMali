@@ -88,10 +88,11 @@ export default function ApplicationsScreen() {
   }
 
   return (
-    <AppLayout showBack title="Candidatures" scroll={false}>
+    <AppLayout showBack title="Candidatures" scroll={false} contentStyle={{ flex: 1, paddingBottom: 0 }}>
       <PageHeader title="Candidatures" subtitle="Choisissez un prestataire pour votre mission" />
 
       <FlatList
+        style={{ flex: 1 }}
         style={{ flex: 1 }}
         data={apps}
         keyExtractor={(item) => item.id}

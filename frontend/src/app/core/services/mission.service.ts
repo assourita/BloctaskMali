@@ -41,6 +41,10 @@ export interface Mission {
   expiry_decision_due_at?: string;
   is_applied?: boolean;
   can_apply?: boolean;
+  apply_block_reason?: string | null;
+  applications_open?: boolean;
+  pending_applications_count?: number;
+  assigned_enterprise_id?: string | null;
   requires_verified_provider?: boolean;
   requires_gps_tracking?: boolean;
   enterprise_only?: boolean;
@@ -203,21 +207,32 @@ export class MissionService {
     return this.http.post(`${this.apiUrl}/${id}/start/`, {}, { headers: this.headers() });
   }
 
-  payDeposit(missionId: string, amount?: number): Observable<{
+  payDeposit(
+    missionId: string,
+    payload: {
+      amount?: number;
+      phone_number?: string;
+      operator?: string;
+      otp?: string;
+      auto_start?: boolean;
+      gps_consent?: boolean;
+    } = {},
+  ): Observable<{
     status: string;
     deposit_paid?: boolean;
     required_deposit?: number;
     deposit_deadline?: string;
+    mission_started?: boolean;
     error?: string;
   }> {
-    const body = amount != null ? { amount } : {};
     return this.http.post<{
       status: string;
       deposit_paid?: boolean;
       required_deposit?: number;
       deposit_deadline?: string;
+      mission_started?: boolean;
       error?: string;
-    }>(`${this.apiUrl}/${missionId}/pay_deposit/`, body, { headers: this.headers() });
+    }>(`${this.apiUrl}/${missionId}/pay_deposit/`, payload, { headers: this.headers() });
   }
 
   applyToMission(id: string, message = ''): Observable<unknown> {

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { useAuth } from '../../src/context/AuthContext';
 import {
@@ -8,7 +9,6 @@ import {
   cancelMission,
   expireMissionDecision,
   getMission,
-  payDepositSmart,
   startMission,
   submitProof,
   validateMission,
@@ -27,6 +27,7 @@ import { ProgressStepper } from '../../src/components/widgets';
 import { formatXOF } from '../../src/constants/africa';
 import { colors, radius, spacing, STATUS_META } from '../../src/constants/theme';
 import type { Mission } from '../../src/types';
+import { applyBlockMessage, missionApplicationsOpen } from '../../src/utils/missionApply';
 import { ApiError } from '../../src/api/client';
 
 // Étapes côté prestataire (alignées sur le web) : pas d'étape "Paiement".
@@ -110,10 +111,10 @@ export default function MissionDetailScreen() {
   const [extendDate, setExtendDate] = useState(defaultExtendDate);
   const [extendTime, setExtendTime] = useState('18:00');
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (fresh = false) => {
     if (!id) return;
     try {
-      setMission(await getMission(id));
+      setMission(await getMission(id, fresh));
     } catch {
       Alert.alert('Erreur', 'Mission introuvable');
     } finally {
@@ -121,17 +122,44 @@ export default function MissionDetailScreen() {
     }
   }, [id]);
 
+  useFocusEffect(
+    useCallback(() => {
+      if (!id) return;
+      void load(true);
+    }, [id, load]),
+  );
+
+  // Partage GPS automatique si consentement donné à la caution
   useEffect(() => {
-    setLoading(true);
-    load();
-  }, [load]);
+    if (!mission || activeRole !== 'provider' || mission.status !== 'in_progress') return;
+    if (!mission.provider_gps_consent_at) return;
+
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted' || cancelled || !id) return;
+        const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        await sendLocation(id, pos.coords.latitude, pos.coords.longitude);
+      } catch {
+        /* silencieux */
+      }
+    };
+
+    tick();
+    const interval = setInterval(tick, 45000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [mission?.id, mission?.status, mission?.provider_gps_consent_at, activeRole, id]);
 
   const runAction = async (label: string, fn: () => Promise<unknown>) => {
     setActing(true);
     try {
       await fn();
       Alert.alert('Succès', label);
-      await load();
+      await load(true);
     } catch (e) {
       Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Action impossible');
     } finally {
@@ -139,23 +167,9 @@ export default function MissionDetailScreen() {
     }
   };
 
-  const confirmDeposit = () => {
+  const goToDeposit = () => {
     if (!mission) return;
-    const required = Number(mission.required_deposit) || 0;
-    Alert.alert(
-      'Déposer la caution',
-      required
-        ? `Une caution de ${formatXOF(required)} est requise pour démarrer cette mission. ` +
-            'Elle est bloquée pendant la mission puis restituée à la fin.'
-        : 'Déposez la caution pour pouvoir démarrer la mission.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Déposer',
-          onPress: () => runAction('Caution déposée', () => payDepositSmart(mission.id)),
-        },
-      ],
-    );
+    router.push(`/mission/deposit/${mission.id}`);
   };
 
   const continueAfterExpiry = async () => {
@@ -285,6 +299,13 @@ export default function MissionDetailScreen() {
     isClient && mission.status === 'funded' && !mission.provider && deadlinePassed;
   const isExpired = mission.status === 'expired';
 
+  const isOpenForApplications = missionApplicationsOpen(mission);
+  const isEnterpriseApplicant = isEnterprise && !isEnterpriseOrdered;
+  const showProviderApply = isProvider && isOpenForApplications && !mission.is_applied;
+  const showEnterpriseApply = isEnterpriseApplicant && isOpenForApplications && !mission.is_applied;
+  const showApplicationPending =
+    (isProvider || isEnterpriseApplicant) && isOpenForApplications && !!mission.is_applied;
+
   const category = mission.category?.name || mission.category_name;
   const statusMeta = STATUS_META[mission.status] || { label: mission.status, bg: '#f3f4f6', fg: '#6b7280' };
   const deposit = mission.required_deposit ?? mission.deposit_amount;
@@ -296,6 +317,12 @@ export default function MissionDetailScreen() {
       : escrowFunded
         ? 'Fonds bloqués'
         : 'En attente de financement';
+
+  const pendingApplications =
+    mission.pending_applications_count ??
+    mission.applications_count ??
+    mission.application_count ??
+    0;
 
   return (
     <AppLayout title="Mission" showBack>
@@ -362,6 +389,79 @@ export default function MissionDetailScreen() {
           </View>
         </Card>
 
+        {/* Client — visible pour postuler (prestataire / entreprise) */}
+        {mission.client && (isProvider || isEnterpriseApplicant) && !mission.can_view_counterparty ? (
+          <Card style={styles.clientCard}>
+            <Text style={styles.section}>Client donneur d'ordre</Text>
+            <View style={styles.clientRow}>
+              <View style={styles.clientAvatar}>
+                <Text style={styles.clientInitials}>
+                  {(mission.client.first_name?.[0] || '') + (mission.client.last_name?.[0] || '')}
+                </Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.providerName}>
+                  {mission.client.first_name} {mission.client.last_name}
+                </Text>
+                {mission.client.city ? (
+                  <Text style={styles.clientPhone}>{mission.client.city}</Text>
+                ) : null}
+                <Text style={styles.clientLock}>
+                  Coordonnées complètes visibles au démarrage de la mission.
+                </Text>
+              </View>
+            </View>
+            {mission.client.id ? (
+              <SecondaryButton
+                label="Voir le profil client"
+                onPress={() => router.push(`/client/${mission.client!.id}`)}
+              />
+            ) : null}
+          </Card>
+        ) : null}
+
+        {/* Candidature — visible en haut pour le prestataire / entreprise */}
+        {showApplicationPending ? (
+          <View style={styles.appliedBox}>
+            <Text style={styles.appliedTitle}>Candidature envoyée</Text>
+            <Text style={styles.appliedText}>
+              Votre candidature est en attente de réponse du client.
+            </Text>
+          </View>
+        ) : null}
+
+        {(showProviderApply || showEnterpriseApply) ? (
+          <Card style={styles.applyCard}>
+            <Text style={styles.applyTitle}>Postuler à cette mission</Text>
+            <Text style={styles.applyHint}>
+              {showEnterpriseApply
+                ? 'Proposez votre entreprise pour réaliser cette mission.'
+                : 'Envoyez votre candidature. Plusieurs prestataires peuvent postuler tant que la mission n\'est pas assignée.'}
+            </Text>
+            {isOpenForApplications && pendingApplications > 0 && !mission.is_applied ? (
+              <Text style={styles.applyMultiHint}>
+                {pendingApplications} candidature{pendingApplications > 1 ? 's' : ''} déjà reçue
+                {pendingApplications > 1 ? 's' : ''} — vous pouvez aussi postuler.
+              </Text>
+            ) : null}
+            {mission.can_apply === false ? (
+              <Text style={styles.applyBlocked}>
+                {applyBlockMessage(mission.apply_block_reason)}
+              </Text>
+            ) : null}
+            <PrimaryButton
+              label={showEnterpriseApply ? "Postuler pour l'entreprise" : 'Postuler'}
+              loading={acting}
+              disabled={mission.can_apply === false}
+              onPress={() =>
+                runAction('Candidature envoyée', () =>
+                  applyToMission(mission.id, 'Via app mobile'),
+                )
+              }
+            />
+          </Card>
+        ) : null}
+
         {/* Sécurisation (escrow + blockchain) */}
         <Card>
           <Text style={styles.section}>Sécurisation</Text>
@@ -383,17 +483,31 @@ export default function MissionDetailScreen() {
           ) : null}
         </Card>
 
-        {/* En attente de prestataire (client, mission financée non attribuée) */}
+        {/* En attente / candidatures (client, mission financée non attribuée) */}
         {isClient && !mission.provider && mission.status === 'funded' ? (
           <View style={styles.waitBox}>
-            <Text style={styles.waitTitle}>En attente de prestataire</Text>
-            <Text style={styles.waitText}>
-              Consultez les candidatures ou sollicitez directement un prestataire / une entreprise.
+            <Text style={styles.waitTitle}>
+              {pendingApplications > 0
+                ? `${pendingApplications} prestataire${pendingApplications > 1 ? 's' : ''} en candidature`
+                : 'En attente de prestataire'}
             </Text>
-            <PrimaryButton
-              label="Attribuer la mission"
-              onPress={() => router.push({ pathname: '/providers', params: { missionId: mission.id } })}
-            />
+            <Text style={styles.waitText}>
+              {pendingApplications > 0
+                ? 'Consultez les profils et acceptez la candidature qui vous convient, ou sollicitez d\'autres prestataires.'
+                : 'Consultez les candidatures ou sollicitez directement un prestataire / une entreprise.'}
+            </Text>
+            {pendingApplications > 0 ? (
+              <PrimaryButton
+                label={`Voir les ${pendingApplications} candidature${pendingApplications > 1 ? 's' : ''}`}
+                onPress={() => router.push({ pathname: '/applications', params: { missionId: mission.id } })}
+              />
+            ) : null}
+            <View style={styles.waitActions}>
+              <PrimaryButton
+                label="Attribuer la mission"
+                onPress={() => router.push({ pathname: '/providers', params: { missionId: mission.id } })}
+              />
+            </View>
           </View>
         ) : null}
 
@@ -472,27 +586,6 @@ export default function MissionDetailScreen() {
                 onPress={() => router.push(`/provider/${mission.provider!.id}`)}
               />
             ) : null}
-          </Card>
-        ) : null}
-
-        {mission.client && isProvider && !mission.can_view_counterparty ? (
-          <Card>
-            <Text style={styles.section}>Client</Text>
-            <View style={styles.clientRow}>
-              <View style={styles.clientAvatar}>
-                <Text style={styles.clientInitials}>
-                  {(mission.client.first_name?.[0] || '') + (mission.client.last_name?.[0] || '')}
-                </Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.providerName}>
-                  {mission.client.first_name} {mission.client.last_name}
-                </Text>
-                {mission.client.phone_number ? (
-                  <Text style={styles.clientPhone}>{mission.client.phone_number}</Text>
-                ) : null}
-              </View>
-            </View>
           </Card>
         ) : null}
 
@@ -606,8 +699,12 @@ export default function MissionDetailScreen() {
         {isClient && !mission.provider && mission.status === 'funded' && (
           <>
             <PrimaryButton
-              label="Voir les candidatures"
-              onPress={() => router.push({ pathname: '/providers', params: { missionId: mission.id } })}
+              label={
+                pendingApplications > 0
+                  ? `Voir les ${pendingApplications} candidature${pendingApplications > 1 ? 's' : ''}`
+                  : 'Voir les candidatures'
+              }
+              onPress={() => router.push({ pathname: '/applications', params: { missionId: mission.id } })}
             />
             <SecondaryButton
               label="Solliciter un prestataire"
@@ -650,12 +747,30 @@ export default function MissionDetailScreen() {
           />
         )}
 
-        {isEnterpriseReceived && mission.can_apply && !mission.is_applied && (
+        {/* Provider / entreprise — postuler aussi en bas si la page est longue */}
+        {showProviderApply && (
+          <PrimaryButton
+            label="Postuler"
+            loading={acting}
+            disabled={mission.can_apply === false}
+            onPress={() => runAction('Candidature envoyée', () => applyToMission(mission.id, 'Via app mobile'))}
+          />
+        )}
+
+        {showEnterpriseApply && !isEnterpriseReceived && (
           <PrimaryButton
             label="Postuler pour l'entreprise"
             loading={acting}
+            disabled={mission.can_apply === false}
             onPress={() => runAction('Candidature envoyée', () => applyToMission(mission.id, 'Via app mobile'))}
           />
+        )}
+
+        {showApplicationPending && (
+          <Card style={styles.appliedBoxInline}>
+            <Text style={styles.appliedTitle}>Candidature en attente</Text>
+            <Text style={styles.appliedText}>Le client examinera votre profil.</Text>
+          </Card>
         )}
 
         {isEnterpriseReceived && mission.status === 'accepted' && !mission.deposit_paid && (
@@ -667,7 +782,7 @@ export default function MissionDetailScreen() {
             <PrimaryButton
               label={`Déposer la caution${mission.required_deposit ? ` (${formatXOF(mission.required_deposit)})` : ''}`}
               loading={acting}
-              onPress={confirmDeposit}
+              onPress={goToDeposit}
             />
             <SecondaryButton label="Alimenter le solde" onPress={() => router.push('/deposit')} />
           </Card>
@@ -677,15 +792,6 @@ export default function MissionDetailScreen() {
           <PrimaryButton
             label="Assigner un employé"
             onPress={() => setShowAssignModal(true)}
-          />
-        )}
-
-        {/* Provider actions */}
-        {isProvider && mission.can_apply && !mission.is_applied && (
-          <PrimaryButton
-            label="Postuler"
-            loading={acting}
-            onPress={() => runAction('Candidature envoyée', () => applyToMission(mission.id, 'Via app mobile'))}
           />
         )}
 
@@ -707,11 +813,9 @@ export default function MissionDetailScreen() {
               pour démarrer la mission.
             </Text>
             <PrimaryButton
-              label={`Déposer la caution${
-                mission.required_deposit ? ` (${formatXOF(mission.required_deposit)})` : ''
-              }`}
+              label="Déposer la caution et démarrer"
               loading={acting}
-              onPress={confirmDeposit}
+              onPress={goToDeposit}
             />
           </Card>
         )}
@@ -827,7 +931,36 @@ const styles = StyleSheet.create({
   secHash: { color: colors.textMuted, fontSize: 11, flex: 1, textAlign: 'right', marginLeft: spacing.md },
   waitBox: { backgroundColor: colors.warningLight, borderRadius: radius.md, padding: spacing.md, marginBottom: spacing.md, borderWidth: 1, borderColor: '#f59e0b' },
   waitTitle: { fontWeight: '800', color: '#92400e', fontSize: 15, marginBottom: 4 },
+  clientCard: { marginBottom: spacing.md },
+  clientLock: { fontSize: 12, color: colors.textMuted, marginTop: 4, lineHeight: 17 },
+  applyCard: {
+    marginBottom: spacing.md,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    backgroundColor: '#f0fdf4',
+  },
+  applyTitle: { fontSize: 17, fontWeight: '800', color: colors.text, marginBottom: 6 },
+  applyHint: { fontSize: 13, color: colors.textMuted, lineHeight: 19, marginBottom: spacing.md },
+  applyMultiHint: { fontSize: 12, color: colors.primary, fontWeight: '600', marginBottom: spacing.sm },
+  applyBlocked: { fontSize: 12, color: colors.danger, fontWeight: '600', marginBottom: spacing.sm },
+  appliedBox: {
+    backgroundColor: '#ecfdf5',
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: '#6ee7b7',
+  },
+  appliedBoxInline: {
+    backgroundColor: '#ecfdf5',
+    borderWidth: 1,
+    borderColor: '#6ee7b7',
+    marginBottom: spacing.sm,
+  },
+  appliedTitle: { fontWeight: '800', color: '#047857', fontSize: 15, marginBottom: 4 },
+  appliedText: { fontSize: 13, color: '#065f46', lineHeight: 18 },
   waitText: { color: '#92400e', fontSize: 13, lineHeight: 19, marginBottom: spacing.sm },
+  waitActions: { gap: spacing.sm, marginTop: spacing.xs },
   payHint: { color: colors.textMuted, fontSize: 13, lineHeight: 19, marginBottom: spacing.sm },
   clientRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   clientAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: colors.primaryLight, alignItems: 'center', justifyContent: 'center' },

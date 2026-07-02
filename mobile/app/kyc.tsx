@@ -64,7 +64,16 @@ export default function KycScreen() {
       Alert.alert('Soumis', 'Votre dossier KYC est en cours de vérification.');
       router.back();
     } catch (e) {
-      Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Soumission impossible');
+      const msg = e instanceof ApiError ? e.message : 'Soumission impossible';
+      const needsPhone = /téléphone|telephone|phone_verified/i.test(msg);
+      if (needsPhone) {
+        Alert.alert('Erreur', msg, [
+          { text: 'Aller au profil', onPress: () => router.replace('/(tabs)/profile') },
+          { text: 'OK', style: 'cancel' },
+        ]);
+      } else {
+        Alert.alert('Erreur', msg);
+      }
     } finally {
       setLoading(false);
     }

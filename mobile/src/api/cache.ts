@@ -69,5 +69,8 @@ export function invalidateAfterMutation(path: string): void {
     invalidateCache('/enterprise');
     invalidateCache('/users/enterprise');
   }
-  if (path.includes('/applications')) invalidateCache('/missions');
+  if (path.includes('/apply')) {
+    invalidateCache('/missions');
+    invalidateCache('/applications');
+  }
 }

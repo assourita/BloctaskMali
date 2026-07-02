@@ -12,6 +12,7 @@ import { Loader } from '../../src/components/ui';
 import { AppLayout } from '../../src/components/layout/AppLayout';
 import { SoftCard } from '../../src/components/widgets';
 import { colors, radius, spacing } from '../../src/constants/theme';
+import { useEnterpriseGuard } from '../../src/hooks/useEnterpriseGuard';
 import { ApiError } from '../../src/api/client';
 
 const ROLE_OPTIONS = [
@@ -26,7 +27,28 @@ const ROLE_LABELS: Record<string, string> = Object.fromEntries(
   ROLE_OPTIONS.map((r) => [r.id, r.label]),
 );
 
+function normalizePhone(raw: string): string {
+  return raw.replace(/[\s\-().]/g, '').trim();
+}
+
+function buildEmployeePayload(form: {
+  first_name: string;
+  last_name: string;
+  phone: string;
+  position: string;
+  role: string;
+}) {
+  return {
+    first_name: form.first_name.trim(),
+    last_name: form.last_name.trim(),
+    phone: normalizePhone(form.phone),
+    position: form.position.trim() || 'Agent terrain',
+    role: form.role,
+  };
+}
+
 export default function EmployeeDetailScreen() {
+  const { redirect: guardRedirect } = useEnterpriseGuard();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [employee, setEmployee] = useState<EnterpriseEmployee | null>(null);
   const [loading, setLoading] = useState(true);
@@ -67,13 +89,21 @@ export default function EmployeeDetailScreen() {
   }, [load]);
 
   const save = async () => {
-    if (!id || !form.first_name || !form.last_name) {
+    if (!id || !form.first_name.trim() || !form.last_name.trim()) {
       Alert.alert('Champs requis', 'Prénom et nom sont obligatoires.');
+      return;
+    }
+    const phone = normalizePhone(form.phone);
+    if (phone.length > 17) {
+      Alert.alert(
+        'Téléphone invalide',
+        'Le numéro est trop long (17 caractères max, sans espaces). Ex. +22370123456',
+      );
       return;
     }
     setSaving(true);
     try {
-      const updated = await updateEmployee(id, form);
+      const updated = await updateEmployee(id, buildEmployeePayload(form));
       setEmployee(updated);
       setEditing(false);
       Alert.alert('Succès', 'Employé mis à jour.');
@@ -131,6 +161,8 @@ export default function EmployeeDetailScreen() {
       ],
     );
   };
+
+  if (guardRedirect) return guardRedirect;
 
   if (loading) {
     return <AppLayout title="Employé" showBack><Loader /></AppLayout>;

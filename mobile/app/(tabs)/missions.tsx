@@ -3,8 +3,9 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import { getMyMissions, getStats, type MissionScope } from '../../src/api/missions';
+import { invalidateCache } from '../../src/api/cache';
 import { getMyApplications } from '../../src/api/applications';
-import { useScreenLoad } from '../../src/utils/useScreenLoad';
+import { useScreenLoad, useFocusReload } from '../../src/utils/useScreenLoad';
 import { AppLayout } from '../../src/components/layout/AppLayout';
 import { EnterpriseMissionsNav } from '../../src/components/EnterpriseMissionsNav';
 import { PageHeader, StatGrid, TabBar } from '../../src/components/widgets';
@@ -12,6 +13,8 @@ import { MissionCard } from '../../src/components/MissionCard';
 import { Loader } from '../../src/components/ui';
 import { formatXOF } from '../../src/constants/africa';
 import { colors, spacing } from '../../src/constants/theme';
+import { ApiError } from '../../src/api/client';
+import { NetworkBanner } from '../../src/components/NetworkBanner';
 import type { Mission, MissionApplication } from '../../src/types';
 
 const IN_PROGRESS = ['accepted', 'in_progress', 'submitted'];
@@ -32,6 +35,7 @@ export default function MissionsScreen() {
   const [clientFilter, setClientFilter] = useState<ClientFilter>('all');
   const [providerTab, setProviderTab] = useState<ProviderTab>('active');
   const [enterpriseTab, setEnterpriseTab] = useState<EnterpriseTab>('ordered');
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isEnterprise) {
@@ -45,6 +49,8 @@ export default function MissionsScreen() {
 
   const loadData = useCallback(async () => {
     try {
+      setLoadError(null);
+      invalidateCache('/missions');
       const [m, s] = await Promise.all([
         getMyMissions(activeRole, missionScope),
         getStats(activeRole),
@@ -54,13 +60,15 @@ export default function MissionsScreen() {
       if (isProvider) {
         setApplications(await getMyApplications('provider'));
       }
-    } catch {
+    } catch (e) {
       setMissions([]);
       setApplications([]);
+      setLoadError(e instanceof ApiError ? e.message : 'Impossible de charger les missions');
     }
   }, [activeRole, isProvider, missionScope]);
 
   const { loading, refreshing, refresh, reload } = useScreenLoad(loadData, [loadData]);
+  useFocusReload(reload);
 
   const activeMissions = useMemo(
     () => missions.filter((m) => IN_PROGRESS.includes(m.status)),
@@ -185,6 +193,8 @@ export default function MissionsScreen() {
         />
       )}
 
+      {loadError ? <NetworkBanner message={loadError} onRetry={reload} /> : null}
+
       {loading ? (
         <Loader />
       ) : isProvider && providerTab === 'pending' ? (
@@ -204,7 +214,7 @@ export default function MissionsScreen() {
             </Pressable>
           ))
         )
-      ) : displayList.length === 0 ? (
+      ) : displayList.length === 0 && !loadError ? (
         <EmptyState
           title={isProvider ? 'Aucune mission en cours' : 'Aucune mission'}
           text={isProvider

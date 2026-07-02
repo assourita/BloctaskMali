@@ -15,6 +15,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { lastValueFrom } from 'rxjs';
 import { MissionService, Mission } from '../../../../core/services/mission.service';
+import { EnterpriseService, EnterpriseEmployee } from '../../../../core/services/enterprise.service';
 import { ProofService } from '../../../../core/services/proof.service';
 import { BlockchainService } from '../../../../core/services/blockchain.service';
 import { Web3Service } from '../../../../core/services/web3.service';
@@ -42,7 +43,7 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
             <mat-icon>arrow_back</mat-icon> Retour
           </button>
           <div class="header-actions">
-            <button mat-stroked-button routerLink="/provider/missions/available" *ngIf="mission.status === 'funded'">
+            <button mat-stroked-button [routerLink]="availableMissionsLink" *ngIf="mission.status === 'funded'">
               <mat-icon>search</mat-icon> Autres missions
             </button>
           </div>
@@ -251,11 +252,14 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
               </mat-card-header>
               <mat-card-content class="action-list">
                 <!-- Funded: apply -->
-                <ng-container *ngIf="mission.status === 'funded'">
+                <ng-container *ngIf="missionApplicationsOpen()">
                   <div class="applied-banner" *ngIf="mission.is_applied">
                     <mat-icon>hourglass_top</mat-icon>
                     Candidature envoyée — en attente du client
                   </div>
+                  <p class="action-hint multi-apply-hint" *ngIf="!mission.is_applied && applicationsCount() > 0">
+                    {{ applicationsCount() }} candidature{{ applicationsCount() > 1 ? 's' : '' }} déjà reçue{{ applicationsCount() > 1 ? 's' : '' }} — vous pouvez aussi postuler.
+                  </p>
                   <mat-form-field appearance="outline" class="full-width" *ngIf="!mission.is_applied && mission.can_apply">
                     <mat-label>Message de candidature</mat-label>
                     <textarea matInput rows="3" [(ngModel)]="applyMessage" placeholder="Présentez-vous au client..."></textarea>
@@ -267,25 +271,64 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
                     *ngIf="!mission.is_applied && mission.can_apply"
                     (click)="applyToMission()"
                     [disabled]="actionLoading">
-                    <mat-icon>send</mat-icon> Postuler à cette mission
+                    <mat-icon>send</mat-icon> {{ enterpriseAvailable ? 'Postuler pour l\'entreprise' : 'Postuler à cette mission' }}
                   </button>
                   <p class="action-hint" *ngIf="!mission.is_applied && !mission.can_apply">
-                    Vous ne pouvez pas postuler (mission complète, indisponible ou profil incomplet).
+                    {{ applyBlockMessage() }}
                   </p>
                 </ng-container>
+                <p class="action-hint" *ngIf="mission.status === 'funded' && !missionApplicationsOpen()">
+                  Cette mission a déjà été assignée — candidatures fermées.
+                </p>
 
-                <!-- Accepted: deposit + start -->
+                <!-- Accepted: deposit + start / enterprise assign -->
                 <ng-container *ngIf="mission.status === 'accepted'">
-                  <button mat-raised-button color="warn" class="full-width" *ngIf="!mission.deposit_paid" (click)="payDeposit()" [disabled]="actionLoading">
-                    <mat-icon>security</mat-icon> Déposer la caution
-                  </button>
-                  <button mat-raised-button color="primary" class="full-width" *ngIf="mission.deposit_paid" (click)="startMission()" [disabled]="actionLoading">
-                    <mat-icon>play_arrow</mat-icon> Démarrer la mission
-                  </button>
+                  <ng-container *ngIf="enterpriseReceived">
+                    <div class="info-banner deposit-alert" *ngIf="!mission.deposit_paid">
+                      <mat-icon>security</mat-icon>
+                      <div>
+                        <strong>Caution entreprise requise</strong>
+                        <p>Déposez la caution depuis le solde entreprise avant d'assigner un employé.</p>
+                      </div>
+                    </div>
+                    <button mat-raised-button color="warn" class="full-width" *ngIf="!mission.deposit_paid"
+                      [routerLink]="['/enterprise/missions/received', missionId, 'deposit']">
+                      <mat-icon>security</mat-icon> Déposer la caution
+                    </button>
+                    <a mat-stroked-button class="full-width" *ngIf="!mission.deposit_paid" routerLink="/enterprise/finances">
+                      <mat-icon>account_balance</mat-icon> Alimenter le solde
+                    </a>
+
+                    <ng-container *ngIf="mission.deposit_paid && !mission.executing_employee">
+                      <p class="action-hint">Sélectionnez l'employé qui exécutera la mission sur le terrain.</p>
+                      <select class="employee-select" [(ngModel)]="assignEmployeeId">
+                        <option value="">Choisir un employé</option>
+                        <option *ngFor="let e of employees" [value]="e.id">{{ e.first_name }} {{ e.last_name }}</option>
+                      </select>
+                      <button mat-raised-button color="primary" class="full-width"
+                        (click)="assignEmployee()" [disabled]="actionLoading || !assignEmployeeId">
+                        <mat-icon>person_add</mat-icon> Assigner un employé
+                      </button>
+                    </ng-container>
+
+                    <div class="success-banner" *ngIf="mission.deposit_paid && mission.executing_employee">
+                      <mat-icon>check_circle</mat-icon>
+                      Employé assigné : {{ mission.executing_employee.first_name }} {{ mission.executing_employee.last_name }}
+                    </div>
+                  </ng-container>
+
+                  <ng-container *ngIf="!enterpriseReceived">
+                    <button mat-raised-button color="warn" class="full-width" *ngIf="!mission.deposit_paid" (click)="payDeposit()" [disabled]="actionLoading">
+                      <mat-icon>security</mat-icon> Déposer la caution
+                    </button>
+                    <button mat-raised-button color="primary" class="full-width" *ngIf="mission.deposit_paid" (click)="startMission()" [disabled]="actionLoading">
+                      <mat-icon>play_arrow</mat-icon> Démarrer la mission
+                    </button>
+                  </ng-container>
                 </ng-container>
 
                 <!-- In progress -->
-                <button mat-raised-button color="primary" class="full-width" *ngIf="mission.status === 'in_progress'" routerLink="/provider/tracking" [queryParams]="{ missionId: missionId }">
+                <button mat-raised-button color="primary" class="full-width" *ngIf="mission.status === 'in_progress'" [routerLink]="trackingLink" [queryParams]="{ missionId: missionId }">
                   <mat-icon>gps_fixed</mat-icon> Activer le suivi GPS
                 </button>
 
@@ -537,6 +580,13 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
 
     .chat-wrap { padding: 0; min-height: 320px; }
 
+    .success-banner { display: flex; align-items: center; gap: 8px; padding: 12px; background: #ecfdf5; border-radius: 8px; color: #065f46; font-size: 14px; margin-bottom: 8px; }
+    .deposit-alert { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
+    .deposit-alert mat-icon { color: #d97706; }
+    .deposit-alert strong { display: block; color: #92400e; margin-bottom: 4px; }
+    .deposit-alert p { margin: 0; color: #92400e; font-size: 13px; }
+    .employee-select { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; margin-bottom: 10px; font-size: 14px; }
+
     @media (max-width: 960px) {
       .layout { grid-template-columns: 1fr; }
       .action-card { position: static; }
@@ -552,6 +602,8 @@ export class ProviderMissionDetailComponent implements OnInit {
   actionLoading = false;
   selectedFile: File | null = null;
   applyMessage = '';
+  employees: EnterpriseEmployee[] = [];
+  assignEmployeeId = '';
 
   readonly timelineSteps: Array<{ key: string; label: string; done: boolean; active: boolean }> = [];
 
@@ -559,6 +611,7 @@ export class ProviderMissionDetailComponent implements OnInit {
     private route: ActivatedRoute,
     private router: Router,
     private missionService: MissionService,
+    private enterpriseService: EnterpriseService,
     private proofService: ProofService,
     private snackBar: MatSnackBar,
     private blockchainService: BlockchainService,
@@ -569,6 +622,11 @@ export class ProviderMissionDetailComponent implements OnInit {
 
   ngOnInit(): void {
     this.missionId = this.route.snapshot.paramMap.get('id') || '';
+    if (this.enterpriseReceived) {
+      this.enterpriseService.getEmployees().subscribe({
+        next: (list) => { this.employees = list.filter(e => e.is_active); },
+      });
+    }
     this.loadMission();
     this.route.queryParams.subscribe((params) => {
       if (!this.pageLoading && this.mission) {
@@ -595,7 +653,13 @@ export class ProviderMissionDetailComponent implements OnInit {
       error: () => {
         this.snackBar.open('Mission introuvable', 'Fermer', { duration: 3000 });
         this.pageLoading = false;
-        this.router.navigate(['/provider/missions']);
+        if (this.enterpriseReceived) {
+          this.router.navigate(['/enterprise/missions'], { queryParams: { tab: 'received' } });
+        } else if (this.enterpriseAvailable) {
+          this.router.navigate(['/enterprise/missions/available']);
+        } else {
+          this.router.navigate(['/provider/missions']);
+        }
       },
     });
   }
@@ -632,7 +696,47 @@ export class ProviderMissionDetailComponent implements OnInit {
     }
   }
 
+  get enterpriseContext(): boolean {
+    return !!this.route.snapshot.data['enterpriseContext'] || this.router.url.includes('/enterprise/');
+  }
+
+  get enterpriseReceived(): boolean {
+    return this.enterpriseContext && (
+      this.route.snapshot.data['enterpriseScope'] === 'received'
+      || this.router.url.includes('/missions/received/')
+    );
+  }
+
+  get enterpriseAvailable(): boolean {
+    return this.enterpriseContext && (
+      this.route.snapshot.data['enterpriseScope'] === 'available'
+      || this.router.url.includes('/missions/available/')
+    );
+  }
+
+  get availableMissionsLink(): string[] {
+    return this.enterpriseAvailable || this.enterpriseContext
+      ? ['/enterprise/missions/available']
+      : ['/provider/missions/available'];
+  }
+
+  get trackingLink(): string {
+    return this.enterpriseContext ? '/enterprise/tracking' : '/provider/tracking';
+  }
+
   goBack(): void {
+    if (this.enterpriseReceived) {
+      this.router.navigate(['/enterprise/missions'], { queryParams: { tab: 'received' } });
+      return;
+    }
+    if (this.enterpriseAvailable) {
+      this.router.navigate(['/enterprise/missions/available']);
+      return;
+    }
+    if (this.router.url.includes('/enterprise/')) {
+      this.router.navigate(['/enterprise/missions'], { queryParams: { tab: 'received' } });
+      return;
+    }
     if (this.mission?.status === 'funded') {
       this.router.navigate(['/provider/missions/available']);
       return;
@@ -645,7 +749,42 @@ export class ProviderMissionDetailComponent implements OnInit {
   }
 
   applicationsCount(): number {
-    return this.mission?.applications_count ?? this.mission?.application_count ?? 0;
+    return this.mission?.pending_applications_count
+      ?? this.mission?.applications_count
+      ?? this.mission?.application_count
+      ?? 0;
+  }
+
+  missionApplicationsOpen(): boolean {
+    if (typeof this.mission?.applications_open === 'boolean') {
+      return this.mission.applications_open;
+    }
+    return (
+      this.mission?.status === 'funded'
+      && !this.mission?.provider
+      && !this.mission?.assigned_enterprise_id
+    );
+  }
+
+  applyBlockMessage(): string {
+    switch (this.mission?.apply_block_reason) {
+      case 'assigned':
+        return 'Cette mission a déjà été assignée. Les candidatures sont fermées.';
+      case 'closed':
+        return 'Cette mission n\'est plus ouverte aux candidatures.';
+      case 'already_applied':
+        return 'Vous avez déjà postulé à cette mission.';
+      case 'kyc_incomplete':
+        return 'Complétez votre profil et votre vérification (NINA, téléphone, documents) pour postuler.';
+      case 'kyc_required':
+        return 'Cette mission exige un KYC vérifié par l\'administration.';
+      case 'unavailable':
+        return 'Activez votre disponibilité dans votre profil prestataire.';
+      case 'profile_incomplete':
+        return 'Complétez votre profil prestataire pour postuler.';
+      default:
+        return 'Candidature indisponible (profil incomplet, KYC ou disponibilité).';
+    }
   }
 
   statusLabel(status: string): string {
@@ -770,10 +909,32 @@ export class ProviderMissionDetailComponent implements OnInit {
             `Solde insuffisant. Alimentez via Mobile Money.`,
             'Caution',
             { duration: 8000 },
-          ).onAction().subscribe(() => this.router.navigate(['/provider/deposit']));
+          ).onAction().subscribe(() => this.router.navigate([
+            this.enterpriseContext ? '/enterprise/finances' : '/provider/deposit',
+          ]));
         } else {
           this.snackBar.open(body?.error || 'Erreur dépôt caution', 'Fermer', { duration: 5000 });
         }
+      },
+    });
+  }
+
+  assignEmployee(): void {
+    if (!this.assignEmployeeId) return;
+    this.actionLoading = true;
+    this.enterpriseService.createAssignment({
+      mission: this.missionId,
+      employee: this.assignEmployeeId,
+    }).subscribe({
+      next: () => {
+        this.actionLoading = false;
+        this.assignEmployeeId = '';
+        this.snackBar.open('Employé assigné à la mission', 'Fermer', { duration: 4000 });
+        this.loadMission();
+      },
+      error: (e) => {
+        this.actionLoading = false;
+        this.snackBar.open(e.error?.detail || 'Erreur assignation', 'Fermer', { duration: 5000 });
       },
     });
   }

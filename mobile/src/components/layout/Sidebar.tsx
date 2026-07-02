@@ -50,6 +50,7 @@ const ENTERPRISE_NAV: NavItem[] = [
   { label: 'Missions', href: '/(tabs)/missions', match: '/missions' },
   { label: 'Sollicitations reçues', href: '/solicitations', match: '/solicitations' },
   { label: 'Employés', href: '/employees', match: '/employees' },
+  { label: 'Affectations', href: '/assignments', match: '/assignments' },
   { label: 'Suivi en temps réel', href: '/tracking', match: '/tracking' },
   { label: 'Finances', href: '/finances', match: '/finances' },
   { label: 'Analytics', href: '/analytics', match: '/analytics' },

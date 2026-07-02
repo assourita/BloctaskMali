@@ -78,7 +78,7 @@ export function AppHeader({ title }: { title?: string }) {
   const handleLogout = async () => {
     setMenuOpen(false);
     await logout();
-    router.replace('/login');
+    router.replace('/');
   };
 
   const initials = (user?.first_name?.[0] || '') + (user?.last_name?.[0] || '');
@@ -89,7 +89,7 @@ export function AppHeader({ title }: { title?: string }) {
         <Pressable onPress={open} hitSlop={12} style={styles.iconBtn}>
           <Text style={styles.hamburger}>☰</Text>
         </Pressable>
-        <Pressable style={styles.logo} onPress={() => router.push(user ? '/home' : '/')}>
+        <Pressable style={styles.logo} onPress={() => router.push(user ? '/(tabs)' : '/')}>
           <View style={styles.logoDot} />
           <Text style={styles.logoText}>BlockTask</Text>
         </Pressable>

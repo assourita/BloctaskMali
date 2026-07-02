@@ -2,6 +2,8 @@
 BlockTask Users Serializers
 """
 
+import re
+
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from django.contrib.auth.password_validation import validate_password
@@ -228,6 +230,13 @@ class EnterpriseProfileSerializer(serializers.ModelSerializer):
         read_only_fields = ['deposit_balance', 'deposit_locked']
 
 
+def _normalize_employee_phone(value: str) -> str:
+    """Retire espaces / tirets pour respecter max_length=17 et le format User."""
+    if not value:
+        return ''
+    return re.sub(r'[\s\-().]', '', str(value).strip())
+
+
 class EmployeeSerializer(serializers.ModelSerializer):
     """Sérialiseur employé"""
     user_email = serializers.EmailField(source='user.email', read_only=True)
@@ -241,9 +250,25 @@ class EmployeeSerializer(serializers.ModelSerializer):
             'hired_at', 'created_at'
         ]
         read_only_fields = [
-            'id', 'enterprise', 'user', 'user_email', 'created_at',
+            'id', 'enterprise', 'user', 'user_email', 'email', 'created_at',
             'missions_completed', 'missions_failed',
         ]
+        extra_kwargs = {
+            'phone': {'allow_blank': True, 'required': False},
+            'position': {'allow_blank': True, 'required': False},
+        }
+
+    def validate_phone(self, value):
+        phone = _normalize_employee_phone(value)
+        if phone and len(phone) > 17:
+            raise serializers.ValidationError(
+                'Numéro trop long (17 caractères max, sans espaces). Ex. +22370123456'
+            )
+        return phone
+
+    def validate_position(self, value):
+        position = (value or '').strip()
+        return position or 'Agent terrain'
 
 
 class WalletTransactionSerializer(serializers.ModelSerializer):

@@ -14,10 +14,13 @@ import { Card, Loader } from '../src/components/ui';
 import { AppLayout } from '../src/components/layout/AppLayout';
 import { PageHeader, SoftCard } from '../src/components/widgets';
 import { colors, spacing } from '../src/constants/theme';
+import { useEnterpriseGuard } from '../src/hooks/useEnterpriseGuard';
+import { assignmentStatusLabel } from '../src/utils/enterprise';
 import { ApiError } from '../src/api/client';
 import type { Mission } from '../src/types';
 
 export default function AssignmentsScreen() {
+  const { redirect: guardRedirect } = useEnterpriseGuard();
   const [assignments, setAssignments] = useState<EmployeeAssignment[]>([]);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [employees, setEmployees] = useState<EnterpriseEmployee[]>([]);
@@ -71,6 +74,8 @@ export default function AssignmentsScreen() {
     }
   };
 
+  if (guardRedirect) return guardRedirect;
+
   return (
     <AppLayout
       title="Affectations"
@@ -123,7 +128,9 @@ export default function AssignmentsScreen() {
           <Card key={a.id} style={styles.card}>
             <Text style={styles.title}>{a.mission_title || 'Mission'}</Text>
             <Text style={styles.meta}>{a.employee_name || 'Employé'}</Text>
-            <Text style={styles.meta}>{new Date(a.assigned_at).toLocaleString('fr-FR')}</Text>
+            <Text style={styles.meta}>
+              {assignmentStatusLabel(a.assignment_status)} · {new Date(a.assigned_at).toLocaleString('fr-FR')}
+            </Text>
             <Pressable onPress={() => a.mission && router.push(`/mission/${a.mission}`)}>
               <Text style={styles.link}>Voir la mission</Text>
             </Pressable>

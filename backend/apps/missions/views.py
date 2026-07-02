@@ -352,11 +352,29 @@ class MissionViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_403_FORBIDDEN,
             )
         
-        # Vérifier que la mission est ouverte
+        # Vérifier que la mission est ouverte aux candidatures
         if mission.status != Mission.Status.FUNDED:
             return Response(
                 {'error': 'Cette mission n\'est plus ouverte aux candidatures'},
                 status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if mission.provider_id:
+            return Response(
+                {
+                    'error': 'Cette mission a déjà un prestataire assigné — candidatures fermées.',
+                    'mission_assigned': True,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        if mission.assigned_enterprise_id:
+            return Response(
+                {
+                    'error': 'Cette mission a déjà été confiée à une entreprise — candidatures fermées.',
+                    'mission_assigned': True,
+                },
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         if MissionApplication.objects.filter(mission=mission, provider=request.user).exists():
@@ -725,12 +743,37 @@ class MissionViewSet(viewsets.ModelViewSet):
             f'Le prestataire a déposé la caution pour « {mission.title} ». La mission peut démarrer.',
         )
 
-        return Response({
+        if _truthy(request.data.get('gps_consent')):
+            _apply_gps_consent(mission, request.user)
+
+        response_data = {
             'status': 'Caution déposée',
             'deposit_paid': True,
             'required_deposit': float(required),
             'deposit_deadline': mission.deposit_deadline.isoformat() if mission.deposit_deadline else None,
-        })
+            'provider_gps_consent_at': (
+                mission.provider_gps_consent_at.isoformat()
+                if mission.provider_gps_consent_at else None
+            ),
+        }
+
+        if _truthy(request.data.get('auto_start')):
+            if _start_mission_record(
+                mission,
+                request.user,
+                reason='Mission démarrée automatiquement après dépôt de caution',
+            ):
+                response_data['mission_started'] = True
+                response_data['status'] = 'Caution déposée — mission démarrée'
+                notify_mission_event(
+                    mission,
+                    'started',
+                    mission.client,
+                    'Mission démarrée',
+                    f'Le prestataire a démarré « {mission.title} ».',
+                )
+
+        return Response(response_data)
 
     @action(detail=True, methods=['post'])
     def start(self, request, pk=None):
@@ -765,19 +808,9 @@ class MissionViewSet(viewsets.ModelViewSet):
                 {'error': 'La mission doit être acceptée pour être démarrée'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        mission.status = Mission.Status.IN_PROGRESS
-        mission.started_at = timezone.now()
-        mission.save()
-        
-        MissionStatusHistory.objects.create(
-            mission=mission,
-            old_status=Mission.Status.ACCEPTED,
-            new_status=Mission.Status.IN_PROGRESS,
-            changed_by=request.user,
-            reason='Mission démarrée par le prestataire'
-        )
-        
+
+        _start_mission_record(mission, request.user, reason='Mission démarrée par le prestataire')
+
         return Response({'status': 'Mission démarrée'})
     
     @action(detail=True, methods=['post'])
@@ -1447,6 +1480,34 @@ def _solicitation_workflow_state(request, solicitation, mission):
         'deposit_balance': deposit_balance,
         'is_enterprise': is_enterprise,
     }
+
+
+def _truthy(value) -> bool:
+    return value in (True, 'true', 'True', '1', 1)
+
+
+def _start_mission_record(mission, user, reason='Mission démarrée'):
+    if mission.status != Mission.Status.ACCEPTED:
+        return False
+    old_status = mission.status
+    mission.status = Mission.Status.IN_PROGRESS
+    mission.started_at = timezone.now()
+    mission.save(update_fields=['status', 'started_at', 'updated_at'])
+    MissionStatusHistory.objects.create(
+        mission=mission,
+        old_status=old_status,
+        new_status=Mission.Status.IN_PROGRESS,
+        changed_by=user,
+        reason=reason,
+    )
+    return True
+
+
+def _apply_gps_consent(mission, user):
+    mission.provider_gps_consent_at = timezone.now()
+    mission.save(update_fields=['provider_gps_consent_at', 'updated_at'])
+    user.gps_tracking_enabled = True
+    user.save(update_fields=['gps_tracking_enabled'])
 
 
 def _mission_start_allowed(user, mission) -> bool:

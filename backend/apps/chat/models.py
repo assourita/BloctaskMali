@@ -64,6 +64,7 @@ class Message(models.Model):
     )
     attachment_url = models.URLField(blank=True)
     is_read = models.BooleanField(default=False)
+    delivered_at = models.DateTimeField(blank=True, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

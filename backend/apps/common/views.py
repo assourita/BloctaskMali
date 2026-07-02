@@ -245,3 +245,54 @@ def landing_data(request):
             if cat.cnt > 0
         ],
     })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def map_presence(request):
+    """Utilisateurs BlockTask visibles sur la carte (hors admin)."""
+    from apps.common.africa_config import DEFAULT_MAP_CENTER
+    from apps.common.map import build_map_presence
+
+    search = request.query_params.get('search', '')
+    users = build_map_presence(request, search=search)
+    return Response({
+        'center': DEFAULT_MAP_CENTER,
+        'users': users,
+        'count': len(users),
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def map_user_detail(request, user_id):
+    """Détail d'un utilisateur sur la carte (position exacte si mission en cours)."""
+    from apps.common.map import get_map_user_detail
+
+    detail = get_map_user_detail(request, user_id)
+    if not detail:
+        return Response({'detail': 'Utilisateur introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+    return Response(detail)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def map_update_location(request):
+    """Met à jour la position de l'utilisateur courant sur la carte."""
+    from apps.common.map import update_user_map_location
+
+    try:
+        latitude = float(request.data.get('latitude'))
+        longitude = float(request.data.get('longitude'))
+    except (TypeError, ValueError):
+        return Response({'detail': 'latitude et longitude requises.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not (-90 <= latitude <= 90 and -180 <= longitude <= 180):
+        return Response({'detail': 'Coordonnées invalides.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    update_user_map_location(request.user, latitude, longitude)
+    return Response({
+        'detail': 'Position mise à jour.',
+        'latitude': latitude,
+        'longitude': longitude,
+    })

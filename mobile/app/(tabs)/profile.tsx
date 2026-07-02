@@ -1,21 +1,22 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
 import { useAuth } from '../../src/context/AuthContext';
-import { changePassword, submitKyc, updateProfile, updateProviderProfile, toggleAvailability } from '../../src/api/profile';
+import { changePassword, submitKyc, updateProfile, updateProviderProfile, toggleAvailability, uploadProfilePicture, requestPhoneVerification, confirmPhoneVerification } from '../../src/api/profile';
 import { getProviderProfile } from '../../src/api/deposits';
 import { createPaymentMethod, getPaymentMethods } from '../../src/api/payments';
 import { getStats } from '../../src/api/missions';
 import { getCategories, type Category } from '../../src/api/categories';
 import { PrimaryButton, SecondaryButton, Input, PasswordInput } from '../../src/components/buttons';
-import { Badge, ChipGroup, FieldLabel, MultiChipGroup } from '../../src/components/ui';
+import { ChipGroup, FieldLabel, MultiChipGroup } from '../../src/components/ui';
 import { AppLayout } from '../../src/components/layout/AppLayout';
 import { SoftCard, TabBar } from '../../src/components/widgets';
 import { DEFAULT_ID_LABEL, DEFAULT_PHONE_PREFIX, MOBILE_MONEY_OPERATORS, formatXOF } from '../../src/constants/africa';
 import { PROVIDER_SKILL_OPTIONS, profileFieldLabel, KYC_FIELDS } from '../../src/constants/profileFields';
 import { colors, radius, shadow, spacing } from '../../src/constants/theme';
 import { ApiError } from '../../src/api/client';
+import { mediaUrl } from '../../src/constants/config';
 import { isAdminAccount, isEnterpriseAccount } from '../../src/utils/roles';
 import type { MissionStats, UserRole } from '../../src/types';
 
@@ -72,12 +73,19 @@ export default function ProfileScreen() {
     selfie: null,
   });
   const [savingKyc, setSavingKyc] = useState(false);
+  const [verifyPhone, setVerifyPhone] = useState(user?.phone_number || DEFAULT_PHONE_PREFIX);
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSent, setOtpSent] = useState(false);
+  const [simulationOtp, setSimulationOtp] = useState('');
+  const [sendingOtp, setSendingOtp] = useState(false);
+  const [confirmingOtp, setConfirmingOtp] = useState(false);
 
   // ── Onglet sécurité ──
   const [oldPwd, setOldPwd] = useState('');
   const [newPwd, setNewPwd] = useState('');
   const [confirmPwd, setConfirmPwd] = useState('');
   const [savingPwd, setSavingPwd] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
 
   // "Vérifié" uniquement si le profil est complet ET validé par l'admin (KYC vérifié + accès plateforme).
   const kycVerified = ['verified', 'approved'].includes((user?.kyc_status || '').toLowerCase());
@@ -184,6 +192,43 @@ export default function ProfileScreen() {
     }
   };
 
+  const pickPhotoFrom = async (useCamera: boolean) => {
+    const perm = useCamera
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission', "Autorisez l'accès à la caméra ou aux photos.");
+      return;
+    }
+    const result = useCamera
+      ? await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: true, aspect: [1, 1] })
+      : await ImagePicker.launchImageLibraryAsync({ quality: 0.8, allowsEditing: true, aspect: [1, 1] });
+    if (result.canceled || !result.assets[0]) return;
+    const a = result.assets[0];
+    setUploadingPhoto(true);
+    try {
+      await uploadProfilePicture({
+        uri: a.uri,
+        name: a.fileName || 'profile.jpg',
+        type: a.mimeType || 'image/jpeg',
+      });
+      await refreshProfile();
+      Alert.alert('Succès', 'Photo de profil mise à jour.');
+    } catch (e) {
+      Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Upload impossible');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
+  const pickProfilePhoto = () => {
+    Alert.alert('Photo de profil', 'Choisissez une source', [
+      { text: 'Galerie', onPress: () => pickPhotoFrom(false) },
+      { text: 'Appareil photo', onPress: () => pickPhotoFrom(true) },
+      { text: 'Annuler', style: 'cancel' },
+    ]);
+  };
+
   // ── KYC ──
   const pickPhoto = async (slot: PhotoSlot, useCamera: boolean) => {
     const perm = useCamera
@@ -202,6 +247,14 @@ export default function ProfileScreen() {
   };
 
   const submitKycForm = async () => {
+    if (!user?.phone_verified) {
+      Alert.alert(
+        'Téléphone non vérifié',
+        'Vérifiez d\'abord votre numéro de téléphone (section ci-dessus) avant de soumettre le dossier KYC.',
+        [{ text: 'OK' }],
+      );
+      return;
+    }
     if (!nina.trim()) {
       Alert.alert('NINA requis', `Saisissez votre numéro ${DEFAULT_ID_LABEL}.`);
       return;
@@ -217,9 +270,63 @@ export default function ProfileScreen() {
       await refreshProfile();
       Alert.alert('Soumis', 'Votre dossier KYC est en cours de vérification.');
     } catch (e) {
-      Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Soumission impossible');
+      const msg = e instanceof ApiError ? e.message : 'Soumission impossible';
+      const needsPhone = /téléphone|telephone|phone_verified/i.test(msg);
+      if (needsPhone) {
+        Alert.alert('Erreur', msg, [
+          {
+            text: 'Vérifier mon téléphone',
+            onPress: () => setTab('identity'),
+          },
+          { text: 'OK', style: 'cancel' },
+        ]);
+      } else {
+        Alert.alert('Erreur', msg);
+      }
     } finally {
       setSavingKyc(false);
+    }
+  };
+
+  const sendPhoneOtp = async () => {
+    if (!nina.trim()) {
+      Alert.alert('NINA requis', `Saisissez votre ${DEFAULT_ID_LABEL} avant la vérification téléphone.`);
+      return;
+    }
+    if (!verifyPhone.trim()) {
+      Alert.alert('Téléphone requis', 'Saisissez votre numéro de téléphone.');
+      return;
+    }
+    setSendingOtp(true);
+    try {
+      const res = await requestPhoneVerification(nina.trim(), verifyPhone.trim());
+      setOtpSent(true);
+      setSimulationOtp(res.simulation_otp || '');
+      Alert.alert('Code envoyé', res.message || 'Vérifiez le code reçu par SMS.');
+    } catch (e) {
+      Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Envoi impossible');
+    } finally {
+      setSendingOtp(false);
+    }
+  };
+
+  const confirmPhoneOtp = async () => {
+    if (otpCode.trim().length < 6) {
+      Alert.alert('Code OTP', 'Saisissez le code à 6 chiffres.');
+      return;
+    }
+    setConfirmingOtp(true);
+    try {
+      await confirmPhoneVerification(otpCode.trim());
+      await refreshProfile();
+      setOtpSent(false);
+      setOtpCode('');
+      setSimulationOtp('');
+      Alert.alert('Succès', 'Téléphone vérifié et lié au NINA.');
+    } catch (e) {
+      Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Code incorrect');
+    } finally {
+      setConfirmingOtp(false);
     }
   };
 
@@ -247,7 +354,7 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     await logout();
-    router.replace('/login');
+    router.replace('/');
   };
 
   const handleSwitch = async (role: UserRole) => {
@@ -270,6 +377,10 @@ export default function ProfileScreen() {
     : null;
 
   const initials = (user?.first_name?.[0] || '') + (user?.last_name?.[0] || '');
+  const avatarUri = mediaUrl(user?.profile_picture);
+  const roleLabel = (
+    ROLE_LABELS[activeRole || user?.user_type || 'client'] || 'Client'
+  ).toUpperCase();
 
   return (
     <AppLayout
@@ -296,11 +407,26 @@ export default function ProfileScreen() {
     >
       {/* En-tête identité */}
       <View style={styles.banner}>
-        <View style={styles.avatar}>
-          <Text style={styles.avatarText}>{initials || 'U'}</Text>
-        </View>
+        <Pressable
+          style={styles.avatarWrap}
+          onPress={pickProfilePhoto}
+          disabled={uploadingPhoto}
+        >
+          {avatarUri ? (
+            <Image source={{ uri: avatarUri }} style={styles.avatarImage} />
+          ) : (
+            <View style={styles.avatar}>
+              <Text style={styles.avatarText}>{initials || 'U'}</Text>
+            </View>
+          )}
+          <View style={styles.avatarEdit}>
+            <Text style={styles.avatarEditText}>{uploadingPhoto ? '…' : '📷'}</Text>
+          </View>
+        </Pressable>
         <Text style={styles.name}>{user?.first_name} {user?.last_name}</Text>
-        <Badge label={isAdmin ? 'ADMINISTRATEUR' : isEnterprise ? 'ENTREPRISE' : isProvider ? 'PRESTATAIRE' : 'CLIENT'} tone="success" />
+        <View style={styles.roleWrap}>
+          <Text style={styles.roleBadge}>{roleLabel}</Text>
+        </View>
         <View style={styles.metaRow}>
           <Text style={styles.meta}>{user?.email}</Text>
           <Text style={styles.meta}>{user?.phone_number || 'Tél. non renseigné'}</Text>
@@ -451,8 +577,63 @@ export default function ProfileScreen() {
                 </View>
               ) : null}
 
+              <Text style={styles.section}>Étape 1 — NINA et téléphone</Text>
+              <Text style={styles.tabIntroSmall}>
+                Les 4 derniers chiffres du NINA doivent correspondre aux 4 derniers du téléphone (simulation).
+              </Text>
+
               <FieldLabel>Numéro {DEFAULT_ID_LABEL}</FieldLabel>
-              <Input placeholder="Ex. ML1234567890" value={nina} onChangeText={setNina} />
+              <Input
+                placeholder="Ex. ML1234567890"
+                value={nina}
+                onChangeText={setNina}
+                editable={!user?.phone_verified}
+              />
+
+              <FieldLabel>Numéro de téléphone</FieldLabel>
+              <Input
+                placeholder={DEFAULT_PHONE_PREFIX}
+                value={verifyPhone}
+                onChangeText={setVerifyPhone}
+                keyboardType="phone-pad"
+                editable={!user?.phone_verified}
+              />
+
+              {user?.phone_verified ? (
+                <View style={[styles.pill, styles.pillOk, { alignSelf: 'flex-start', marginBottom: spacing.md }]}>
+                  <Text style={[styles.pillText, styles.pillTextOk]}>Téléphone vérifié</Text>
+                </View>
+              ) : (
+                <>
+                  <PrimaryButton
+                    label={otpSent ? 'Renvoyer le code SMS' : 'Vérifier le téléphone'}
+                    onPress={sendPhoneOtp}
+                    loading={sendingOtp}
+                  />
+                  {simulationOtp ? (
+                    <Text style={styles.simOtp}>Mode test — code : {simulationOtp}</Text>
+                  ) : null}
+                  {otpSent ? (
+                    <>
+                      <FieldLabel>Code reçu par SMS</FieldLabel>
+                      <Input
+                        placeholder="000000"
+                        value={otpCode}
+                        onChangeText={setOtpCode}
+                        keyboardType="number-pad"
+                        maxLength={6}
+                      />
+                      <PrimaryButton
+                        label="Confirmer le code"
+                        onPress={confirmPhoneOtp}
+                        loading={confirmingOtp}
+                      />
+                    </>
+                  ) : null}
+                </>
+              )}
+
+              <Text style={[styles.section, { marginTop: spacing.md }]}>Étape 2 — Documents</Text>
 
               {(['idFront', 'idBack', 'selfie'] as PhotoSlot[]).map((slot) => (
                 <View key={slot} style={styles.slot}>
@@ -527,6 +708,7 @@ export default function ProfileScreen() {
           <>
             <ShortcutRow label="Mon entreprise" onPress={() => router.push('/enterprise-profile')} />
             <ShortcutRow label="Employés" onPress={() => router.push('/employees')} />
+            <ShortcutRow label="Affectations" onPress={() => router.push('/assignments')} />
             <ShortcutRow label="Finances" onPress={() => router.push('/finances')} />
             <ShortcutRow label="Caution entreprise" onPress={() => router.push('/deposit')} />
           </>
@@ -627,12 +809,53 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: spacing.md,
   },
-  avatar: {
-    width: 72, height: 72, borderRadius: 36,
-    backgroundColor: colors.primary, alignItems: 'center', justifyContent: 'center', marginBottom: spacing.sm,
+  avatarWrap: {
+    position: 'relative',
+    marginBottom: spacing.sm,
   },
+  avatar: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: colors.primary,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarImage: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: colors.primary,
+  },
+  avatarEdit: {
+    position: 'absolute',
+    right: 0,
+    bottom: 0,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#1a1a2e',
+  },
+  avatarEditText: { fontSize: 13 },
   avatarText: { color: '#fff', fontWeight: '800', fontSize: 24 },
-  name: { fontSize: 19, fontWeight: '800', color: '#fff', marginBottom: 6 },
+  name: { fontSize: 19, fontWeight: '800', color: '#fff', marginBottom: 8, textAlign: 'center' },
+  roleWrap: { alignItems: 'center', width: '100%', marginBottom: 4 },
+  roleBadge: {
+    backgroundColor: 'rgba(34,197,94,0.22)',
+    fontSize: 11,
+    fontWeight: '800',
+    letterSpacing: 0.6,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+    borderRadius: 999,
+    overflow: 'hidden',
+    textAlign: 'center',
+    color: '#4ade80',
+  },
   metaRow: { alignItems: 'center', marginTop: spacing.sm, gap: 2 },
   meta: { color: '#cbd5e1', fontSize: 12.5 },
   pills: { flexDirection: 'row', gap: 8, marginTop: spacing.md, flexWrap: 'wrap', justifyContent: 'center' },
@@ -645,6 +868,8 @@ const styles = StyleSheet.create({
 
   section: { fontWeight: '700', marginBottom: spacing.sm, color: colors.text, fontSize: 15 },
   tabIntro: { color: colors.textMuted, fontSize: 13.5, lineHeight: 20, marginBottom: spacing.md },
+  tabIntroSmall: { color: colors.textMuted, fontSize: 12.5, lineHeight: 18, marginBottom: spacing.sm },
+  simOtp: { color: colors.info, fontSize: 13, marginBottom: spacing.sm, fontWeight: '600' },
   row: { flexDirection: 'row', gap: spacing.sm },
   field: { flex: 1, marginBottom: spacing.sm },
   fieldLabel: { fontSize: 13, fontWeight: '600', color: colors.text, marginBottom: 6 },

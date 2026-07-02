@@ -1,4 +1,5 @@
 from django.db.models import Q
+from django.utils import timezone
 from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -46,6 +47,10 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
             return Response({'error': 'Messagerie non disponible pour cette mission'}, status=403)
 
         if request.method == 'GET':
+            now = timezone.now()
+            conversation.messages.filter(
+                delivered_at__isnull=True,
+            ).exclude(sender=request.user).update(delivered_at=now)
             msgs = conversation.messages.select_related('sender').order_by('created_at')
             return Response(MessageSerializer(msgs, many=True, context={'request': request}).data)
 

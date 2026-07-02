@@ -76,33 +76,57 @@ export class ApiError extends Error {
 
 function parseError(data: unknown, status: number): string {
   if (typeof data === 'object' && data && 'detail' in data) {
-    return String((data as { detail: string }).detail);
+    const detail = (data as { detail: unknown }).detail;
+    if (typeof detail === 'string') return detail;
+    if (typeof detail === 'object' && detail) {
+      return Object.entries(detail as Record<string, unknown>)
+        .map(([k, v]) => `${k}: ${Array.isArray(v) ? v.join(', ') : String(v)}`)
+        .join('\n');
+    }
   }
   if (typeof data === 'object' && data && 'error' in data) {
     return String((data as { error: string }).error);
+  }
+  if (typeof data === 'object' && data && !Array.isArray(data)) {
+    const fieldErrors = Object.entries(data as Record<string, unknown>)
+      .filter(([, v]) => v != null)
+      .map(([k, v]) => {
+        if (Array.isArray(v)) return `${k}: ${v.map(String).join(', ')}`;
+        if (typeof v === 'string') return `${k}: ${v}`;
+        return `${k}: ${JSON.stringify(v)}`;
+      });
+    if (fieldErrors.length) return fieldErrors.join('\n');
   }
   return `Erreur ${status}`;
 }
 
 function isNetworkError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
   return (
-    err instanceof TypeError &&
-    /network request failed|failed to fetch|network error/i.test(String(err.message))
+    (err instanceof TypeError && /network request failed|failed to fetch|network error/i.test(msg))
+    || (err instanceof Error && err.name === 'AbortError')
+    || /timed out|timeout|aborted/i.test(msg)
   );
 }
 
 function networkErrorMessage(): string {
-  return `Impossible de joindre le serveur (${API_URL}). Lancez le backend avec « python manage.py runserver 0.0.0.0:8000 » et vérifiez le Wi‑Fi.`;
+  return `Impossible de joindre le serveur (${API_URL}). Lancez le backend avec « python manage.py runserver 0.0.0.0:8000 » et vérifiez le Wi‑Fi / l'IP dans mobile/.env.`;
 }
 
+const FETCH_TIMEOUT_MS = 20000;
+
 async function safeFetch(url: string, options?: RequestInit): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
   try {
-    return await fetch(url, options);
+    return await fetch(url, { ...options, signal: controller.signal });
   } catch (err) {
     if (isNetworkError(err)) {
       throw new ApiError(networkErrorMessage(), 0);
     }
     throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
 }
 

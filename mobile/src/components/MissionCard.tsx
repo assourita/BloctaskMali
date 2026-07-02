@@ -3,7 +3,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import { useAuth } from '../context/AuthContext';
-import { payDepositSmart, startMission, submitProof } from '../api/missions';
+import { startMission, submitProof } from '../api/missions';
 import { sendLocation } from '../api/tracking';
 import { ApiError } from '../api/client';
 import { colors, radius, shadow, spacing, STATUS_META } from '../constants/theme';
@@ -145,35 +145,7 @@ export function MissionCard({
     ]);
 
   const handleDeposit = () => {
-    const required = Number(mission.required_deposit) || 0;
-    Alert.alert(
-      'Déposer la caution',
-      required
-        ? `Une caution de ${formatXOF(required)} est requise pour démarrer cette mission. ` +
-            'Elle est bloquée pendant la mission puis restituée à la fin.'
-        : 'Déposez la caution pour pouvoir démarrer la mission.',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        { text: 'Déposer', onPress: () => run('Caution déposée', async () => {
-          try {
-            await payDepositSmart(mission.id);
-          } catch (e) {
-            if (e instanceof ApiError && e.status === 400) {
-              Alert.alert(
-                'Solde insuffisant',
-                'Alimentez d\'abord votre caution via Mobile Money (écran Caution).',
-                [
-                  { text: 'Annuler', style: 'cancel' },
-                  { text: 'Alimenter', onPress: () => router.push('/deposit') },
-                ],
-              );
-              throw e;
-            }
-            throw e;
-          }
-        }) },
-      ],
-    );
+    router.push(`/mission/deposit/${mission.id}`);
   };
 
   const depositDeadline = formatTime(mission.deposit_deadline);

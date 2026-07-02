@@ -169,8 +169,32 @@ export const routes: Routes = [
         loadComponent: () => import('./features/enterprise/missions/missions.component').then(m => m.EnterpriseMissionsComponent)
       },
       {
+        path: 'missions/available',
+        loadComponent: () => import('./features/provider/missions/available-missions/available-missions.component').then(m => m.AvailableMissionsComponent),
+        data: { enterpriseContext: true },
+      },
+      {
+        path: 'missions/available/:id',
+        loadComponent: () => import('./features/provider/missions/mission-detail/mission-detail.component').then(m => m.ProviderMissionDetailComponent),
+        data: { enterpriseContext: true, enterpriseScope: 'available' },
+      },
+      {
+        path: 'missions/received/:id/deposit',
+        loadComponent: () => import('./features/enterprise/missions/mission-deposit/mission-deposit.component').then(m => m.EnterpriseMissionDepositComponent),
+      },
+      {
+        path: 'missions/received/:id',
+        loadComponent: () => import('./features/provider/missions/mission-detail/mission-detail.component').then(m => m.ProviderMissionDetailComponent),
+        data: { enterpriseContext: true, enterpriseScope: 'received' },
+      },
+      {
         path: 'solicitations',
         loadComponent: () => import('./features/enterprise/solicitations/solicitations.component').then(m => m.EnterpriseSolicitationsComponent)
+      },
+      {
+        path: 'solicitations/sent',
+        loadComponent: () => import('./features/client/solicitations/sent-solicitations.component').then(m => m.ClientSentSolicitationsComponent),
+        data: { enterpriseContext: true },
       },
       {
         path: 'solicitations/:id',
@@ -180,6 +204,24 @@ export const routes: Routes = [
       {
         path: 'missions/create',
         loadComponent: () => import('./features/client/missions/create-mission/create-mission.component').then(m => m.CreateMissionComponent)
+      },
+      {
+        path: 'providers',
+        loadComponent: () => import('./features/client/providers/assign-provider.component').then(m => m.ClientAssignProviderComponent),
+        data: { enterpriseContext: true },
+      },
+      {
+        path: 'payments',
+        loadComponent: () => import('./features/client/payments/payments.component').then(m => m.ClientPaymentsComponent),
+      },
+      {
+        path: 'deposit',
+        loadComponent: () => import('./features/enterprise/deposit/deposit.component').then(m => m.EnterpriseDepositComponent),
+      },
+      {
+        path: 'missions/:id',
+        loadComponent: () => import('./features/client/missions/mission-detail/mission-detail.component').then(m => m.MissionDetailComponent),
+        data: { enterpriseContext: true },
       },
       {
         path: 'tracking',

@@ -141,6 +141,7 @@ class UserProfileView(generics.RetrieveUpdateAPIView):
     """Profil utilisateur connecté"""
     serializer_class = UserProfileSerializer
     permission_classes = [permissions.IsAuthenticated]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
     
     def get_object(self):
         return self.request.user
@@ -299,8 +300,8 @@ class EmployeeDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         from .enterprise_services import update_employee_record
-        employee = serializer.instance
-        update_employee_record(employee, **serializer.validated_data)
+        employee = update_employee_record(serializer.instance, **serializer.validated_data)
+        serializer.instance = employee
 
     def perform_destroy(self, instance):
         from .enterprise_services import deactivate_employee
@@ -695,6 +696,49 @@ def provider_public_profile(request, id):
         'is_available': profile.is_available,
         'member_since': user.date_joined.isoformat(),
         'vehicle_type': profile.vehicle_type or '',
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def client_public_profile(request, id):
+    """Profil public d'un donneur d'ordre (client ou entreprise) — visible avant candidature."""
+    user = get_object_or_404(
+        User.objects.select_related('enterprise_profile'),
+        id=id,
+        user_type__in=[User.UserType.CLIENT, User.UserType.ENTERPRISE],
+        is_active=True,
+    )
+    from apps.missions.models import Mission
+
+    missions_posted = Mission.objects.filter(client=user).exclude(
+        status=Mission.Status.DRAFT,
+    ).count()
+    missions_completed = Mission.objects.filter(client=user, status=Mission.Status.COMPLETED).count()
+
+    enterprise_name = None
+    if user.user_type == User.UserType.ENTERPRISE:
+        ep = getattr(user, 'enterprise_profile', None)
+        if ep:
+            enterprise_name = ep.company_name
+
+    return Response({
+        'id': str(user.id),
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'user_type': user.user_type,
+        'enterprise_name': enterprise_name,
+        'city': user.city,
+        'country': user.country,
+        'bio': user.bio,
+        'profile_picture': (
+            request.build_absolute_uri(user.profile_picture.url)
+            if user.profile_picture else None
+        ),
+        'identity_verified': user.kyc_status == User.KYCStatus.VERIFIED,
+        'member_since': user.date_joined.isoformat(),
+        'missions_posted': missions_posted,
+        'missions_completed': missions_completed,
     })
 
 

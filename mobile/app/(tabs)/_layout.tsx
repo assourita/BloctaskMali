@@ -4,7 +4,7 @@ import { useAuth } from '../../src/context/AuthContext';
 export default function TabsLayout() {
   const { user } = useAuth();
 
-  if (!user) return <Redirect href="/login" />;
+  if (!user) return <Redirect href="/" />;
 
   // La barre d'onglets est masquée : la navigation se fait via le sidebar (comme le web).
   return (

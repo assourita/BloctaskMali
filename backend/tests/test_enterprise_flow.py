@@ -78,6 +78,37 @@ def test_enterprise_assign_employee_after_deposit(funded_mission, enterprise_use
 
 
 @pytest.mark.django_db
+def test_enterprise_update_employee_accepts_normalized_phone(enterprise_user):
+    from rest_framework.test import APIClient
+
+    employee, _password = create_employee_account(
+        enterprise=enterprise_user.enterprise_profile,
+        first_name='Awa',
+        last_name='Diallo',
+        email='awa.employee@test.ml',
+        phone='+22370001112',
+    )
+
+    client = APIClient()
+    client.force_authenticate(user=enterprise_user)
+    response = client.patch(
+        f'/api/users/enterprise/employees/{employee.id}/',
+        {
+            'first_name': 'Awa',
+            'last_name': 'Diallo',
+            'phone': '+224 621 23 45 67',
+            'position': '',
+            'role': 'agent',
+        },
+        format='json',
+    )
+
+    assert response.status_code == 200
+    assert response.data['phone'] == '+224621234567'
+    assert response.data['position'] == 'Agent terrain'
+
+
+@pytest.mark.django_db
 def test_enterprise_can_order_mission(enterprise_user, category):
     mission = Mission.objects.create(
         client=enterprise_user,

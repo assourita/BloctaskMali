@@ -2,16 +2,17 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, usePathname, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
-import { GridIcon, HelpIcon, HouseIcon } from '../icons';
+import { GridIcon, HelpIcon, MapPinIcon } from '../icons';
 import { colors, radius, shadow, spacing } from '../../constants/theme';
 
 /** Hauteur utile pour le padding du contenu (hors safe area bas). */
 export const APP_FOOTER_CONTENT_INSET = 78;
 
-const HIDDEN_PREFIXES = ['/login', '/register', '/forgot-password'];
+const HIDDEN_PREFIXES = ['/', '/login', '/register', '/forgot-password'];
 
 function isHiddenRoute(pathname: string, hasUser: boolean) {
   if (!hasUser) return true;
+  if (pathname === '/' || pathname === '') return true;
   return HIDDEN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
@@ -20,7 +21,7 @@ function isDashboardRoute(pathname: string, segments: string[]) {
   return segments[0] === '(tabs)' && (!segments[1] || segments[1] === 'index');
 }
 
-type TabKey = 'dashboard' | 'home' | 'help';
+type TabKey = 'dashboard' | 'map' | 'help';
 
 export function AppFooter() {
   const insets = useSafeAreaInsets();
@@ -31,8 +32,8 @@ export function AppFooter() {
   if (isHiddenRoute(pathname, !!user)) return null;
 
   const active: TabKey | null =
-    pathname === '/home' || pathname.startsWith('/home/')
-      ? 'home'
+    pathname === '/map' || pathname.startsWith('/map/')
+      ? 'map'
       : pathname === '/help' || pathname.startsWith('/help/')
         ? 'help'
         : isDashboardRoute(pathname, segments)
@@ -77,15 +78,15 @@ export function AppFooter() {
       </View>
 
       <Pressable
-        style={({ pressed }) => [styles.homeFab, pressed && styles.homeFabPressed, active === 'home' && styles.homeFabActive]}
-        onPress={() => go('/home')}
+        style={({ pressed }) => [styles.homeFab, pressed && styles.homeFabPressed, active === 'map' && styles.homeFabActive]}
+        onPress={() => go('/map')}
         accessibilityRole="button"
-        accessibilityLabel="Accueil"
+        accessibilityLabel="Carte BlockTask"
       >
         <View style={styles.homeFabInner}>
-          <HouseIcon size={26} color="#fff" />
+          <MapPinIcon size={26} color="#fff" />
         </View>
-        <Text style={[styles.homeLabel, active === 'home' && styles.homeLabelActive]}>Accueil</Text>
+        <Text style={[styles.homeLabel, active === 'map' && styles.homeLabelActive]}>Carte</Text>
       </Pressable>
     </View>
   );

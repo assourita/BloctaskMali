@@ -1,6 +1,6 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { RouterModule } from '@angular/router';
+import { ActivatedRoute, RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -26,7 +26,7 @@ import { formatXOF } from '../../../core/constants/africa.constants';
           <h1><mat-icon>send</mat-icon> Sollicitations envoyées</h1>
           <p>Suivez les missions que vous avez proposées à des prestataires</p>
         </div>
-        <a mat-raised-button color="primary" routerLink="/client/providers">
+        <a mat-raised-button color="primary" [routerLink]="providersLink">
           <mat-icon>assignment_ind</mat-icon> Attribuer une mission
         </a>
       </div>
@@ -49,7 +49,7 @@ import { formatXOF } from '../../../core/constants/africa.constants';
         <div class="empty" *ngIf="!loading && !items.length">
           <mat-icon>inbox</mat-icon>
           <p>Aucune sollicitation dans cette catégorie</p>
-          <a mat-stroked-button routerLink="/client/providers" *ngIf="pending.length === 0 && accepted.length === 0 && closed.length === 0">
+          <a mat-stroked-button [routerLink]="providersLink" *ngIf="pending.length === 0 && accepted.length === 0 && closed.length === 0">
             Trouver un prestataire
           </a>
         </div>
@@ -255,7 +255,16 @@ export class ClientSentSolicitationsComponent implements OnInit {
   constructor(
     private missionService: MissionService,
     private snackBar: MatSnackBar,
+    private route: ActivatedRoute,
   ) {}
+
+  get isEnterpriseContext(): boolean {
+    return !!this.route.snapshot.data['enterpriseContext'];
+  }
+
+  get providersLink(): string {
+    return this.isEnterpriseContext ? '/enterprise/providers' : '/client/providers';
+  }
 
   ngOnInit(): void {
     this.load();

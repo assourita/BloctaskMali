@@ -312,7 +312,7 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
                   (click)="openAssignDialog()">
                   <mat-icon>assignment_ind</mat-icon> Attribuer la mission
                 </button>
-                <a mat-stroked-button class="full-width" routerLink="/client/solicitations"
+                <a mat-stroked-button class="full-width" [routerLink]="solicitationsLink"
                   *ngIf="!mission.provider && mission.status === 'funded'">
                   <mat-icon>send</mat-icon> Sollicitations envoyées
                 </a>
@@ -322,7 +322,7 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
                 <button mat-raised-button color="accent" class="full-width" *ngIf="mission.status === 'completed' && mission.provider && !rated" (click)="openRating()">
                   <mat-icon>star</mat-icon> Noter le prestataire
                 </button>
-                <a mat-stroked-button class="full-width" routerLink="/client/tracking" [queryParams]="{ missionId: missionId }" *ngIf="showGps()">
+                <a mat-stroked-button class="full-width" [routerLink]="trackingLink" [queryParams]="{ missionId: missionId }" *ngIf="showGps()">
                   <mat-icon>map</mat-icon> Voir sur la carte
                 </a>
               </mat-card-content>
@@ -603,7 +603,30 @@ export class MissionDetailComponent implements OnInit {
     return this.mission?.counterparty?.phone_number || this.mission?.provider?.phone_number || '';
   }
 
-  goBack(): void { this.router.navigate(['/client/missions']); }
+  get isEnterpriseContext(): boolean {
+    return !!this.route.snapshot.data['enterpriseContext'] || this.router.url.includes('/enterprise/');
+  }
+
+  get providersLink(): string {
+    return this.isEnterpriseContext ? '/enterprise/providers' : '/client/providers';
+  }
+
+  get solicitationsLink(): string {
+    return this.isEnterpriseContext ? '/enterprise/solicitations/sent' : '/client/solicitations';
+  }
+
+  get trackingLink(): string {
+    return this.isEnterpriseContext ? '/enterprise/tracking' : '/client/tracking';
+  }
+
+  goBack(): void {
+    const url = this.router.url;
+    if (url.includes('/enterprise/')) {
+      this.router.navigate(['/enterprise/missions']);
+      return;
+    }
+    this.router.navigate(['/client/missions']);
+  }
 
   getStatusIcon(status: string | undefined): string {
     const icons: Record<string, string> = {
@@ -779,7 +802,7 @@ export class MissionDetailComponent implements OnInit {
 
   openAssignDialog(): void {
     if (!this.mission) return;
-    this.router.navigate(['/client/providers'], {
+    this.router.navigate([this.providersLink], {
       queryParams: { missionId: this.missionId },
     });
   }

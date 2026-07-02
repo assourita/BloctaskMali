@@ -1,4 +1,5 @@
 import { ApiError, apiRequest } from './client';
+import { invalidateCache } from './cache';
 import type { Mission, MissionStats, UserRole } from '../types';
 
 function unwrapList<T>(data: T[] | { results: T[] }): T[] {
@@ -25,7 +26,11 @@ export async function getAvailableMissions(
   lat?: number,
   lng?: number,
   asEnterprise = false,
+  fresh = false,
 ): Promise<Mission[]> {
+  if (fresh) {
+    invalidateCache('/missions/available');
+  }
   const params = new URLSearchParams({
     role: asEnterprise ? 'enterprise' : 'provider',
     page_size: '25',
@@ -41,7 +46,13 @@ export async function getAvailableMissions(
   return unwrapList(data);
 }
 
-export async function getMission(id: string): Promise<Mission> {
+export async function getMission(id: string, fresh = false): Promise<Mission> {
+  if (fresh) {
+    invalidateCache(`/missions/${id}`);
+    invalidateCache('/missions/available');
+    invalidateCache('/missions/my_missions');
+    invalidateCache('/missions/applications');
+  }
   return apiRequest<Mission>(`/missions/${id}/`);
 }
 
@@ -116,13 +127,18 @@ export interface TrackingData {
   mission_id?: string;
   status?: string;
   provider_location?: { latitude: number; longitude: number; timestamp?: string } | null;
+  currentPosition?: { latitude: number; longitude: number; timestamp?: string } | null;
   pickup?: { latitude?: number; longitude?: number; address?: string } | null;
   delivery?: { latitude?: number; longitude?: number; address?: string } | null;
   locations?: Array<{ latitude: number; longitude: number; recorded_at?: string }>;
 }
 
 export async function getTracking(missionId: string): Promise<TrackingData> {
-  return apiRequest<TrackingData>(`/missions/${missionId}/tracking/`);
+  const data = await apiRequest<TrackingData>(`/missions/${missionId}/tracking/`);
+  if (!data.provider_location && data.currentPosition) {
+    data.provider_location = data.currentPosition;
+  }
+  return data;
 }
 
 export async function solicitProvider(
@@ -148,10 +164,12 @@ export async function solicitEnterprise(
 }
 
 export async function applyToMission(id: string, message = ''): Promise<unknown> {
-  return apiRequest(`/missions/${id}/apply/`, {
+  const result = await apiRequest(`/missions/${id}/apply/`, {
     method: 'POST',
     body: JSON.stringify({ message }),
   });
+  invalidateCache('/missions');
+  return result;
 }
 
 export async function startMission(id: string): Promise<unknown> {
@@ -188,18 +206,39 @@ export async function expireMissionDecision(
   return 'mission' in data && data.mission ? data.mission : (data as Mission);
 }
 
-export async function payDeposit(id: string, amount?: number): Promise<unknown> {
-  return apiRequest(`/missions/${id}/pay_deposit/`, {
+export interface PayDepositPayload {
+  amount?: number;
+  phone_number?: string;
+  operator?: string;
+  otp?: string;
+  auto_start?: boolean;
+  gps_consent?: boolean;
+}
+
+export interface PayDepositResult {
+  status?: string;
+  deposit_paid?: boolean;
+  mission_started?: boolean;
+  required_deposit?: number;
+  provider_gps_consent_at?: string | null;
+}
+
+export async function payDeposit(id: string, payload: PayDepositPayload = {}): Promise<PayDepositResult> {
+  return apiRequest<PayDepositResult>(`/missions/${id}/pay_deposit/`, {
     method: 'POST',
-    body: JSON.stringify(amount != null ? { amount } : {}),
+    body: JSON.stringify(payload),
   });
 }
 
-/**
- * Bloque la caution mission depuis le solde déjà alimenté via Mobile Money.
- * Si le solde est insuffisant, alimentez d'abord la caution (écran Caution / Finances).
- */
+/** @deprecated Utiliser payMissionDeposit avec payload complet */
 export async function payDepositSmart(id: string): Promise<{ toppedUp: number }> {
   await payDeposit(id);
   return { toppedUp: 0 };
+}
+
+export async function payMissionDeposit(
+  id: string,
+  payload: PayDepositPayload,
+): Promise<PayDepositResult> {
+  return payDeposit(id, payload);
 }

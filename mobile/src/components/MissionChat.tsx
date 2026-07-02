@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import {
   ActivityIndicator,
-  FlatList,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -23,16 +23,40 @@ type Props = {
   currentUserId?: string;
 };
 
+type LocalMessage = ChatMessage & {
+  delivery_status?: 'sending' | 'sent' | 'delivered' | 'read' | null;
+};
+
+function statusLabel(status?: LocalMessage['delivery_status']): string {
+  switch (status) {
+    case 'sending':
+      return '○';
+    case 'sent':
+      return '✓';
+    case 'delivered':
+      return '✓✓';
+    case 'read':
+      return '✓✓';
+    default:
+      return '';
+  }
+}
+
+function statusColor(status?: LocalMessage['delivery_status']): string {
+  return status === 'read' ? '#93c5fd' : 'rgba(255,255,255,0.75)';
+}
+
 export function MissionChat({ missionId, currentUserId }: Props) {
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [messages, setMessages] = useState<LocalMessage[]>([]);
   const [text, setText] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [canWrite, setCanWrite] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const scrollRef = useRef<ScrollView>(null);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (silent = false) => {
     try {
       const conv = await getMissionConversation(missionId);
       if (!conv) {
@@ -47,33 +71,58 @@ export function MissionChat({ missionId, currentUserId }: Props) {
       setMessages(msgs);
       if (conv.unread_count > 0) {
         await markConversationRead(conv.id);
+        const refreshed = await getMessages(conv.id);
+        setMessages(refreshed);
       }
     } catch {
-      /* silencieux si chat indisponible */
+      if (!silent) {
+        /* chat indisponible */
+      }
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [missionId]);
 
   useEffect(() => {
     load();
-    pollRef.current = setInterval(load, 5000);
+    pollRef.current = setInterval(() => load(true), 3000);
     return () => {
       if (pollRef.current) clearInterval(pollRef.current);
     };
   }, [load]);
 
+  useEffect(() => {
+    if (!messages.length) return;
+    scrollRef.current?.scrollToEnd({ animated: true });
+  }, [messages]);
+
   const onSend = async () => {
-    if (!conversationId || !text.trim() || !canWrite) return;
+    if (!conversationId || !text.trim() || !canWrite || !currentUserId) return;
+    const content = text.trim();
+    const tempId = `temp-${Date.now()}`;
+    const optimistic: LocalMessage = {
+      id: tempId,
+      sender: {
+        id: currentUserId,
+        first_name: '',
+        last_name: '',
+      },
+      content,
+      message_type: 'text',
+      is_read: false,
+      delivery_status: 'sending',
+      created_at: new Date().toISOString(),
+    };
+    setMessages((prev) => [...prev, optimistic]);
+    setText('');
     setSending(true);
     try {
-      const msg = await sendMessage(conversationId, text.trim());
-      setMessages((prev) => [...prev, msg]);
-      setText('');
+      await sendMessage(conversationId, content);
+      await load(true);
     } catch (e) {
-      const message = e instanceof ApiError ? e.message : 'Envoi impossible';
-      setText((t) => t);
-      console.warn(message);
+      setMessages((prev) => prev.filter((m) => m.id !== tempId));
+      setText(content);
+      console.warn(e instanceof ApiError ? e.message : 'Envoi impossible');
     } finally {
       setSending(false);
     }
@@ -95,25 +144,37 @@ export function MissionChat({ missionId, currentUserId }: Props) {
 
   return (
     <View style={styles.wrap}>
-      <FlatList
-        data={messages}
-        keyExtractor={(item) => item.id}
+      <ScrollView
+        ref={scrollRef}
         style={styles.list}
         contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => {
+        nestedScrollEnabled
+        keyboardShouldPersistTaps="handled"
+        onContentSizeChange={() => scrollRef.current?.scrollToEnd({ animated: false })}
+      >
+        {messages.map((item) => {
           const own = item.sender.id === currentUserId;
           const system = item.message_type === 'system';
+          const tick = own && !system ? statusLabel(item.delivery_status) : '';
           return (
-            <View style={[styles.bubbleWrap, own && styles.ownWrap, system && styles.systemWrap]}>
+            <View
+              key={item.id}
+              style={[styles.bubbleWrap, own && styles.ownWrap, system && styles.systemWrap]}
+            >
               <View style={[styles.bubble, own && styles.ownBubble, system && styles.systemBubble]}>
                 <Text style={[styles.bubbleText, own && styles.ownText, system && styles.systemText]}>
                   {item.content}
                 </Text>
+                {tick ? (
+                  <Text style={[styles.tick, { color: statusColor(item.delivery_status) }]}>
+                    {tick}
+                  </Text>
+                ) : null}
               </View>
             </View>
           );
-        }}
-      />
+        })}
+      </ScrollView>
       {canWrite ? (
         <View style={styles.inputRow}>
           <TextInput
@@ -155,6 +216,7 @@ const styles = StyleSheet.create({
   bubbleText: { color: colors.text, fontSize: 14 },
   ownText: { color: '#fff' },
   systemText: { color: colors.textMuted, fontSize: 12, fontStyle: 'italic' },
+  tick: { fontSize: 11, alignSelf: 'flex-end', marginTop: 4 },
   inputRow: { flexDirection: 'row', gap: 8, marginTop: spacing.sm },
   input: {
     flex: 1,

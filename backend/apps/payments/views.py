@@ -1,4 +1,4 @@
-﻿"""
+"""
 BlockTask Payment Views
 """
 
@@ -27,11 +27,9 @@ class PaymentViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         user = self.request.user
         role = get_effective_role(user)
-        if role == 'client':
-            return Payment.objects.filter(client=user).select_related('mission')
-        elif role == 'provider':
+        if role == 'provider':
             return Payment.objects.filter(mission__provider=user).select_related('mission')
-        return Payment.objects.none()
+        return Payment.objects.filter(client=user).select_related('mission')
 
     def get_serializer_class(self):
         if self.action == 'create':
@@ -114,11 +112,9 @@ class PaymentRefundViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         user = self.request.user
         role = get_effective_role(user)
-        if role == 'client':
-            return PaymentRefund.objects.filter(payment__client=user)
-        elif role == 'provider':
+        if role == 'provider':
             return PaymentRefund.objects.filter(payment__mission__provider=user)
-        return PaymentRefund.objects.none()
+        return PaymentRefund.objects.filter(payment__client=user)
 
 
 class UserPaymentMethodViewSet(viewsets.ModelViewSet):

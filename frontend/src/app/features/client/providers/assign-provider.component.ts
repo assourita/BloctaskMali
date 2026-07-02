@@ -46,7 +46,7 @@ import { AssignMissionDialogComponent } from '../../landing/assign-mission-dialo
             directement une de vos missions financées.
           </p>
         </div>
-        <a mat-stroked-button routerLink="/client/solicitations">
+        <a mat-stroked-button [routerLink]="solicitationsLink">
           <mat-icon>send</mat-icon> Sollicitations envoyées
         </a>
       </div>
@@ -404,6 +404,14 @@ export class ClientAssignProviderComponent implements OnInit {
     private dialog: MatDialog,
     private route: ActivatedRoute,
   ) {}
+
+  get isEnterpriseContext(): boolean {
+    return !!this.route.snapshot.data['enterpriseContext'];
+  }
+
+  get solicitationsLink(): string {
+    return this.isEnterpriseContext ? '/enterprise/solicitations/sent' : '/client/solicitations';
+  }
 
   ngOnInit(): void {
     this.route.queryParams.subscribe((params) => {

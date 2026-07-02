@@ -16,6 +16,7 @@ export default function RootLayout() {
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
           <Stack.Screen name="home" />
+          <Stack.Screen name="map" />
           <Stack.Screen name="login" />
           <Stack.Screen name="register" />
           <Stack.Screen name="verify-email" />
@@ -23,6 +24,7 @@ export default function RootLayout() {
           <Stack.Screen name="(tabs)" />
           <Stack.Screen name="profile-completion" />
           <Stack.Screen name="mission/[id]" />
+          <Stack.Screen name="mission/deposit/[id]" />
           <Stack.Screen name="create-mission" />
           <Stack.Screen name="payments" />
           <Stack.Screen name="solicitations" />
@@ -43,10 +45,12 @@ export default function RootLayout() {
           <Stack.Screen name="reputation" />
           <Stack.Screen name="profile-edit" />
           <Stack.Screen name="kyc" />
+          <Stack.Screen name="verify-phone" />
           <Stack.Screen name="disputes/new" />
           <Stack.Screen name="disputes/[id]" />
           <Stack.Screen name="tracking/[id]" />
           <Stack.Screen name="provider/[id]" />
+          <Stack.Screen name="client/[id]" />
         </Stack>
         <Sidebar />
         <AppFooter />

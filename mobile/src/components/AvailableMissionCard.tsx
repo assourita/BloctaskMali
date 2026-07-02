@@ -15,28 +15,25 @@ function formatDateTime(d?: string) {
   }
 }
 
-/** Carte mission disponible (style web prestataire). */
-export function AvailableMissionCard({
-  mission,
-  onApply,
-  applying,
-}: {
-  mission: Mission;
-  onApply?: () => void;
-  applying?: boolean;
-}) {
+/** Carte mission disponible — postuler depuis la page détail uniquement. */
+export function AvailableMissionCard({ mission }: { mission: Mission }) {
   const category = mission.category?.name || mission.category_name;
   const deposit = mission.required_deposit ?? mission.deposit_amount ?? 0;
   const client = mission.client;
-  const canApply = mission.can_apply !== false && !mission.is_applied;
+  const goDetail = () => router.push(`/mission/${mission.id}`);
 
   return (
-    <View style={[styles.card, shadow]}>
+    <Pressable style={[styles.card, shadow]} onPress={goDetail}>
       <View style={styles.topRow}>
         <View style={styles.leftMeta}>
           {category ? (
             <View style={styles.categoryPill}>
               <Text style={styles.categoryText}>{category}</Text>
+            </View>
+          ) : null}
+          {mission.is_applied ? (
+            <View style={styles.appliedPill}>
+              <Text style={styles.appliedText}>Candidature envoyée</Text>
             </View>
           ) : null}
           {mission.distance_km != null ? (
@@ -45,9 +42,11 @@ export function AvailableMissionCard({
         </View>
         <View style={styles.rightMeta}>
           <Text style={styles.budget}>{formatXOF(mission.budget)}</Text>
-          <View style={styles.depositBadge}>
-            <Text style={styles.depositText}>Caution {formatXOF(deposit)}</Text>
-          </View>
+          {deposit > 0 ? (
+            <View style={styles.depositBadge}>
+              <Text style={styles.depositText}>Caution {formatXOF(deposit)}</Text>
+            </View>
+          ) : null}
         </View>
       </View>
 
@@ -91,23 +90,11 @@ export function AvailableMissionCard({
         </View>
       ) : null}
 
-      <View style={styles.actions}>
-        <Pressable style={styles.detailBtn} onPress={() => router.push(`/mission/${mission.id}`)}>
-          <Text style={styles.detailBtnText}>Détails</Text>
-        </Pressable>
-        {canApply && onApply ? (
-          <Pressable style={styles.applyBtn} onPress={onApply} disabled={applying}>
-            <Text style={styles.applyBtnText}>{applying ? '...' : 'Postuler'}</Text>
-          </Pressable>
-        ) : (
-          <View style={styles.disabledBtn}>
-            <Text style={styles.disabledBtnText}>
-              {mission.is_applied ? 'Candidature envoyée' : 'Indisponible'}
-            </Text>
-          </View>
-        )}
+      <View style={styles.footer}>
+        <Text style={styles.footerHint}>Appuyez pour voir les détails et postuler</Text>
+        <Text style={styles.footerChevron}>›</Text>
       </View>
-    </View>
+    </Pressable>
   );
 }
 
@@ -121,10 +108,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: spacing.sm },
-  leftMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1 },
+  leftMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, flex: 1, flexWrap: 'wrap' },
   rightMeta: { alignItems: 'flex-end' },
   categoryPill: { backgroundColor: colors.infoLight, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
   categoryText: { color: '#1e40af', fontSize: 11, fontWeight: '700' },
+  appliedPill: { backgroundColor: '#ecfdf5', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 999 },
+  appliedText: { color: '#047857', fontSize: 11, fontWeight: '700' },
   distance: { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
   budget: { fontSize: 20, fontWeight: '800', color: colors.primary },
   depositBadge: { backgroundColor: colors.warningLight, paddingHorizontal: 8, paddingVertical: 3, borderRadius: 999, marginTop: 4 },
@@ -143,20 +132,14 @@ const styles = StyleSheet.create({
   },
   clientInitials: { color: colors.primary, fontWeight: '800', fontSize: 12 },
   clientName: { fontSize: 13, fontWeight: '600', color: colors.text },
-  actions: { flexDirection: 'row', gap: spacing.sm },
-  detailBtn: {
-    flex: 1, borderWidth: 1, borderColor: colors.border, borderRadius: 10,
-    paddingVertical: 12, alignItems: 'center', backgroundColor: colors.surface,
+  footer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: spacing.sm,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
-  detailBtnText: { fontWeight: '700', color: colors.text, fontSize: 14 },
-  applyBtn: {
-    flex: 1, backgroundColor: colors.primary, borderRadius: 10,
-    paddingVertical: 12, alignItems: 'center',
-  },
-  applyBtnText: { fontWeight: '700', color: '#fff', fontSize: 14 },
-  disabledBtn: {
-    flex: 1, backgroundColor: '#e5e7eb', borderRadius: 10,
-    paddingVertical: 12, alignItems: 'center',
-  },
-  disabledBtnText: { fontWeight: '600', color: '#6b7280', fontSize: 13 },
+  footerHint: { fontSize: 12, color: colors.textMuted, fontWeight: '600', flex: 1 },
+  footerChevron: { fontSize: 22, color: colors.primary, fontWeight: '700' },
 });

@@ -9,7 +9,7 @@ export async function sendLocation(
     method: 'POST',
     body: JSON.stringify({
       mission: missionId,
-      location_type: 'provider',
+      location_type: 'current',
       latitude,
       longitude,
     }),

@@ -12,7 +12,7 @@ class UserBasicSerializer(serializers.ModelSerializer):
     """Serializer basique pour les informations utilisateur"""
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'profile_picture']
+        fields = ['id', 'username', 'first_name', 'last_name', 'profile_picture', 'city']
 
 
 class MissionCounterpartySerializer(serializers.ModelSerializer):
@@ -107,6 +107,8 @@ class MissionListSerializer(serializers.ModelSerializer):
     distance_km = serializers.SerializerMethodField()
     is_applied = serializers.SerializerMethodField()
     can_apply = serializers.SerializerMethodField()
+    apply_block_reason = serializers.SerializerMethodField()
+    applications_open = serializers.SerializerMethodField()
     
     class Meta:
         model = Mission
@@ -121,7 +123,7 @@ class MissionListSerializer(serializers.ModelSerializer):
             'requires_verified_provider', 'enterprise_only', 'requires_gps_tracking',
             'application_count',
             'mission_contract_id', 'blockchain_status', 'escrow_tx_hash',
-            'distance_km', 'is_applied', 'can_apply', 'created_at'
+            'distance_km', 'is_applied', 'can_apply', 'apply_block_reason', 'applications_open', 'created_at'
         ]
     
     def get_is_applied(self, obj):
@@ -136,6 +138,17 @@ class MissionListSerializer(serializers.ModelSerializer):
             return False
         from .eligibility import can_apply_to_mission
         return can_apply_to_mission(request.user, obj)
+
+    def get_apply_block_reason(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+        from .eligibility import get_apply_block_reason
+        return get_apply_block_reason(request.user, obj)
+
+    def get_applications_open(self, obj):
+        from .eligibility import mission_is_open_for_applications
+        return mission_is_open_for_applications(obj)
 
     def get_requirements(self, obj):
         from .requirements import parse_mission_requirements
@@ -184,6 +197,8 @@ class MissionDetailSerializer(serializers.ModelSerializer):
     status_history = serializers.SerializerMethodField()
     is_applied = serializers.SerializerMethodField()
     can_apply = serializers.SerializerMethodField()
+    apply_block_reason = serializers.SerializerMethodField()
+    applications_open = serializers.SerializerMethodField()
     
     requirements = serializers.SerializerMethodField()
     
@@ -197,6 +212,7 @@ class MissionDetailSerializer(serializers.ModelSerializer):
     category_rule = serializers.SerializerMethodField()
     counterparty = serializers.SerializerMethodField()
     can_view_counterparty = serializers.SerializerMethodField()
+    pending_applications_count = serializers.SerializerMethodField()
     deposit_policy = serializers.SerializerMethodField()
 
     class Meta:
@@ -212,15 +228,15 @@ class MissionDetailSerializer(serializers.ModelSerializer):
             'expiry_decision_pending', 'expiry_decision_due_at',
             'deadline', 'expected_duration', 'started_at', 'completed_at',
             'requires_verified_provider', 'min_reputation_score', 'enterprise_only',
-            'requires_gps_tracking', 'requires_qr_validation',
+            'requires_gps_tracking', 'provider_gps_consent_at', 'requires_qr_validation',
             'auto_validation_delay', 'auto_validation_scheduled_at',
             'escrow_tx_hash', 'mission_contract_id', 'blockchain_status',
-            'views_count', 'applications_count',
+            'views_count', 'applications_count', 'pending_applications_count',
             'requirements', 'payment_id', 'payment_status',
             'assigned_enterprise_id', 'assigned_enterprise_name', 'executing_employee',
             'counterparty', 'can_view_counterparty',
             'created_at', 'updated_at',
-            'status_history', 'is_applied', 'can_apply'
+            'status_history', 'is_applied', 'can_apply', 'apply_block_reason', 'applications_open'
         ]
         read_only_fields = ['mission_hash', 'created_at', 'updated_at']
     
@@ -243,6 +259,17 @@ class MissionDetailSerializer(serializers.ModelSerializer):
             return False
         from .eligibility import can_apply_to_mission
         return can_apply_to_mission(request.user, obj)
+
+    def get_apply_block_reason(self, obj):
+        request = self.context.get('request')
+        if not request or not request.user.is_authenticated:
+            return None
+        from .eligibility import get_apply_block_reason
+        return get_apply_block_reason(request.user, obj)
+
+    def get_applications_open(self, obj):
+        from .eligibility import mission_is_open_for_applications
+        return mission_is_open_for_applications(obj)
 
     def get_payment_id(self, obj):
         payment = getattr(obj, 'payment', None)
@@ -291,6 +318,9 @@ class MissionDetailSerializer(serializers.ModelSerializer):
             return False
         from .counterparty import can_view_counterparty_profile
         return can_view_counterparty_profile(request.user, obj)
+
+    def get_pending_applications_count(self, obj):
+        return obj.applications.filter(status=MissionApplication.Status.PENDING).count()
 
     def get_counterparty(self, obj):
         request = self.context.get('request')
@@ -466,8 +496,16 @@ class MissionCreateSerializer(serializers.ModelSerializer):
         validated_data.pop('pickup_contact_phone', None)
         validated_data.pop('delivery_contact_name', None)
         validated_data.pop('delivery_contact_phone', None)
+        requirements_dict = validated_data.pop('_requirements_dict', None)
 
         mission = super().create(validated_data)
+
+        from .category_rules import calculate_category_deposit
+        deposit = calculate_category_deposit(mission)
+        if deposit and (not mission.required_deposit or float(mission.required_deposit) <= 0):
+            mission.required_deposit = deposit
+            mission.deposit_amount = deposit
+            mission.save(update_fields=['required_deposit', 'deposit_amount', 'updated_at'])
         
         # Create associated payment
         try:
