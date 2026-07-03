@@ -52,3 +52,13 @@ typechain/
 
 # Railway / Deployment
 .railway/
+
+# Expo native (généré par npx expo prebuild)
+/mobile/android/
+/mobile/ios/
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
