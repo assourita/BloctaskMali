@@ -1,7 +1,7 @@
 export const environment = {
   production: true,
-  apiUrl: 'https://api.blocktask.io/api',
-  wsUrl: 'wss://api.blocktask.io/ws',
+  apiUrl: 'https://bloctaskmali.onrender.com/api',
+  wsUrl: 'wss://bloctaskmali.onrender.com/ws',
   
   // Blockchain
   ethereum: {
