@@ -1,10 +1,18 @@
-import { Redirect, Tabs } from 'expo-router';
+import { Tabs, useRouter } from 'expo-router';
+import { useEffect } from 'react';
 import { useAuth } from '../../src/context/AuthContext';
 
 export default function TabsLayout() {
   const { user } = useAuth();
+  const router = useRouter();
 
-  if (!user) return <Redirect href="/" />;
+  useEffect(() => {
+    if (!user) {
+      router.replace('/');
+    }
+  }, [user, router]);
+
+  if (!user) return null;
 
   // La barre d'onglets est masquée : la navigation se fait via le sidebar (comme le web).
   return (
