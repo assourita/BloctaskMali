@@ -78,11 +78,7 @@ export function AppHeader({ title }: { title?: string }) {
   const handleLogout = async () => {
     setMenuOpen(false);
     await logout();
-    try {
-      (router as any).dismissTo('/');
-    } catch {
-      router.navigate('/');
-    }
+    router.replace('/login');
   };
 
   const initials = (user?.first_name?.[0] || '') + (user?.last_name?.[0] || '');
