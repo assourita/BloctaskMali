@@ -38,7 +38,7 @@ class MissionProofViewSet(viewsets.ModelViewSet):
         return MissionProofSerializer
 
     def get_queryset(self):
-        qs = MissionProof.objects.select_related('submitted_by', 'mission')
+        qs = MissionProof.objects.select_related('submitted_by', 'mission').order_by('-created_at')
         mission_id = self.request.query_params.get('mission')
         if mission_id:
             qs = qs.filter(mission_id=mission_id)
@@ -120,7 +120,7 @@ class ProofChecklistViewSet(viewsets.ReadOnlyModelViewSet):
     serializer_class = ProofChecklistSerializer
 
     def get_queryset(self):
-        qs = ProofChecklist.objects.select_related('mission')
+        qs = ProofChecklist.objects.select_related('mission').order_by('id')
         mission_id = self.request.query_params.get('mission')
         if mission_id:
             qs = qs.filter(mission_id=mission_id)
