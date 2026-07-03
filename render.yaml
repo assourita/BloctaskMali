@@ -1,0 +1,100 @@
+# Render Blueprint for BlockTask
+# Déploiement : dashboard.render.com → New Blueprint → connecter ce repo
+#
+# Variables à renseigner AVANT/pendant le déploiement :
+#   - DJANGO_SECRET_KEY           (générer une clé longue et aléatoire)
+#   - CORS_ALLOWED_ORIGINS        (URL du frontend Render, ex: https://blocktask-frontend.onrender.com)
+#   - FRONTEND_URL                (idem)
+#   - API_URL                     (URL du backend Render, ex: https://blocktask-backend.onrender.com/api)
+#   - ETHEREUM_RPC_URL            (Sepolia RPC)
+#   - ESCROW/REPUTATION/LITIGATION_CONTRACT_ADDRESS
+#   - GOOGLE_CLIENT_ID            (si connexion Google)
+#   - ORANGE/MOOV Mobile Money    (mode SANDBOX recommandé pour démo)
+#   - BLOCKCHAIN_RELAYER_*        (optionnel)
+#   - FIREBASE_*                  (optionnel)
+#   - TWILIO_*                    (optionnel)
+
+services:
+  # ── Backend Django ─────────────────────────────────────────────
+  - type: web
+    name: blocktask-backend
+    runtime: docker
+    repo: https://github.com/assourita/BloctaskMali
+    region: frankfurt          # plus proche de l'Afrique de l'Ouest
+    plan: starter
+    branch: main
+    dockerfilePath: backend/Dockerfile
+    numInstances: 1
+    envVars:
+      - key: DEBUG
+        value: "false"
+      - key: DJANGO_SECRET_KEY
+        generateValue: true    # remplace par ta propre clé ensuite
+      - key: ALLOWED_HOSTS
+        value: "blocktask-backend.onrender.com"
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false            # à remplir avec l'URL frontend
+      - key: FRONTEND_URL
+        sync: false
+      - key: USE_REDIS_CHANNELS
+        value: "true"
+      - key: REDIS_URL
+        fromService:
+          name: blocktask-redis
+          type: keyvalue
+          property: connectionString
+      - key: CELERY_BROKER_URL
+        fromService:
+          name: blocktask-redis
+          type: keyvalue
+          property: connectionString
+      - key: CELERY_RESULT_BACKEND
+        fromService:
+          name: blocktask-redis
+          type: keyvalue
+          property: connectionString
+      - key: DATABASE_URL
+        fromDatabase:
+          name: blocktask-db
+          property: connectionString
+      - key: MOBILE_MONEY_SANDBOX
+        value: "true"
+      - key: REQUIRE_EMAIL_VERIFICATION
+        value: "false"         # mettre true quand l'email sera configuré
+      - key: EMAIL_BACKEND
+        value: "django.core.mail.backends.console.EmailBackend"
+    healthCheckPath: /api/config/health/   # à créer si non existant
+
+  # ── Frontend Angular (Static Site) ─────────────────────────────
+  - type: static
+    name: blocktask-frontend
+    runtime: static
+    repo: https://github.com/assourita/BloctaskMali
+    branch: main
+    buildCommand: |
+      cd frontend &&
+      sed -i "s|https://api.blocktask.io/api|${API_URL}|g" src/environments/environment.prod.ts &&
+      sed -i "s|wss://api.blocktask.io/ws|${WS_URL}|g" src/environments/environment.prod.ts &&
+      npm install &&
+      npm run build -- --configuration production
+    staticPublishPath: ./frontend/dist/blocktask
+    envVars:
+      - key: API_URL
+        sync: false            # ex: https://blocktask-backend.onrender.com/api
+      - key: WS_URL
+        sync: false            # ex: wss://blocktask-backend.onrender.com/ws
+
+# ── PostgreSQL ──────────────────────────────────────────────────
+databases:
+  - name: blocktask-db
+    databaseName: blocktask
+    user: blocktask
+    plan: starter
+    region: frankfurt
+
+# ── Redis (WebSocket / Celery) ─────────────────────────────────
+keyValue:
+  - name: blocktask-redis
+    plan: starter
+    region: frankfurt
+    maxmemoryPolicy: allkeys-lru

@@ -242,9 +242,40 @@ Suites disponibles :
 
 ## Déploiement
 
-Le projet est configuré pour **Railway** (`railway.json`) avec collectstatic au runtime.
+### Render (recommandé pour démo / MVP)
 
-**Smart contracts** : voir `smart-contracts/DEPLOY_SEPOLIA.md` et `smart-contracts/README_MALI.md`.
+Un blueprint `render.yaml` est fourni pour déployer automatiquement :
+
+- **Backend Django** (Web Service Docker)
+- **Frontend Angular** (Static Site)
+- **PostgreSQL** (managed)
+- **Redis** (WebSocket + Celery)
+
+**Étapes :**
+
+1. Push ce repo sur GitHub (déjà fait : `https://github.com/assourita/BloctaskMali`).
+2. Sur [render.com](https://render.com), clique **New Blueprint** → connecte le repo.
+3. Renseigne les variables d'environnement manquantes dans le dashboard :
+   - `DJANGO_SECRET_KEY` (clé longue et aléatoire)
+   - `API_URL` / `WS_URL` : URLs du backend Render (`https://blocktask-backend.onrender.com/api` et `wss://.../ws`)
+   - `FRONTEND_URL` / `CORS_ALLOWED_ORIGINS` : URL du frontend Render (`https://blocktask-frontend.onrender.com`)
+   - `ETHEREUM_RPC_URL` + adresses des contrats Sepolia
+   - `GOOGLE_CLIENT_ID` (optionnel)
+   - `MOBILE_MONEY_SANDBOX=true` pour la démo sans vrai débit
+4. Clique **Apply** — Render provisionne la base, Redis, backend puis frontend.
+5. Crée un super-utilisateur depuis le shell du service backend :
+
+```bash
+python manage.py createsuperuser
+```
+
+### Railway
+
+Le projet est également configuré pour **Railway** (`railway.json`) avec collectstatic au runtime.
+
+### Smart contracts
+
+Voir `smart-contracts/DEPLOY_SEPOLIA.md` et `smart-contracts/README_MALI.md`.
 
 Après déploiement des contrats :
 

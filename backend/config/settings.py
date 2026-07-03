@@ -6,16 +6,22 @@ Configuration complète pour la plateforme décentralisée
 import os
 from pathlib import Path
 from dotenv import load_dotenv
+import dj_database_url
 
 load_dotenv()
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-blocktask-dev-key')
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', os.getenv('SECRET_KEY', 'django-insecure-blocktask-dev-key'))
 
 DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 ALLOWED_HOSTS = ['*'] if DEBUG else os.getenv('ALLOWED_HOSTS', '').split(',')
+
+# Render injecte RENDER_EXTERNAL_HOSTNAME
+render_host = os.getenv('RENDER_EXTERNAL_HOSTNAME')
+if render_host and render_host not in ALLOWED_HOSTS:
+    ALLOWED_HOSTS.append(render_host)
 
 DJANGO_APPS = [
     'django.contrib.admin',
@@ -96,6 +102,11 @@ DATABASES = {
     }
 }
 
+# Render fournit DATABASE_URL : on l'utilise si présente
+database_url = os.getenv('DATABASE_URL')
+if database_url:
+    DATABASES['default'] = dj_database_url.parse(database_url, conn_max_age=600, ssl_require=True)
+
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
     {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator'},
@@ -171,6 +182,14 @@ CORS_ALLOWED_ORIGINS = [
     "http://localhost:4209",
     "http://127.0.0.1:4209",
 ]
+
+# Ajouter dynamiquement les origines Render / prod via CORS_ALLOWED_ORIGINS
+_extra_cors = os.getenv('CORS_ALLOWED_ORIGINS', '')
+if _extra_cors:
+    for origin in _extra_cors.split(','):
+        origin = origin.strip()
+        if origin and origin not in CORS_ALLOWED_ORIGINS:
+            CORS_ALLOWED_ORIGINS.append(origin)
 
 CORS_ALLOW_CREDENTIALS = True
 

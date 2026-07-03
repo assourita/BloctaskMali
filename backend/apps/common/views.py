@@ -17,6 +17,13 @@ User = get_user_model()
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+def health_check(request):
+    """Endpoint simple pour les health checks (Render, load balancers)."""
+    return Response({'status': 'ok', 'service': 'blocktask-backend'})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def market_config(request):
     """Configuration marché Afrique de l'Ouest (pays, Mobile Money, XOF)."""
     config = get_market_config()
