@@ -113,7 +113,7 @@ import { EnterpriseMissionsNavComponent } from '../enterprise-missions-nav.compo
               <div class="card-main">
                 <h3>{{ m.title }}</h3>
                 <p class="desc" *ngIf="m.description">
-                  {{ m.description | slice:0:140 }}{{ (m.description?.length || 0) > 140 ? '…' : '' }}
+                  {{ m.description | slice:0:140 }}{{ (m.description.length || 0) > 140 ? '…' : '' }}
                 </p>
 
                 <div class="tags" *ngIf="m.category?.name">
@@ -136,12 +136,12 @@ import { EnterpriseMissionsNavComponent } from '../enterprise-missions-nav.compo
                   <div class="route-line" *ngIf="m.pickup_address">
                     <span class="dot pickup"></span>
                     <mat-icon>trip_origin</mat-icon>
-                    <span>{{ m.pickup_address | slice:0:42 }}{{ (m.pickup_address?.length || 0) > 42 ? '…' : '' }}</span>
+                    <span>{{ m.pickup_address | slice:0:42 }}{{ (m.pickup_address.length || 0) > 42 ? '…' : '' }}</span>
                   </div>
                   <div class="route-line" *ngIf="m.delivery_address">
                     <span class="dot delivery"></span>
                     <mat-icon>flag</mat-icon>
-                    <span>{{ m.delivery_address | slice:0:42 }}{{ (m.delivery_address?.length || 0) > 42 ? '…' : '' }}</span>
+                    <span>{{ m.delivery_address | slice:0:42 }}{{ (m.delivery_address.length || 0) > 42 ? '…' : '' }}</span>
                   </div>
                 </div>
               </div>
