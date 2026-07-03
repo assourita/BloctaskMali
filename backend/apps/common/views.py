@@ -19,7 +19,13 @@ User = get_user_model()
 @permission_classes([AllowAny])
 def health_check(request):
     """Endpoint simple pour les health checks (Render, load balancers)."""
-    return Response({'status': 'ok', 'service': 'blocktask-backend'})
+    from django.db import connection
+    try:
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1")
+        return Response({'status': 'ok', 'service': 'blocktask-backend'})
+    except Exception as exc:
+        return Response({'status': 'error', 'detail': str(exc)}, status=status.HTTP_503_SERVICE_UNAVAILABLE)
 
 
 @api_view(['GET'])

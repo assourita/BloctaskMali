@@ -29,9 +29,9 @@ services:
       - key: DEBUG
         value: "false"
       - key: DJANGO_SECRET_KEY
-        generateValue: true    # remplace par ta propre clé ensuite
+        sync: false            # générer une clé longue et aléatoire une seule fois
       - key: ALLOWED_HOSTS
-        value: "blocktask-backend.onrender.com"
+        value: "bloctaskmali.onrender.com"
       - key: CORS_ALLOWED_ORIGINS
         sync: false            # à remplir avec l'URL frontend
       - key: FRONTEND_URL
