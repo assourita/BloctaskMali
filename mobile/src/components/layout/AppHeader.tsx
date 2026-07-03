@@ -78,6 +78,7 @@ export function AppHeader({ title }: { title?: string }) {
   const handleLogout = async () => {
     setMenuOpen(false);
     await logout();
+    router.dismissAll();
     router.replace('/');
   };
 

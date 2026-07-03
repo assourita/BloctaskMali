@@ -54,19 +54,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
       <div class="actions-section">
 
-        <!-- Wallet -->
-        <button class="wallet-btn" (click)="connectWallet()" *ngIf="!(wallet$ | async)">
-          <mat-icon>account_balance_wallet</mat-icon>
-          <span>Connecter Wallet</span>
-        </button>
-
-        <button class="wallet-connected" (click)="disconnectWallet()" *ngIf="wallet$ | async as wallet"
-                [title]="wallet.address">
-          <mat-icon>account_balance_wallet</mat-icon>
-          <span class="wallet-addr">{{ wallet.address | slice:0:6 }}...{{ wallet.address | slice:-4 }}</span>
-          <mat-icon class="disconnect-icon">close</mat-icon>
-        </button>
-
         <!-- Notifications -->
         <div class="dropdown-wrap">
           <button class="icon-btn notif-btn" (click)="toggleNotif($event)">
@@ -229,52 +216,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       align-items: center;
       gap: 12px;
     }
-
-    /* Wallet button - non connecté */
-    .wallet-btn {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 16px;
-      background: #3CB371;
-      color: #fff;
-      border: none;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      mat-icon { font-size: 18px; width: 18px; height: 18px; }
-    }
-    .wallet-btn:hover {
-      background: #2ea361;
-      box-shadow: 0 4px 12px rgba(60,179,113,0.3);
-      transform: translateY(-1px);
-    }
-
-    /* Wallet connecté */
-    .wallet-connected {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 7px 14px;
-      background: #f0faf4;
-      color: #2e7d32;
-      border: 1px solid #a5d6a7;
-      border-radius: 8px;
-      font-size: 13px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s;
-      mat-icon { font-size: 17px; width: 17px; height: 17px; }
-    }
-    .wallet-connected:hover {
-      background: #ffebee;
-      color: #c62828;
-      border-color: #ef9a9a;
-    }
-    .wallet-addr { font-family: monospace; }
-    .disconnect-icon { font-size: 14px !important; width: 14px !important; height: 14px !important; opacity: 0.6; }
 
     /* ===== Dropdown wrapper ===== */
     .dropdown-wrap {

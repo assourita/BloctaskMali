@@ -354,6 +354,7 @@ export default function ProfileScreen() {
 
   const handleLogout = async () => {
     await logout();
+    router.dismissAll();
     router.replace('/');
   };
 
