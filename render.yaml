@@ -38,6 +38,20 @@ services:
         sync: false
       - key: USE_REDIS_CHANNELS
         value: "true"
+      - key: SENDGRID_API_KEY
+        sync: false
+      - key: DEFAULT_FROM_EMAIL
+        value: "noreply@blocktask.ml"
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: AWS_STORAGE_BUCKET_NAME
+        sync: false
+      - key: AWS_S3_ENDPOINT_URL
+        sync: false
+      - key: AWS_S3_CUSTOM_DOMAIN
+        sync: false
       - key: REDIS_URL
         fromService:
           name: blocktask-redis
