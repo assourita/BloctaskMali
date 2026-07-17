@@ -14,12 +14,13 @@ import { router } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { PrimaryButton, SecondaryButton } from './buttons';
 import { colors, spacing } from '../constants/theme';
+import { GlobeIcon, ClipboardListIcon, ShieldCheckIcon, MapPinIcon, RocketIcon } from './icons';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 interface OnboardingSlide {
   id: string;
-  emoji: string;
+  icon: string;
   title: string;
   description: string;
   accent: string;
@@ -28,7 +29,7 @@ interface OnboardingSlide {
 const SLIDES: OnboardingSlide[] = [
   {
     id: 'welcome',
-    emoji: '🌍',
+    icon: 'globe',
     title: 'Bienvenue sur BlockTask',
     description:
       'La plateforme qui connecte clients, prestataires et entreprises pour réaliser vos missions en toute confiance.',
@@ -36,7 +37,7 @@ const SLIDES: OnboardingSlide[] = [
   },
   {
     id: 'missions',
-    emoji: '📋',
+    icon: 'clipboard-list',
     title: 'Publiez ou postulez',
     description:
       'Les clients créent des missions. Les prestataires et entreprises candidatent tant que la mission n\'est pas assignée.',
@@ -44,7 +45,7 @@ const SLIDES: OnboardingSlide[] = [
   },
   {
     id: 'payment',
-    emoji: '🔒',
+    icon: 'shield-check',
     title: 'Paiement sécurisé',
     description:
       'Fonds bloqués en escrow, Mobile Money (Orange, MTN, Moov) et traçabilité blockchain pour protéger chaque transaction.',
@@ -52,7 +53,7 @@ const SLIDES: OnboardingSlide[] = [
   },
   {
     id: 'tracking',
-    emoji: '📍',
+    icon: 'map-pin',
     title: 'Suivi en temps réel',
     description:
       'GPS live, preuves photo, validation QR et notifications pour suivre votre mission du début à la fin.',
@@ -60,7 +61,7 @@ const SLIDES: OnboardingSlide[] = [
   },
   {
     id: 'start',
-    emoji: '🚀',
+    icon: 'rocket',
     title: 'Prêt à commencer ?',
     description:
       'Créez votre compte en quelques minutes ou connectez-vous pour accéder à votre tableau de bord.',
@@ -90,15 +91,25 @@ export function OnboardingCarousel() {
     listRef.current?.scrollToIndex({ index: index - 1, animated: true });
   };
 
-  const renderItem: ListRenderItem<OnboardingSlide> = ({ item }) => (
-    <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
-      <View style={[styles.iconCircle, { backgroundColor: `${item.accent}18` }]}>
-        <Text style={styles.emoji}>{item.emoji}</Text>
+  const renderItem: ListRenderItem<OnboardingSlide> = ({ item }) => {
+    const IconComponent = {
+      'globe': GlobeIcon,
+      'clipboard-list': ClipboardListIcon,
+      'shield-check': ShieldCheckIcon,
+      'map-pin': MapPinIcon,
+      'rocket': RocketIcon,
+    }[item.icon] || GlobeIcon;
+    
+    return (
+      <View style={[styles.slide, { width: SCREEN_WIDTH }]}>
+        <View style={[styles.iconCircle, { backgroundColor: `${item.accent}18` }]}>
+          <IconComponent size={52} color={item.accent} />
+        </View>
+        <Text style={styles.title}>{item.title}</Text>
+        <Text style={styles.description}>{item.description}</Text>
       </View>
-      <Text style={styles.title}>{item.title}</Text>
-      <Text style={styles.description}>{item.description}</Text>
-    </View>
-  );
+    );
+  };
 
   return (
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
@@ -202,7 +213,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginBottom: spacing.xl,
   },
-  emoji: { fontSize: 52 },
   title: {
     fontSize: 26,
     fontWeight: '800',

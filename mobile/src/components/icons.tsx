@@ -199,3 +199,211 @@ export function BellIcon({ size = 20, color = colors.text }: { size?: number; co
     </View>
   );
 }
+
+/** Globe icon for onboarding. */
+export function GlobeIcon({ size = 52, color = colors.primary }: { size?: number; color?: string }) {
+  const r = size / 2;
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          width: size * 0.85,
+          height: size * 0.85,
+          borderRadius: r,
+          borderWidth: 2.5,
+          borderColor: color,
+          borderStyle: 'dashed',
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          width: size * 0.4,
+          height: size * 0.4,
+          borderRadius: r,
+          borderWidth: 2,
+          borderColor: color,
+          transform: [{ rotate: '45deg' }],
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          width: size * 0.3,
+          height: size * 0.3,
+          borderRadius: r,
+          backgroundColor: color,
+          opacity: 0.2,
+        }}
+      />
+    </View>
+  );
+}
+
+/** Clipboard list icon for onboarding. */
+export function ClipboardListIcon({ size = 52, color = colors.accent }: { size?: number; color?: string }) {
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          width: size * 0.7,
+          height: size * 0.85,
+          backgroundColor: color,
+          borderRadius: 4,
+          opacity: 0.15,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          width: size * 0.6,
+          height: size * 0.75,
+          backgroundColor: color,
+          borderRadius: 3,
+          opacity: 0.3,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          width: size * 0.5,
+          height: size * 0.65,
+          backgroundColor: color,
+          borderRadius: 2,
+          opacity: 0.5,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.1,
+          width: size * 0.3,
+          height: size * 0.08,
+          backgroundColor: color,
+          borderRadius: 2,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.25,
+          width: size * 0.4,
+          height: size * 0.06,
+          backgroundColor: color,
+          borderRadius: 1,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.35,
+          width: size * 0.35,
+          height: size * 0.06,
+          backgroundColor: color,
+          borderRadius: 1,
+        }}
+      />
+    </View>
+  );
+}
+
+/** Shield check icon for onboarding. */
+export function ShieldCheckIcon({ size = 52, color = '#0ea5e9' }: { size?: number; color?: string }) {
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          width: size * 0.75,
+          height: size * 0.85,
+          backgroundColor: color,
+          borderRadius: size * 0.4,
+          opacity: 0.2,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          width: size * 0.6,
+          height: size * 0.7,
+          backgroundColor: color,
+          borderRadius: size * 0.35,
+          opacity: 0.4,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          width: size * 0.25,
+          height: size * 0.25,
+          borderWidth: 3,
+          borderColor: color,
+          borderRadius: size * 0.12,
+          transform: [{ rotate: '45deg' }],
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          width: size * 0.12,
+          height: size * 0.18,
+          backgroundColor: color,
+          borderRadius: 2,
+          transform: [{ rotate: '45deg' }],
+        }}
+      />
+    </View>
+  );
+}
+
+/** Rocket icon for onboarding. */
+export function RocketIcon({ size = 52, color = colors.primary }: { size?: number; color?: string }) {
+  return (
+    <View style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+      <View
+        style={{
+          width: 0,
+          height: 0,
+          borderLeftWidth: size * 0.3,
+          borderRightWidth: size * 0.3,
+          borderBottomWidth: size * 0.5,
+          borderLeftColor: 'transparent',
+          borderRightColor: 'transparent',
+          borderBottomColor: color,
+          opacity: 0.3,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          width: size * 0.35,
+          height: size * 0.45,
+          backgroundColor: color,
+          borderRadius: size * 0.15,
+          opacity: 0.5,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.35,
+          width: size * 0.2,
+          height: size * 0.35,
+          backgroundColor: color,
+          borderRadius: size * 0.08,
+          opacity: 0.4,
+        }}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          top: size * 0.55,
+          width: size * 0.15,
+          height: size * 0.25,
+          backgroundColor: color,
+          borderRadius: size * 0.06,
+          opacity: 0.6,
+        }}
+      />
+    </View>
+  );
+}
