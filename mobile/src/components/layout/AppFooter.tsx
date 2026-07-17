@@ -10,10 +10,18 @@ export const APP_FOOTER_CONTENT_INSET = 78;
 
 const HIDDEN_PREFIXES = ['/', '/login', '/register', '/forgot-password'];
 
-function isHiddenRoute(pathname: string, hasUser: boolean) {
+function isHiddenRoute(pathname: string, hasUser: boolean, user: any) {
   if (!hasUser) return true;
   if (pathname === '/' || pathname === '') return true;
-  return HIDDEN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+  if (HIDDEN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return true;
+  
+  // Hide footer if profile is not complete or not verified by admin
+  const isProfileComplete = user?.first_name && user?.last_name && user?.phone_number;
+  const isVerified = user?.kyc_status === 'verified' || user?.identity_verified === true;
+  
+  if (!isProfileComplete || !isVerified) return true;
+  
+  return false;
 }
 
 function isDashboardRoute(pathname: string, segments: string[]) {
@@ -29,7 +37,7 @@ export function AppFooter() {
   const segments = useSegments();
   const { user } = useAuth();
 
-  if (isHiddenRoute(pathname, !!user)) return null;
+  if (isHiddenRoute(pathname, !!user, user)) return null;
 
   const active: TabKey | null =
     pathname === '/map' || pathname.startsWith('/map/')
