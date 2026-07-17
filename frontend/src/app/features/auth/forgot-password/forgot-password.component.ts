@@ -27,7 +27,6 @@ import { AuthService } from '../../../core/services/auth.service';
         </button>
         <div class="brand-content">
           <div class="logo">
-            <span class="logo-icon">⚡</span>
             <span class="logo-text">BlockTask</span>
           </div>
           <h1>Mot de passe oublié</h1>

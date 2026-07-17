@@ -46,7 +46,6 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 
       <!-- Logo → dashboard utilisateur connecté -->
       <a [routerLink]="dashboardLink" class="logo">
-        <span class="logo-icon">⛓️</span>
         <span class="logo-text">BlockTask</span>
       </a>
 

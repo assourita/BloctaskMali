@@ -37,7 +37,6 @@ import { GoogleSignInButtonComponent } from '../../../shared/components/google-s
         </button>
         <div class="brand-content">
           <div class="logo">
-            <span class="logo-icon">⚡</span>
             <span class="logo-text">BlockTask</span>
           </div>
           <h1>Rejoignez BlockTask</h1>
