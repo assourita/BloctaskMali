@@ -1,5 +1,6 @@
 import { apiFormRequest, apiRequest } from './client';
 import type { User } from '../types';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 export interface UpdateProfilePayload {
   first_name?: string;
@@ -19,14 +20,29 @@ export async function updateProfile(payload: UpdateProfilePayload): Promise<User
   });
 }
 
+const compressImage = async (uri: string): Promise<string> => {
+  try {
+    const result = await ImageManipulator.manipulateAsync(
+      uri,
+      [{ resize: { width: 1024 } }], // Max width 1024px
+      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+    );
+    return result.uri;
+  } catch (e) {
+    console.error('Image compression error:', e);
+    return uri; // Fallback to original if compression fails
+  }
+};
+
 export async function uploadProfilePicture(file: {
   uri: string;
   name: string;
   type: string;
 }): Promise<User> {
+  const compressedUri = await compressImage(file.uri);
   const formData = new FormData();
   formData.append('profile_picture', {
-    uri: file.uri,
+    uri: compressedUri,
     name: file.name,
     type: file.type,
   } as unknown as Blob);
