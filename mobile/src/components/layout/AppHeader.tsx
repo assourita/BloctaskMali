@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
@@ -7,6 +7,7 @@ import { useSidebar } from '../../context/SidebarContext';
 import { getUnreadCount } from '../../api/notifications';
 import { BellIcon } from '../icons';
 import { colors, shadow, spacing } from '../../constants/theme';
+import { mediaUrl } from '../../constants/config';
 import type { UserRole } from '../../types';
 
 const ROLE_LABELS: Record<string, string> = {
@@ -110,7 +111,11 @@ export function AppHeader({ title }: { title?: string }) {
         </Pressable>
         <Pressable onPress={() => setMenuOpen(true)} hitSlop={8}>
           <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials || 'U'}</Text>
+            {user?.profile_picture ? (
+              <Image source={{ uri: mediaUrl(user.profile_picture) }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarText}>{initials || 'U'}</Text>
+            )}
           </View>
         </Pressable>
       </View>
@@ -120,7 +125,11 @@ export function AppHeader({ title }: { title?: string }) {
           <View style={[styles.menu, { marginTop: insets.top + 52 }]}>
             <View style={styles.menuHeader}>
               <View style={styles.avatar}>
-                <Text style={styles.avatarText}>{initials || 'U'}</Text>
+                {user?.profile_picture ? (
+                  <Image source={{ uri: mediaUrl(user.profile_picture) }} style={styles.avatarImage} />
+                ) : (
+                  <Text style={styles.avatarText}>{initials || 'U'}</Text>
+                )}
               </View>
               <View style={{ flex: 1 }}>
                 <Text style={styles.menuName} numberOfLines={1}>
@@ -234,6 +243,11 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primaryLight,
     alignItems: 'center',
     justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  avatarImage: {
+    width: '100%',
+    height: '100%',
   },
   avatarText: { color: colors.primary, fontWeight: '800', fontSize: 13 },
   menuBackdrop: { flex: 1, backgroundColor: 'rgba(15,23,42,0.25)', paddingRight: spacing.md, alignItems: 'flex-end' },
