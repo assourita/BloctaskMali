@@ -90,7 +90,6 @@ export function AppHeader({ title }: { title?: string }) {
           <Text style={styles.hamburger}>☰</Text>
         </Pressable>
         <Pressable style={styles.logo} onPress={() => router.push(user ? '/(tabs)' : '/')}>
-          <View style={styles.logoDot} />
           <Text style={styles.logoText}>BlockTask</Text>
         </Pressable>
       </View>

@@ -24,7 +24,6 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
       >
         <View style={styles.brandPanel}>
           <View style={styles.logoRow}>
-            <View style={styles.logoDot} />
             <Text style={styles.logoText}>BlockTask</Text>
           </View>
           <Text style={styles.brandTitle}>{title}</Text>
