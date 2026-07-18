@@ -88,6 +88,12 @@ export default function VerifyEmailScreen() {
           <Text style={styles.link}>Retour à la connexion</Text>
         </Pressable>
       </Link>
+
+      <Link href={{ pathname: '/register', params: { email: email } }} asChild>
+        <Pressable>
+          <Text style={styles.link}>Modifier mes informations d'inscription</Text>
+        </Pressable>
+      </Link>
     </AuthLayout>
   );
 }

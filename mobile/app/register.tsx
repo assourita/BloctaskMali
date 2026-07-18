@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Link, router } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../src/context/AuthContext';
 import { Input, PasswordInput, PrimaryButton, SecondaryButton } from '../src/components/buttons';
 import { AuthLayout } from '../src/components/layout/AuthLayout';
@@ -21,11 +21,12 @@ const ROLES: { id: UserRole; label: string; desc: string }[] = [
 
 export default function RegisterScreen() {
   const { register } = useAuth();
+  const params = useLocalSearchParams<{ email?: string }>();
   const [role, setRole] = useState<UserRole>('client');
   const [form, setForm] = useState({
     first_name: '',
     last_name: '',
-    email: '',
+    email: params.email || '',
     username: '',
     phone_number: '+223',
     password: '',
