@@ -1,4 +1,5 @@
 import { apiRequest } from './client';
+import type { CategorySchema } from './categorySchema';
 
 export interface CategoryRules {
   slug: string;
@@ -59,3 +60,9 @@ export async function getDepositPreview(
   }
   return apiRequest<DepositPreview>(`/categories/${slug}/deposit_preview/?${params}`);
 }
+
+export async function getCategorySchema(slug: string): Promise<CategorySchema> {
+  return apiRequest<CategorySchema>(`/categories/${slug}/schema/`);
+}
+
+export type { CategorySchema };

@@ -15,8 +15,10 @@ import { confirmPayment } from '../src/api/payments';
 import {
   getCategories,
   getDepositPreview,
+  getCategorySchema,
   type Category,
   type CategoryRules,
+  type CategorySchema,
 } from '../src/api/categories';
 import { resolveCategoryConfig } from '../src/constants/categoryConfig';
 import { useAuth } from '../src/context/AuthContext';
@@ -28,6 +30,7 @@ import { ChipGroup, FieldLabel } from '../src/components/ui';
 import { DateField, TimeField } from '../src/components/datetime';
 import { calculateFees, DEFAULT_PHONE_PREFIX, formatXOF, MOBILE_MONEY_OPERATORS } from '../src/constants/africa';
 import { colors, radius, spacing } from '../src/constants/theme';
+import { DynamicFormField } from '../src/components/DynamicFormField';
 import { NetworkBanner } from '../src/components/NetworkBanner';
 import { ApiError } from '../src/api/client';
 
@@ -52,6 +55,7 @@ interface FormState {
   special_instructions: string;
   phone: string;
   otp: '1234' | string;
+  custom_data: Record<string, any>;
 }
 
 const INITIAL: FormState = {
@@ -72,6 +76,7 @@ const INITIAL: FormState = {
   special_instructions: '',
   phone: '',
   otp: '1234',
+  custom_data: {},
 };
 
 function configFromRules(rules: CategoryRules | undefined, fallback: ReturnType<typeof resolveCategoryConfig>) {
@@ -101,6 +106,8 @@ export default function CreateMissionScreen() {
   const [operator, setOperator] = useState('orange');
   const [form, setForm] = useState<FormState>(INITIAL);
   const [estimatedDeposit, setEstimatedDeposit] = useState(0);
+  const [categorySchema, setCategorySchema] = useState<CategorySchema | null>(null);
+  const [schemaLoading, setSchemaLoading] = useState(false);
   const [requirements, setRequirements] = useState({
     requires_vehicle: false,
     requires_photo: true,
@@ -108,7 +115,14 @@ export default function CreateMissionScreen() {
     requires_id_verification: false,
   });
 
-  const update = (key: keyof FormState, value: string) => setForm((f) => ({ ...f, [key]: value }));
+  const update = (key: keyof FormState, value: any) => setForm((f) => ({ ...f, [key]: value }));
+
+  const updateCustomData = (key: string, value: any) => {
+    setForm((f) => ({
+      ...f,
+      custom_data: { ...f.custom_data, [key]: value },
+    }));
+  };
 
   const loadCategories = useCallback(async () => {
     setCategoriesLoading(true);
@@ -124,6 +138,22 @@ export default function CreateMissionScreen() {
     }
   }, []);
 
+  const loadCategorySchema = useCallback(async (slug: string) => {
+    if (!slug) return;
+    setSchemaLoading(true);
+    try {
+      const schema = await getCategorySchema(slug);
+      setCategorySchema(schema);
+      // Reset custom_data when category changes
+      setForm((f) => ({ ...f, custom_data: {} }));
+    } catch (e) {
+      console.error('Failed to load category schema:', e);
+      setCategorySchema(null);
+    } finally {
+      setSchemaLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadCategories();
   }, [loadCategories]);
@@ -134,6 +164,13 @@ export default function CreateMissionScreen() {
   );
 
   const apiRules = selectedCategory?.rules;
+
+  // Load category schema when category changes
+  useEffect(() => {
+    if (selectedCategory?.slug) {
+      loadCategorySchema(selectedCategory.slug);
+    }
+  }, [selectedCategory?.slug, loadCategorySchema]);
 
   const config = useMemo(
     () => configFromRules(apiRules, resolveCategoryConfig(selectedCategory)),
@@ -288,6 +325,7 @@ export default function CreateMissionScreen() {
         phone_number: phoneDigits.startsWith('+') ? phoneDigits : `${DEFAULT_PHONE_PREFIX}${phoneDigits}`,
         escrow_amount: computed.escrowAmount,
         platform_fee: computed.platformFee,
+        custom_data: form.custom_data,
       });
 
       const goToMission = () => {
@@ -464,6 +502,16 @@ export default function CreateMissionScreen() {
                 <Text style={styles.depositPreviewValue}>{formatXOF(estimatedDeposit)}</Text>
               </View>
             ) : null}
+
+            {/* Render custom fields from category schema */}
+            {categorySchema?.custom_fields.map((field) => (
+              <DynamicFormField
+                key={field.name}
+                field={field}
+                value={form.custom_data[field.name]}
+                onChange={(value) => updateCustomData(field.name, value)}
+              />
+            ))}
 
             <CheckRow
               label="Véhicule requis"
