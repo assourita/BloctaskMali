@@ -33,6 +33,7 @@ import {
   EnterprisesListDialogComponent,
 } from './enterprises-list-dialog/enterprises-list-dialog.component';
 import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mission-dialog.component';
+import { colors } from '../../core/design-system';
 
 @Component({
   selector: 'app-landing',
@@ -51,11 +52,11 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
   ],
   template: `
     <div class="landing-container">
-      <!-- TaskRabbit Style Header - Sticky -->
-      <nav class="tr-navbar" [class.scrolled]="isScrolled">
+      <!-- Garden Grid Style Header -->
+      <nav class="gg-navbar" [class.scrolled]="isScrolled">
         <div class="nav-container">
           <div class="logo" routerLink="/">
-            <span class="logo-icon">⚡</span>
+            <span class="logo-icon">🌿</span>
             <span class="logo-text">BlockTask</span>
           </div>
           <div class="nav-center">
@@ -82,52 +83,93 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
         </div>
       </nav>
 
-      <!-- Hero Section - TaskRabbit Style -->
-      <section class="tr-hero">
+      <!-- Hero Section - Garden Grid Style -->
+      <section class="gg-hero">
         <div class="hero-container">
-          <h1>Tout faire, sans bouger</h1>
-          <p class="hero-subtitle" *ngIf="stats; else defaultSubtitle">
-            {{ stats.total_providers }} prestataire{{ stats.total_providers > 1 ? 's' : '' }} de confiance
-            · {{ stats.open_missions }} mission{{ stats.open_missions > 1 ? 's' : '' }} ouverte{{ stats.open_missions > 1 ? 's' : '' }}
-            · {{ stats.completed_missions }} terminée{{ stats.completed_missions > 1 ? 's' : '' }}
-          </p>
-          <ng-template #defaultSubtitle>
-            <p class="hero-subtitle">Des prestataires de confiance pour vos missions quotidiennes au Mali</p>
-          </ng-template>
+          <div class="hero-content">
+            <h1 class="hero-title">
+              <span class="hero-title-line">Tout faire,</span>
+              <span class="hero-title-line hero-title-line--accent">sans bouger</span>
+            </h1>
+            <p class="hero-subtitle" *ngIf="stats; else defaultSubtitle">
+              {{ stats.total_providers }} prestataire{{ stats.total_providers > 1 ? 's' : '' }} de confiance
+              · {{ stats.open_missions }} mission{{ stats.open_missions > 1 ? 's' : '' }} ouverte{{ stats.open_missions > 1 ? 's' : '' }}
+              · {{ stats.completed_missions }} terminée{{ stats.completed_missions > 1 ? 's' : '' }}
+            </p>
+            <ng-template #defaultSubtitle>
+              <p class="hero-subtitle">Des prestataires de confiance pour vos missions quotidiennes au Mali</p>
+            </ng-template>
 
-          <div class="hero-stats" *ngIf="stats">
-            <div class="hero-stat">
-              <span class="hero-stat-value">{{ stats.total_providers }}</span>
-              <span class="hero-stat-label">Prestataires</span>
+            <div class="hero-stats" *ngIf="stats">
+              <div class="hero-stat">
+                <span class="hero-stat-value">{{ stats.total_providers }}</span>
+                <span class="hero-stat-label">Prestataires</span>
+              </div>
+              <div class="hero-stat">
+                <span class="hero-stat-value">{{ stats.open_missions }}</span>
+                <span class="hero-stat-label">Missions ouvertes</span>
+              </div>
+              <div class="hero-stat">
+                <span class="hero-stat-value">{{ stats.completed_missions }}</span>
+                <span class="hero-stat-label">Missions réalisées</span>
+              </div>
             </div>
-            <div class="hero-stat">
-              <span class="hero-stat-value">{{ stats.open_missions }}</span>
-              <span class="hero-stat-label">Missions ouvertes</span>
+            
+            <!-- Search Bar -->
+            <div class="search-box">
+              <mat-icon class="search-icon">search</mat-icon>
+              <input
+                type="text"
+                [(ngModel)]="searchQuery"
+                (keyup.enter)="onSearch()"
+                placeholder="De quoi avez-vous besoin ? (Livraison, déménagement, réparation...)" />
+              <button mat-raised-button class="search-btn" (click)="onSearch()">Rechercher</button>
             </div>
-            <div class="hero-stat">
-              <span class="hero-stat-value">{{ stats.completed_missions }}</span>
-              <span class="hero-stat-label">Missions réalisées</span>
+            
+            <!-- Popular Searches -->
+            <div class="popular-searches" *ngIf="popularCategories.length">
+              <span>Populaire :</span>
+              <a
+                *ngFor="let cat of popularCategories"
+                href="#missions"
+                (click)="searchByCategory(cat); $event.preventDefault()">{{ cat }}</a>
             </div>
           </div>
-          
-          <!-- Search Bar -->
-          <div class="search-box">
-            <mat-icon class="search-icon">search</mat-icon>
-            <input
-              type="text"
-              [(ngModel)]="searchQuery"
-              (keyup.enter)="onSearch()"
-              placeholder="De quoi avez-vous besoin ? (Livraison, déménagement, réparation...)" />
-            <button mat-raised-button class="search-btn" (click)="onSearch()">Rechercher</button>
-          </div>
-          
-          <!-- Popular Searches -->
-          <div class="popular-searches" *ngIf="popularCategories.length">
-            <span>Populaire :</span>
-            <a
-              *ngFor="let cat of popularCategories"
-              href="#missions"
-              (click)="searchByCategory(cat); $event.preventDefault()">{{ cat }}</a>
+
+          <!-- Hero Visual -->
+          <div class="hero-visual">
+            <div class="hero-card">
+              <div class="card-header">
+                <span class="badge">Mission en cours</span>
+                <span class="amount">25 000 XOF</span>
+              </div>
+              <div class="card-body">
+                <h4>Livraison colis urgent</h4>
+                <div class="location">
+                  <mat-icon>place</mat-icon>
+                  Cocody → Plateau
+                </div>
+                <div class="progress">
+                  <div class="progress-bar">
+                    <div class="progress-fill" style="width: 65%"></div>
+                  </div>
+                  <span>65% complété</span>
+                </div>
+              </div>
+              <div class="card-footer">
+                <div class="provider">
+                  <div class="avatar">KM</div>
+                  <div class="info">
+                    <span class="name">Koumadi M.</span>
+                    <span class="rating">⭐ 4.8</span>
+                  </div>
+                </div>
+                <div class="escrow-badge">
+                  <mat-icon>shield</mat-icon>
+                  Escrow actif
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -519,1431 +561,601 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
     </div>
   `,
   styles: [`
+    @import '../../core/design-system';
+
     .landing-container {
-      font-family: var(--font-sans);
+      font-family: typography.$font-family-sans;
+      color: colors.$text-primary;
     }
 
-    /* Hero Section */
-    .hero {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      min-height: 100vh;
-      color: white;
-      padding: 0 5%;
-    }
-
-    .navbar {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 24px 0;
-    }
-
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .logo-icon {
-      font-size: 28px;
-    }
-
-    .logo-text {
-      font-size: 24px;
-      font-weight: 700;
-    }
-
-    .nav-links {
-      display: flex;
-      gap: 32px;
-    }
-
-    .nav-links a {
-      color: rgba(255,255,255,0.9);
-      text-decoration: none;
-      font-weight: 500;
-      transition: color 0.2s;
-    }
-
-    .nav-links a:hover {
-      color: white;
-    }
-
-    .nav-actions {
-      display: flex;
-      gap: 12px;
-    }
-
-    .hero-content {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 64px;
-      padding: 80px 0;
-      align-items: center;
-    }
-
-    .hero-text h1 {
-      font-size: 56px;
-      font-weight: 800;
-      line-height: 1.1;
-      margin-bottom: 24px;
-    }
-
-    .hero-subtitle {
-      font-size: 20px;
-      line-height: 1.6;
-      color: rgba(255,255,255,0.9);
-      margin-bottom: 40px;
-    }
-
-    .hero-cta {
-      display: flex;
-      gap: 16px;
-      margin-bottom: 48px;
-    }
-
-    .cta-primary {
-      height: 56px;
-      padding: 0 32px;
-      font-size: 16px;
-      background: #f59e0b !important;
-    }
-
-    .cta-primary mat-icon {
-      margin-left: 8px;
-    }
-
-    .cta-secondary {
-      height: 56px;
-      padding: 0 32px;
-      font-size: 16px;
-      border-color: white !important;
-      color: white !important;
-    }
-
-    .hero-stats {
-      display: flex;
-      gap: 48px;
-    }
-
-    .stat {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .stat-value {
-      font-size: 36px;
-      font-weight: 700;
-    }
-
-    .stat-label {
-      font-size: 14px;
-      color: rgba(255,255,255,0.8);
-    }
-
-    /* Hero Card */
-    .hero-visual {
-      display: flex;
-      justify-content: center;
-    }
-
-    .hero-card {
-      background: white;
-      border-radius: 16px;
-      padding: 24px;
-      width: 100%;
-      max-width: 380px;
-      color: #1f2937;
-      box-shadow: 0 25px 50px -12px rgba(0,0,0,0.25);
-    }
-
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 16px;
-    }
-
-    .badge {
-      background: #dbeafe;
-      color: #1e40af;
-      padding: 4px 12px;
-      border-radius: 20px;
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    .amount {
-      font-size: 20px;
-      font-weight: 700;
-      color: #059669;
-    }
-
-    .card-body h4 {
-      font-size: 18px;
-      margin-bottom: 12px;
-    }
-
-    .location {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      color: #6b7280;
-      font-size: 14px;
-      margin-bottom: 16px;
-    }
-
-    .progress {
-      margin-top: 16px;
-    }
-
-    .progress-bar {
-      height: 8px;
-      background: #e5e7eb;
-      border-radius: 4px;
-      overflow: hidden;
-      margin-bottom: 8px;
-    }
-
-    .progress-fill {
-      height: 100%;
-      background: #3b82f6;
-      border-radius: 4px;
-    }
-
-    .progress span {
-      font-size: 12px;
-      color: #6b7280;
-    }
-
-    .card-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 20px;
-      padding-top: 16px;
-      border-top: 1px solid #e5e7eb;
-    }
-
-    .provider {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .avatar {
-      width: 40px;
-      height: 40px;
-      background: #3b82f6;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-weight: 600;
-    }
-
-    .info {
-      display: flex;
-      flex-direction: column;
-    }
-
-    .name {
-      font-weight: 600;
-      font-size: 14px;
-    }
-
-    .rating {
-      font-size: 12px;
-      color: #6b7280;
-    }
-
-    .escrow-badge {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      color: #059669;
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    /* Features Section */
-    .features {
-      padding: 100px 5%;
-      background: white;
-    }
-
-    .container {
-      max-width: 1200px;
-      margin: 0 auto;
-    }
-
-    .features h2 {
-      text-align: center;
-      font-size: 40px;
-      font-weight: 700;
-      margin-bottom: 16px;
-    }
-
-    .section-subtitle {
-      text-align: center;
-      color: #6b7280;
-      font-size: 18px;
-      margin-bottom: 64px;
-    }
-
-    .features-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 32px;
-    }
-
-    .feature-card {
-      padding: 32px;
-      text-align: center;
-    }
-
-    .feature-icon {
-      width: 64px;
-      height: 64px;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-      border-radius: 16px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 24px;
-    }
-
-    .feature-icon mat-icon {
-      font-size: 32px;
-      width: 32px;
-      height: 32px;
-      color: white;
-    }
-
-    .feature-card h3 {
-      font-size: 20px;
-      font-weight: 600;
-      margin-bottom: 12px;
-    }
-
-    .feature-card p {
-      color: #6b7280;
-      line-height: 1.6;
-    }
-
-    /* How it Works */
-    .how-it-works {
-      padding: 80px 24px;
-      background: #f8fafc;
-    }
-
-    .how-it-works h2 {
-      text-align: center;
-      font-size: 32px;
-      font-weight: 700;
-      margin-bottom: 8px;
-      color: #0f172a;
-    }
-
-    .how-it-works .section-subtitle {
-      text-align: center;
-      color: #64748b;
-      margin-bottom: 32px;
-    }
-
-    .flow-tabs {
-      display: flex;
-      justify-content: center;
-      gap: 8px;
-      margin-bottom: 40px;
-      flex-wrap: wrap;
-    }
-
-    .flow-tab {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 20px;
-      border: 2px solid #e2e8f0;
-      border-radius: 999px;
-      background: white;
-      color: #64748b;
-      font-size: 14px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      font-family: inherit;
-    }
-
-    .flow-tab mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
-
-    .flow-tab:hover {
-      border-color: #3CB371;
-      color: #3CB371;
-    }
-
-    .flow-tab.active {
-      background: #3CB371;
-      border-color: #3CB371;
-      color: white;
-    }
-
-    .steps {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 20px;
-      max-width: 1100px;
-      margin: 0 auto;
-    }
-
-    .step-card {
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 16px;
-      padding: 24px 20px;
-      text-align: center;
-      transition: transform 0.2s, box-shadow 0.2s;
-    }
-
-    .step-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 24px rgba(60, 179, 113, 0.12);
-      border-color: #bbf7d0;
-    }
-
-    .step-icon-wrap {
-      position: relative;
-      width: 56px;
-      height: 56px;
-      margin: 0 auto 16px;
-      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
-      border-radius: 14px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-
-    .step-icon-wrap mat-icon {
-      font-size: 28px;
-      width: 28px;
-      height: 28px;
-      color: #059669;
-    }
-
-    .step-num {
-      position: absolute;
-      top: -6px;
-      right: -6px;
-      width: 22px;
-      height: 22px;
-      background: #3CB371;
-      color: white;
-      border-radius: 50%;
-      font-size: 11px;
-      font-weight: 700;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      border: 2px solid white;
-    }
-
-    .step-card h3 {
-      font-size: 16px;
-      font-weight: 600;
-      margin: 0 0 8px;
-      color: #0f172a;
-    }
-
-    .step-card p {
-      font-size: 13px;
-      color: #64748b;
-      line-height: 1.55;
-      margin: 0;
-    }
-
-    .how-cta {
-      text-align: center;
-      margin-top: 36px;
-    }
-
-    .how-cta-btn {
-      background: #3CB371 !important;
-      color: white !important;
-      padding: 12px 28px !important;
-      font-weight: 600 !important;
-      border-radius: 12px !important;
-    }
-
-    .how-cta-btn mat-icon {
-      margin-right: 8px;
-    }
-
-    /* CTA Section */
-    .cta-section {
-      padding: 100px 5%;
-      background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
-      color: white;
-      text-align: center;
-    }
-
-    .cta-section h2 {
-      font-size: 40px;
-      font-weight: 700;
-      margin-bottom: 16px;
-    }
-
-    .cta-section p {
-      font-size: 18px;
-      color: rgba(255,255,255,0.8);
-      margin-bottom: 40px;
-    }
-
-    .cta-large {
-      height: 64px;
-      padding: 0 48px;
-      font-size: 18px;
-      background: #f59e0b !important;
-    }
-
-    /* Footer */
-    .footer {
-      padding: 64px 5% 32px;
-      background: white;
-      border-top: 1px solid #e5e7eb;
-    }
-
-    .footer-grid {
-      display: grid;
-      grid-template-columns: 2fr 1fr 1fr 1fr;
-      gap: 64px;
-      margin-bottom: 48px;
-    }
-
-    .footer-brand p {
-      color: #6b7280;
-      margin-top: 16px;
-      line-height: 1.6;
-    }
-
-    .footer-links h4 {
-      font-size: 14px;
-      font-weight: 600;
-      text-transform: uppercase;
-      letter-spacing: 0.05em;
-      margin-bottom: 16px;
-    }
-
-    .footer-links a {
-      display: block;
-      color: #6b7280;
-      text-decoration: none;
-      padding: 8px 0;
-      transition: color 0.2s;
-    }
-
-    .footer-links a:hover {
-      color: #3b82f6;
-    }
-
-    .footer-bottom {
-      text-align: center;
-      padding-top: 32px;
-      border-top: 1px solid #e5e7eb;
-      color: #6b7280;
-      font-size: 14px;
-    }
-
-    /* Responsive */
-    @media (max-width: 1024px) {
-      .hero-content {
-        grid-template-columns: 1fr;
-        text-align: center;
-      }
-
-      .hero-text h1 {
-        font-size: 40px;
-      }
-
-      .hero-cta {
-        justify-content: center;
-      }
-
-      .hero-stats {
-        justify-content: center;
-      }
-
-      .hero-visual {
-        display: none;
-      }
-
-      .features-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .steps {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .footer-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @media (max-width: 640px) {
-      .nav-links {
-        display: none;
-      }
-
-      .hero-text h1 {
-        font-size: 32px;
-      }
-
-      .hero-cta {
-        flex-direction: column;
-      }
-
-      .hero-stats {
-        flex-direction: column;
-        gap: 24px;
-        align-items: center;
-      }
-
-      .features-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .footer-grid {
-        grid-template-columns: 1fr;
-        gap: 32px;
-      }
-    }
-
-    /* TaskRabbit Additional Styles */
-    .tr-navbar {
-      background: white;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    /* Garden Grid Navbar */
+    .gg-navbar {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
       z-index: 1000;
-      transition: box-shadow 0.3s ease;
-    }
+      padding: 1.5rem 5%;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      background: transparent;
 
-    .tr-navbar.scrolled {
-      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-    }
-
-    .landing-container {
-      padding-top: 64px;
+      &.scrolled {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        box-shadow: shadows.$sm;
+        padding: 1rem 5%;
+      }
     }
 
     .nav-container {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
-      padding: 16px 24px;
       display: flex;
       align-items: center;
       justify-content: space-between;
     }
 
-    .tr-navbar .logo {
+    .logo {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 0.75rem;
+      text-decoration: none;
       cursor: pointer;
     }
 
-    .tr-navbar .logo-icon {
-      font-size: 24px;
+    .logo-icon {
+      font-size: 2rem;
     }
 
-    .tr-navbar .logo-text {
-      font-size: 22px;
-      font-weight: 700;
-      color: #3CB371;
+    .logo-text {
+      font-size: 1.5rem;
+      font-weight: typography.$font-weight-extrabold;
+      color: colors.$text-primary;
     }
 
     .nav-center {
       display: flex;
-      gap: 32px;
+      gap: 2rem;
     }
 
     .nav-center a {
-      color: #4a4a4a;
+      color: colors.$text-secondary;
       text-decoration: none;
-      font-weight: 500;
-      font-size: 15px;
-      transition: color 0.2s;
-    }
+      font-weight: typography.$font-weight-medium;
+      font-size: typography.$font-size-sm;
+      transition: color 0.2s ease;
+      position: relative;
 
-    .nav-center a:hover {
-      color: #3CB371;
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: -0.25rem;
+        left: 0;
+        width: 0;
+        height: 2px;
+        background: linear-gradient(90deg, colors.$primary-500, colors.$secondary-500);
+        transition: width 0.3s ease;
+      }
+
+      &:hover {
+        color: colors.$text-primary;
+
+        &::after {
+          width: 100%;
+        }
+      }
     }
 
     .nav-actions {
       display: flex;
-      gap: 12px;
-      align-items: center;
+      gap: 0.75rem;
     }
 
     .nav-btn {
-      color: #4a4a4a !important;
-      font-weight: 500;
+      height: 2.5rem;
+      padding: 0 1.25rem;
+      font-size: typography.$font-size-sm;
+      font-weight: typography.$font-weight-semibold;
+      border-radius: componentRadius.$button;
+      color: colors.$text-secondary;
     }
 
     .nav-btn-primary {
-      background: #3CB371 !important;
-      color: white !important;
-      font-weight: 600;
-      border-radius: 4px;
-      padding: 8px 20px;
+      height: 2.5rem;
+      padding: 0 1.5rem;
+      font-size: typography.$font-size-sm;
+      font-weight: typography.$font-weight-semibold;
+      border-radius: componentRadius.$button;
+      background: linear-gradient(135deg, colors.$primary-500 0%, colors.$primary-600 100%);
+      color: colors.$text-inverse;
+      box-shadow: shadows.$primary-base;
+
+      &:hover {
+        background: linear-gradient(135deg, colors.$primary-600 0%, colors.$primary-700 100%);
+        box-shadow: shadows.$primary-md;
+      }
     }
 
-    /* Hero TaskRabbit Style */
-    .tr-hero {
-      background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-      padding: 80px 24px;
-      text-align: center;
+    /* Garden Grid Hero */
+    .gg-hero {
+      min-height: 100vh;
+      padding: 8rem 5% 4rem;
+      background: linear-gradient(135deg, colors.$primary-50 0%, colors.$secondary-50 50%, colors.$primary-100 100%);
+      position: relative;
+      overflow: hidden;
+
+      &::before {
+        content: '';
+        position: absolute;
+        top: -50%;
+        right: -20%;
+        width: 80%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(34, 197, 94, 0.1) 0%, transparent 70%);
+        animation: float 20s ease-in-out infinite;
+      }
+
+      &::after {
+        content: '';
+        position: absolute;
+        bottom: -50%;
+        left: -20%;
+        width: 80%;
+        height: 200%;
+        background: radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%);
+        animation: float 25s ease-in-out infinite reverse;
+      }
+    }
+
+    @keyframes float {
+      0%, 100% { transform: translate(0, 0) rotate(0deg); }
+      50% { transform: translate(50px, 50px) rotate(5deg); }
     }
 
     .hero-container {
-      max-width: 800px;
+      max-width: 1400px;
       margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 4rem;
+      align-items: center;
+      position: relative;
+      z-index: 1;
     }
 
-    .tr-hero h1 {
-      font-size: 48px;
-      font-weight: 700;
-      color: #1a1a1a;
-      margin-bottom: 16px;
+    .hero-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .hero-title {
+      font-size: typography.$font-size-5xl;
+      font-weight: typography.$font-weight-extrabold;
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      color: colors.$text-primary;
+      margin: 0;
+    }
+
+    .hero-title-line {
+      display: block;
+    }
+
+    .hero-title-line--accent {
+      background: linear-gradient(135deg, colors.$primary-500 0%, colors.$secondary-500 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
     }
 
     .hero-subtitle {
-      font-size: 20px;
-      color: #6c757d;
-      margin-bottom: 24px;
+      font-size: typography.$font-size-lg;
+      line-height: typography.$line-height-relaxed;
+      color: colors.$text-secondary;
+      margin: 0;
     }
 
     .hero-stats {
       display: flex;
-      justify-content: center;
-      gap: 48px;
-      margin-bottom: 32px;
-      flex-wrap: wrap;
+      gap: 3rem;
     }
 
     .hero-stat {
       display: flex;
       flex-direction: column;
-      align-items: center;
+      gap: 0.25rem;
     }
 
     .hero-stat-value {
-      font-size: 28px;
-      font-weight: 700;
-      color: #3CB371;
+      font-size: typography.$font-size-3xl;
+      font-weight: typography.$font-weight-extrabold;
+      color: colors.$primary-600;
     }
 
     .hero-stat-label {
-      font-size: 13px;
-      color: #6c757d;
-      margin-top: 4px;
-    }
-
-    .loading-row {
-      display: flex;
-      justify-content: center;
-      padding: 40px 0;
-    }
-
-    .empty-message {
-      text-align: center;
-      color: #6c757d;
-      padding: 24px 0;
-    }
-
-    .empty-message a {
-      color: #3CB371;
+      font-size: typography.$font-size-sm;
+      color: colors.$text-tertiary;
+      font-weight: typography.$font-weight-medium;
     }
 
     .search-box {
-      background: white;
-      border-radius: 8px;
-      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
       display: flex;
       align-items: center;
-      padding: 8px;
-      max-width: 700px;
-      margin: 0 auto;
+      gap: 1rem;
+      background: colors.$background-primary;
+      padding: 0.75rem 1rem;
+      border-radius: componentRadius.$xl;
+      box-shadow: shadows.$lg;
+      border: 2px solid colors.$border-primary;
+      transition: all 0.3s ease;
+
+      &:focus-within {
+        border-color: colors.$border-focus;
+        box-shadow: shadows.$glow.secondary;
+      }
     }
 
     .search-icon {
-      color: #adb5bd;
-      margin: 0 16px;
+      color: colors.$text-tertiary;
+      font-size: 1.25rem;
     }
 
     .search-box input {
       flex: 1;
       border: none;
       outline: none;
-      font-size: 16px;
-      padding: 12px 0;
-      color: #495057;
-    }
+      font-size: typography.$font-size-base;
+      color: colors.$text-primary;
+      background: transparent;
+      font-family: typography.$font-family-sans;
 
-    .search-box input::placeholder {
-      color: #adb5bd;
+      &::placeholder {
+        color: colors.$text-tertiary;
+      }
     }
 
     .search-btn {
-      background: #3CB371 !important;
-      color: white !important;
-      padding: 14px 32px !important;
-      font-weight: 600;
-      border-radius: 6px;
+      background: linear-gradient(135deg, colors.$primary-500 0%, colors.$primary-600 100%);
+      color: colors.$text-inverse;
+      border: none;
+      border-radius: componentRadius.$lg;
+      padding: 0.75rem 1.5rem;
+      font-weight: typography.$font-weight-semibold;
+      font-size: typography.$font-size-sm;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        background: linear-gradient(135deg, colors.$primary-600 0%, colors.$primary-700 100%);
+        box-shadow: shadows.$primary-md;
+      }
     }
 
     .popular-searches {
-      margin-top: 20px;
-      color: #6c757d;
-      font-size: 14px;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      flex-wrap: wrap;
+      font-size: typography.$font-size-sm;
+
+      > span {
+        color: colors.$text-tertiary;
+        font-weight: typography.$font-weight-medium;
+      }
+
+      a {
+        color: colors.$primary-600;
+        text-decoration: none;
+        font-weight: typography.$font-weight-medium;
+        padding: 0.375rem 0.875rem;
+        background: colors.$primary-50;
+        border-radius: componentRadius.$full;
+        transition: all 0.2s ease;
+
+        &:hover {
+          background: colors.$primary-100;
+          color: colors.$primary-700;
+        }
+      }
     }
 
-    .popular-searches span {
-      margin-right: 8px;
+    /* Hero Visual */
+    .hero-visual {
+      display: flex;
+      justify-content: center;
+      align-items: center;
     }
 
-    .popular-searches a {
-      color: #3CB371;
-      text-decoration: none;
-      margin: 0 8px;
-      font-weight: 500;
+    .hero-card {
+      background: colors.$background-primary;
+      border-radius: radius.$2xl;
+      padding: spacing.$6;
+      width: 100%;
+      max-width: 400px;
+      box-shadow: shadows.$xl;
+      border: 1px solid colors.$border-primary;
+      animation: slideUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
-    .popular-searches a:hover {
-      text-decoration: underline;
+    @keyframes slideUp {
+      from {
+        opacity: 0;
+        transform: translateY(2rem);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: spacing.$4;
+    }
+
+    .badge {
+      background: colors.$primary-100;
+      color: colors.$primary-700;
+      padding: 0.25rem 0.75rem;
+      border-radius: componentRadius.$full;
+      font-size: typography.$font-size-xs;
+      font-weight: typography.$font-weight-semibold;
+    }
+
+    .amount {
+      font-size: typography.$font-size-lg;
+      font-weight: typography.$font-weight-extrabold;
+      color: colors.$success-600;
+    }
+
+    .card-body h4 {
+      font-size: typography.$font-size-lg;
+      font-weight: typography.$font-weight-semibold;
+      color: colors.$text-primary;
+      margin: 0 0 spacing.$3;
+    }
+
+    .location {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      color: colors.$text-tertiary;
+      font-size: typography.$font-size-sm;
+      margin-bottom: spacing.$4;
+
+      mat-icon {
+        font-size: 1rem;
+        width: 1rem;
+        height: 1rem;
+      }
+    }
+
+    .progress {
+      margin-top: spacing.$4;
+    }
+
+    .progress-bar {
+      height: 0.5rem;
+      background: colors.$border-primary;
+      border-radius: componentRadius.$full;
+      overflow: hidden;
+      margin-bottom: 0.5rem;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, colors.$primary-500, colors.$secondary-500);
+      border-radius: componentRadius.$full;
+      transition: width 0.3s ease;
+    }
+
+    .progress span {
+      font-size: typography.$font-size-xs;
+      color: colors.$text-tertiary;
+      font-weight: typography.$font-weight-medium;
+    }
+
+    .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: spacing.$5;
+      padding-top: spacing.$4;
+      border-top: 1px solid colors.$border-primary;
+    }
+
+    .provider {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .avatar {
+      width: 2.5rem;
+      height: 2.5rem;
+      background: linear-gradient(135deg, colors.$secondary-400 0%, colors.$secondary-600 100%);
+      border-radius: componentRadius.$full;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: colors.$text-inverse;
+      font-weight: typography.$font-weight-semibold;
+      font-size: typography.$font-size-sm;
+    }
+
+    .info {
+      display: flex;
+      flex-direction: column;
+      gap: 0.125rem;
+    }
+
+    .name {
+      font-weight: typography.$font-weight-semibold;
+      font-size: typography.$font-size-sm;
+      color: colors.$text-primary;
+    }
+
+    .rating {
+      font-size: typography.$font-size-xs;
+      color: colors.$text-tertiary;
+    }
+
+    .escrow-badge {
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      color: colors.$success-600;
+      font-size: typography.$font-size-xs;
+      font-weight: typography.$font-weight-semibold;
+
+      mat-icon {
+        font-size: 1rem;
+        width: 1rem;
+        height: 1rem;
+      }
     }
 
     /* Services Section */
     .services-section {
-      padding: 80px 24px;
-      background: white;
+      padding: spacing.$20 5%;
+      background: colors.$background-primary;
     }
 
     .section-container {
-      max-width: 1200px;
+      max-width: 1400px;
       margin: 0 auto;
     }
 
     .services-section h2 {
+      font-size: typography.$font-size-4xl;
+      font-weight: typography.$font-weight-extrabold;
       text-align: center;
-      font-size: 32px;
-      font-weight: 700;
-      color: #1a1a1a;
-      margin-bottom: 48px;
+      margin-bottom: spacing.$8;
+      color: colors.$text-primary;
+    }
+
+    .loading-row {
+      display: flex;
+      justify-content: center;
+      padding: spacing.$8;
     }
 
     .services-grid {
       display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 24px;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: spacing.$6;
     }
 
     .service-card {
-      background: white;
-      border: 1px solid #e9ecef;
-      border-radius: 12px;
-      padding: 24px;
-      text-align: center;
+      background: colors.$background-secondary;
+      border: 1px solid colors.$border-primary;
+      border-radius: radius.$xl;
+      padding: spacing.$6;
       cursor: pointer;
-      transition: all 0.3s ease;
-    }
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
-    .service-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 12px 24px rgba(0,0,0,0.1);
-      border-color: #3CB371;
+      &:hover {
+        transform: translateY(-0.25rem);
+        box-shadow: shadows.$lg;
+        border-color: colors.$border-focus;
+      }
     }
 
     .service-icon {
-      width: 56px;
-      height: 56px;
-      border-radius: 12px;
+      width: 3rem;
+      height: 3rem;
+      border-radius: radius.$lg;
       display: flex;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 16px;
-    }
+      margin-bottom: spacing.$4;
 
-    .service-icon mat-icon {
-      color: white;
-      font-size: 28px;
-      width: 28px;
-      height: 28px;
+      mat-icon {
+        font-size: 1.5rem;
+        width: 1.5rem;
+        height: 1.5rem;
+        color: white;
+      }
     }
 
     .service-card h3 {
-      font-size: 18px;
-      font-weight: 600;
-      color: #1a1a1a;
-      margin-bottom: 8px;
+      font-size: typography.$font-size-lg;
+      font-weight: typography.$font-weight-semibold;
+      color: colors.$text-primary;
+      margin: 0 0 spacing.$2;
     }
 
     .service-card p {
-      font-size: 14px;
-      color: #6c757d;
-      margin-bottom: 12px;
+      font-size: typography.$font-size-sm;
+      color: colors.$text-tertiary;
+      line-height: typography.$line-height-relaxed;
+      margin: 0 0 spacing.$3;
     }
 
     .task-count {
-      font-size: 13px;
-      color: #3CB371;
-      font-weight: 500;
+      font-size: typography.$font-size-xs;
+      color: colors.$primary-600;
+      font-weight: typography.$font-weight-semibold;
     }
 
-    /* Taskers Section */
-    .taskers-section {
-      padding: 80px 24px;
-      background: #f8f9fa;
-    }
-
-    .taskers-section h2 {
+    .empty-message {
       text-align: center;
-      font-size: 32px;
-      font-weight: 700;
-      color: #1a1a1a;
-      margin-bottom: 8px;
-    }
-
-    .section-subtitle {
-      text-align: center;
-      color: #6c757d;
-      margin-bottom: 48px;
-      font-size: 16px;
-    }
-
-    .taskers-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 24px;
-    }
-
-    .tasker-card {
-      background: white;
-      border-radius: 12px;
-      overflow: hidden;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-      transition: transform 0.3s ease;
-    }
-
-    .tasker-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 24px rgba(0,0,0,0.15);
-    }
-
-    .tasker-header {
-      height: 80px;
-      display: flex;
-      align-items: flex-end;
-      justify-content: center;
-      padding-bottom: -20px;
-    }
-
-    .tasker-avatar {
-      width: 64px;
-      height: 64px;
-      background: white;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 24px;
-      font-weight: 600;
-      color: #3CB371;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-      transform: translateY(32px);
-      border: 3px solid white;
-    }
-
-    .tasker-body {
-      padding: 40px 20px 24px;
-      text-align: center;
-    }
-
-    .tasker-body h4 {
-      font-size: 18px;
-      font-weight: 600;
-      color: #1a1a1a;
-      margin-bottom: 8px;
-    }
-
-    .tasker-rating {
-      margin-bottom: 8px;
-    }
-
-    .stars {
-      color: #ffc107;
-      font-weight: 500;
-    }
-
-    .reviews {
-      color: #6c757d;
-      font-size: 14px;
-      margin-left: 4px;
-    }
-
-    .tasker-skills {
-      font-size: 14px;
-      color: #6c757d;
-      margin-bottom: 16px;
-    }
-
-    .tasker-stats {
-      margin-bottom: 16px;
-    }
-
-    .missions {
-      font-size: 14px;
-      color: #3CB371;
-      font-weight: 500;
-    }
-
-    .hire-btn {
-      width: 100%;
-      border-color: #3CB371 !important;
-      color: #3CB371 !important;
-      font-weight: 600;
-    }
-
-    .hire-btn:hover {
-      background: #3CB371 !important;
-      color: white !important;
-    }
-
-    .section-actions {
-      text-align: center;
-      margin-top: 32px;
-    }
-
-    .more-btn {
-      background: #3CB371 !important;
-      color: white !important;
-      padding: 12px 28px !important;
-      font-weight: 600;
-    }
-
-    /* Enterprises Section */
-    .enterprises-section {
-      padding: 80px 24px;
-      background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
-      color: white;
-    }
-
-    .enterprises-section h2 {
-      text-align: center;
-      font-size: 32px;
-      font-weight: 700;
-      margin-bottom: 8px;
-    }
-
-    .enterprises-section .section-subtitle {
-      color: #94a3b8;
-    }
-
-    .enterprises-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 20px;
-      margin-bottom: 32px;
-    }
-
-    .enterprise-card {
-      display: flex;
-      gap: 16px;
-      padding: 20px;
-      border-radius: 12px;
-      background: rgba(255, 255, 255, 0.06);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      color: white;
-    }
-
-    .enterprise-logo {
-      width: 56px;
-      height: 56px;
-      border-radius: 12px;
-      background: rgba(60, 179, 113, 0.2);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-      overflow: hidden;
-    }
-
-    .enterprise-logo mat-icon {
-      color: #3CB371;
-      font-size: 28px;
-      width: 28px;
-      height: 28px;
-    }
-
-    .enterprise-logo img {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-    }
-
-    .enterprise-body h3 {
-      margin: 0 0 6px;
-      font-size: 16px;
-      font-weight: 600;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      line-height: 1.3;
-      color: #f8fafc;
-    }
-
-    .enterprise-body {
-      flex: 1;
-      min-width: 0;
-    }
-
-    .enterprise-city {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 13px;
-      color: #94a3b8;
-      margin: 0 0 8px;
-    }
-
-    .enterprise-city mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-    }
-
-    .enterprise-stats {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 12px;
-      font-size: 12px;
-      color: #cbd5e1;
-      margin-bottom: 8px;
-    }
-
-    .enterprise-stats span {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .enterprise-stats mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-      color: #3CB371;
-    }
-
-    .enterprise-web {
-      display: inline-flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 12px;
-      color: #3CB371;
-      text-decoration: none;
-    }
-
-    .enterprise-actions {
-      display: flex;
-      gap: 8px;
-      flex-wrap: wrap;
-      margin-top: 12px;
-    }
-
-    .ent-btn {
-      flex: 1;
-      min-width: 120px;
-      font-size: 13px !important;
-      border-color: rgba(255, 255, 255, 0.35) !important;
-      color: #f8fafc !important;
-    }
-
-    .ent-btn.primary {
-      background: #7c3aed !important;
-      color: white !important;
-      border: none !important;
-    }
-
-    .ent-btn.primary mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-      margin-right: 4px;
-    }
-
-    .enterprise-more {
-      background: #7c3aed !important;
-      color: white !important;
-    }
-
-    .enterprises-section .section-actions {
-      text-align: center;
-      margin-bottom: 24px;
-    }
-
-    .enterprise-cta {
-      text-align: center;
-      padding-top: 16px;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
-    }
-
-    .enterprise-benefits {
-      display: flex;
-      justify-content: center;
-      gap: 32px;
-      flex-wrap: wrap;
-      margin-bottom: 24px;
-    }
-
-    .benefit {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      font-size: 14px;
-      color: #cbd5e1;
-    }
-
-    .benefit mat-icon {
-      color: #3CB371;
-    }
-
-    .enterprise-btn {
-      background: #3CB371 !important;
-      color: white !important;
-      padding: 14px 32px !important;
-      font-weight: 600;
-    }
-
-    /* Missions Section */
-    .missions-section {
-      padding: 80px 24px;
-      background: white;
-    }
-
-    .missions-section h2 {
-      text-align: center;
-      font-size: 32px;
-      font-weight: 700;
-      color: #1a1a1a;
-      margin-bottom: 8px;
-    }
-
-    .missions-grid {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 24px;
-    }
-
-    .mission-card {
-      padding: 20px;
-      border-radius: 12px;
-      border: 1px solid #e9ecef;
-      box-shadow: none;
-    }
-
-    .mission-card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-
-    .mission-category {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      font-size: 13px;
-      color: #6c757d;
-    }
-
-    .mission-category mat-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
-    }
-
-    .mission-budget {
-      font-weight: 700;
-      color: #3CB371;
-      font-size: 15px;
-    }
-
-    .mission-card h3 {
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 8px;
-      color: #1a1a1a;
-    }
-
-    .mission-location {
-      display: flex;
-      align-items: flex-start;
-      gap: 4px;
-      font-size: 14px;
-      color: #6c757d;
-      margin-bottom: 12px;
-    }
-
-    .mission-location mat-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
-      flex-shrink: 0;
-    }
-
-    .mission-meta {
-      display: flex;
-      gap: 16px;
-      font-size: 13px;
-      color: #6c757d;
-      margin-bottom: 16px;
-      flex-wrap: wrap;
-    }
-
-    .mission-meta span {
-      display: flex;
-      align-items: center;
-      gap: 4px;
-    }
-
-    .mission-meta mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-    }
-
-    .mission-btn {
-      width: 100%;
-      border-color: #3CB371 !important;
-      color: #3CB371 !important;
-      font-weight: 600;
-    }
-
-    .verified-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
-      color: #3CB371;
-      vertical-align: middle;
-    }
-
-    .tasker-photo {
-      width: 64px;
-      height: 64px;
-      border-radius: 50%;
-      object-fit: cover;
-      transform: translateY(32px);
-      border: 3px solid white;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.15);
-    }
-
-    .tasker-city {
-      font-size: 13px;
-      color: #adb5bd;
-      margin-bottom: 8px;
-    }
-
-    .tasker-body h4 {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-    }
-
-    /* Responsive */
-    @media (max-width: 1024px) {
-      .services-grid, .taskers-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .missions-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .enterprises-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .steps {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @media (max-width: 640px) {
-      .nav-center {
-        display: none;
-      }
-
-      .tr-hero h1 {
-        font-size: 32px;
-      }
-
-      .search-box {
-        flex-direction: column;
-        padding: 16px;
-      }
-
-      .search-box input {
-        width: 100%;
-        margin: 12px 0;
-      }
-
-      .services-grid, .taskers-grid, .missions-grid, .enterprises-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .enterprise-benefits {
-        flex-direction: column;
-        align-items: center;
-        gap: 12px;
-      }
-
-      .how-it-works {
-        padding: 56px 16px;
-      }
-
-      .how-it-works h2 {
-        font-size: 26px;
-      }
-
-      .flow-tabs {
-        gap: 6px;
-        margin-bottom: 28px;
-      }
-
-      .flow-tab {
-        padding: 8px 14px;
-        font-size: 13px;
-      }
-
-      .steps {
-        grid-template-columns: 1fr;
-        gap: 16px;
-      }
-
-      .how-cta-btn {
-        width: 100%;
+      color: colors.$text-tertiary;
+      font-size: typography.$font-size-base;
+      padding: spacing.$8;
+
+      a {
+        color: colors.$primary-600;
+        text-decoration: none;
+        font-weight: typography.$font-weight-semibold;
       }
     }
   `]
 })
+    font-size: 26px;
+  }
+
+  .flow-tabs {
+    gap: 6px;
+    margin-bottom: 28px;
+  }
+
+  .flow-tab {
+    padding: 8px 14px;
+    font-size: 13px;
+  }
+
+  .steps {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+
+  .how-cta-btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 1024px) {
+  .services-grid, .taskers-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .missions-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .enterprises-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .steps {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
 export class LandingComponent implements OnInit {
   currentUser$: Observable<User | null>;
   loading = true;
