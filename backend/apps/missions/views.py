@@ -99,16 +99,47 @@ class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
         except (TypeError, ValueError):
             return Response({'error': 'budget invalide'}, status=400)
         try:
-            merchandise = request.query_params.get('merchandise_value')
-            merchandise_value = float(merchandise) if merchandise not in (None, '') else None
+            merchandise_value = float(request.query_params.get('merchandise_value', 0))
         except (TypeError, ValueError):
-            return Response({'error': 'merchandise_value invalide'}, status=400)
-        if budget <= 0:
-            return Response({'error': 'budget requis'}, status=400)
-        payload = estimate_deposit_preview(budget, merchandise_value, category)
+            merchandise_value = 0
+        
+        preview = estimate_deposit_preview(budget, merchandise_value, category)
+        return Response(preview)
+
+    @action(detail=True, methods=['get'])
+    def schema(self, request, slug=None):
+        """Schéma complet de la catégorie avec blocs et champs personnalisés."""
         from .category_rules import get_category_rule
-        payload['rules'] = get_category_rule(category).to_dict()
-        return Response(payload)
+        from .field_blocks import get_blocks, get_all_blocks
+        
+        category = self.get_object()
+        rule = get_category_rule(category)
+        
+        # Récupérer les blocs activés
+        enabled_blocks = get_blocks(rule.enabled_blocks) if rule.enabled_blocks else []
+        all_blocks = get_all_blocks()
+        
+        # Construire le schéma
+        schema = {
+            'category': CategorySerializer(category).data,
+            'rule': rule.to_dict(),
+            'enabled_blocks': [b.to_dict() for b in enabled_blocks],
+            'all_blocks': [b.to_dict() for b in all_blocks],
+            'custom_fields': [f.to_dict() for f in rule.custom_fields],
+            'field_overrides': {k: v.to_dict() for k, v in rule.field_overrides.items()},
+            'deposit_policy': {
+                'requires_deposit': rule.requires_deposit,
+                'deposit_mode': rule.deposit_mode,
+                'deposit_percent': rule.deposit_percent,
+                'deposit_fixed': rule.deposit_fixed,
+                'deposit_floor': rule.deposit_floor,
+                'deposit_cap': rule.deposit_cap,
+                'deposit_reason': rule.deposit_reason,
+                'requires_merchandise_value': rule.requires_merchandise_value,
+            },
+        }
+        
+        return Response(schema)
 
 
 class MissionViewSet(viewsets.ModelViewSet):
@@ -781,10 +812,63 @@ class MissionViewSet(viewsets.ModelViewSet):
         mission = self.get_object()
 
         if not _mission_start_allowed(request.user, mission):
-            return Response(
-                {'error': 'Seul le prestataire assigné peut démarrer cette mission'},
-                status=status.HTTP_403_FORBIDDEN,
-            )
+            # Analyser pourquoi l'utilisateur ne peut pas démarrer
+            reasons = []
+            
+            # Vérifier si c'est le bon utilisateur
+            is_provider = mission.provider_id == request.user.id
+            is_enterprise = mission.assigned_enterprise and mission.assigned_enterprise.user_id == request.user.id
+            is_employee = mission.executing_employee and mission.executing_employee.user_id == request.user.id
+            
+            if not (is_provider or is_enterprise or is_employee):
+                reasons.append("Vous n'êtes pas autorisé à démarrer cette mission")
+                
+                # Suggérer qui peut démarrer
+                if mission.executing_employee and mission.executing_employee.user:
+                    reasons.append(f"Employé désigné: {mission.executing_employee.first_name} {mission.executing_employee.last_name}")
+                elif mission.provider:
+                    reasons.append(f"Prestataire: {mission.provider.get_full_name()}")
+                elif mission.assigned_enterprise:
+                    reasons.append(f"Entreprise: {mission.assigned_enterprise.company_name}")
+            
+            # Vérifier si le dépôt est payé
+            if not mission.deposit_paid:
+                reasons.append("La caution n'a pas été payée")
+                if mission.required_deposit:
+                    reasons.append(f"Caution requise: {mission.required_deposit} {mission.currency}")
+                if mission.deposit_deadline:
+                    from django.utils import timezone
+                    if mission.deposit_deadline < timezone.now():
+                        reasons.append("⚠️ Le délai de dépôt est dépassé")
+                    else:
+                        time_left = mission.deposit_deadline - timezone.now()
+                        hours_left = time_left.total_seconds() / 3600
+                        reasons.append(f"Temps restant: {hours_left:.1f} heures")
+            
+            # Vérifier si l'échéance est dépassée
+            from django.utils import timezone
+            if mission.deposit_deadline and mission.deposit_deadline < timezone.now():
+                if mission.deposit_paid:
+                    reasons.append("⚠️ L'échéance est dépassée mais la caution est payée")
+                    reasons.append("L'employé peut signaler l'échéance pour continuer")
+                else:
+                    reasons.append("⚠️ L'échéance est dépassée et la caution n'est pas payée")
+                    reasons.append("La mission est expirée - contactez le client")
+            
+            return Response({
+                'error': 'Impossible de démarrer cette mission',
+                'reasons': reasons,
+                'mission_info': {
+                    'title': mission.title,
+                    'status': mission.status,
+                    'deposit_paid': mission.deposit_paid,
+                    'deposit_required': float(mission.required_deposit or 0),
+                    'deposit_deadline': mission.deposit_deadline.isoformat() if mission.deposit_deadline else None,
+                    'assigned_employee': f"{mission.executing_employee.first_name} {mission.executing_employee.last_name}" if mission.executing_employee else None,
+                    'assigned_enterprise': mission.assigned_enterprise.company_name if mission.assigned_enterprise else None
+                },
+                'suggestions': get_start_suggestions(mission, request.user)
+            }, status=status.HTTP_403_FORBIDDEN)
 
         if not mission.deposit_paid:
             return Response(
@@ -1510,12 +1594,86 @@ def _apply_gps_consent(mission, user):
     user.save(update_fields=['gps_tracking_enabled'])
 
 
+def get_start_suggestions(mission, user):
+    """Retourne des suggestions utiles pour l'utilisateur qui ne peut pas démarrer la mission."""
+    suggestions = []
+    
+    # Vérifier si l'utilisateur est un employé
+    try:
+        employee = user.employee_profile
+        if employee == mission.executing_employee:
+            suggestions.append({
+                'action': 'use_employee_view',
+                'label': 'Voir les détails employé',
+                'url': f'/api/missions/{mission.id}/employee-view/',
+                'description': 'Utilisez la vue employé pour voir l\'état réel et les actions disponibles'
+            })
+            
+            # Si échéance dépassée
+            from django.utils import timezone
+            if mission.deposit_deadline and mission.deposit_deadline < timezone.now() and not mission.deposit_paid:
+                suggestions.append({
+                    'action': 'claim_timeout',
+                    'label': 'Signaler l\'échéance',
+                    'url': f'/api/missions/{mission.id}/claim-timeout/',
+                    'description': 'Le délai est dépassé, signalez-le pour faire avancer la mission'
+                })
+    except:
+        pass
+    
+    # Si le dépôt n'est pas payé et l'utilisateur est de l'entreprise
+    if not mission.deposit_paid and mission.assigned_enterprise:
+        if user == mission.assigned_enterprise.user:
+            suggestions.append({
+                'action': 'pay_deposit',
+                'label': 'Payer la caution',
+                'url': f'/api/missions/{mission.id}/pay-deposit/',
+                'description': f'Payez la caution de {mission.required_deposit} {mission.currency} pour permettre le démarrage'
+            })
+    
+    # Si l'utilisateur est le client et la mission est expirée
+    if mission.client == user:
+        from django.utils import timezone
+        if mission.deposit_deadline and mission.deposit_deadline < timezone.now():
+            suggestions.append({
+                'action': 'cancel_and_refund',
+                'label': 'Annuler et rembourser',
+                'url': f'/api/missions/{mission.id}/cancel-expired/',
+                'description': 'Annulez la mission et obtenez un remboursement complet'
+            })
+            suggestions.append({
+                'action': 'renegotiate',
+                'label': 'Renégocier',
+                'url': f'/api/missions/{mission.id}/renegotiate/',
+                'description': 'Proposez une nouvelle échéance à l\'entreprise'
+            })
+    
+    # Suggestion de contact
+    if not suggestions:
+        suggestions.append({
+            'action': 'contact_support',
+            'label': 'Contacter le support',
+            'url': '/support/',
+            'description': 'Contactez le support technique pour obtenir de l\'aide'
+        })
+    
+    return suggestions
+
+
 def _mission_start_allowed(user, mission) -> bool:
+    # Le prestataire directement assigné
     if mission.provider_id == user.id:
         return True
+    
+    # L'entreprise assignée peut démarrer si le dépôt est payé
     ent = mission.assigned_enterprise
     if ent and ent.user_id == user.id and mission.executing_employee_id and mission.deposit_paid:
         return True
+    
+    # L'employé assigné peut démarrer la mission
+    if mission.executing_employee_id and mission.executing_employee.user_id == user.id and mission.deposit_paid:
+        return True
+    
     return False
 
 

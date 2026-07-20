@@ -7,12 +7,23 @@ Dépôt de caution :
 - merchandise_value : valeur marchandise déclarée (colis, achats…)
 - merchandise_or_budget : max(valeur marchandise, % budget)
 - fixed : montant fixe
+
+Blocs de champs :
+- localisation : adresses et GPS
+- planification : dates et horaires
+- medias : photos, vidéos, documents
+- securite : KYC, GPS, QR, OTP, signature
+- financier : budget, caution, paiement
+- validation : preuves et auto-validation
+- exigences_prestataire : critères de sélection
 """
 from __future__ import annotations
 
 from dataclasses import asdict, dataclass, field
 from decimal import Decimal
 from typing import Any
+
+from .field_blocks import FieldDefinition, FieldBlock
 
 
 @dataclass(frozen=True)
@@ -43,6 +54,10 @@ class CategoryRule:
     show_time_range: bool = False
     deposit_reason: str = ''
     requirement_labels: list[str] = field(default_factory=list)
+    # Nouveaux champs pour l'architecture par blocs
+    enabled_blocks: list[str] = field(default_factory=list)
+    custom_fields: list[FieldDefinition] = field(default_factory=list)
+    field_overrides: dict[str, FieldDefinition] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -103,13 +118,40 @@ _PRO = dict(
 )
 
 CATEGORY_RULES: dict[str, CategoryRule] = {
-    'livraison-colis': _rule('livraison-colis', 'Livraison de colis', _DELIVERY_MERCH),
+    'livraison-colis': _rule(
+        'livraison-colis', 'Livraison de colis', _DELIVERY_MERCH,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('package_type', 'select', 'Type de colis', True, 
+                          options=['Carton', 'Sac', 'Palette', 'Enveloppe']),
+            FieldDefinition('dimensions', 'text', 'Dimensions (LxlxH)', False, placeholder='Ex: 30x20x10 cm'),
+            FieldDefinition('weight', 'number', 'Poids (kg)', True, validation={'min': 0}),
+            FieldDefinition('package_count', 'number', 'Nombre de colis', True, validation={'min': 1}),
+            FieldDefinition('is_fragile', 'boolean', 'Fragile ?', False, default=False),
+            FieldDefinition('is_sealed', 'boolean', 'Scellé ?', False, default=False),
+        ],
+    ),
     'livraison-urgente': _rule(
         'livraison-urgente', 'Livraison urgente', _DELIVERY_MERCH,
         deposit_cap=500000, min_reputation_score=60,
         date_label='Livraison express',
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('package_type', 'select', 'Type de colis', True, options=['Carton', 'Sac', 'Palette']),
+            FieldDefinition('weight', 'number', 'Poids (kg)', True, validation={'min': 0}),
+            FieldDefinition('package_count', 'number', 'Nombre de colis', True, validation={'min': 1}),
+            FieldDefinition('is_fragile', 'boolean', 'Fragile ?', False, default=False),
+        ],
     ),
-    'livraison-ecommerce': _rule('livraison-ecommerce', 'Livraison e-commerce', _DELIVERY_MERCH),
+    'livraison-ecommerce': _rule(
+        'livraison-ecommerce', 'Livraison e-commerce', _DELIVERY_MERCH,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('order_number', 'text', 'Numéro de commande', True),
+            FieldDefinition('store_name', 'text', 'Nom du magasin', True),
+            FieldDefinition('package_count', 'number', 'Nombre de colis', True, validation={'min': 1}),
+        ],
+    ),
     'livraison-alimentaire': _rule(
         slug='livraison-alimentaire', label='Livraison alimentaire',
         deposit_mode='merchandise_or_budget', deposit_percent=50, deposit_floor=3000,
@@ -118,6 +160,12 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         date_label='Heure de livraison',
         deposit_reason='Caution sur la valeur des denrées (fraîcheur, casse).',
         requirement_labels=['Véhicule', 'Photo', 'GPS', 'Valeur denrées'],
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('restaurant_name', 'text', 'Restaurant', True),
+            FieldDefinition('order_name', 'text', 'Nom de la commande', True),
+            FieldDefinition('order_number', 'text', 'Numéro de commande', False),
+        ],
     ),
     'livraison-medicale': _rule(
         slug='livraison-medicale', label='Livraison médicale',
@@ -128,6 +176,12 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         min_reputation_score=70,
         deposit_reason='Caution = valeur du médicament / matériel médical confié.',
         requirement_labels=['Véhicule', 'Photo', 'Signature', 'Identité', 'QR', 'Valeur médicale'],
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation', 'exigences_prestataire'],
+        custom_fields=[
+            FieldDefinition('pharmacy_name', 'text', 'Pharmacie', True),
+            FieldDefinition('patient_name', 'text', 'Patient', False),
+            FieldDefinition('prescription_photo', 'file', 'Photo ordonnance', True, validation={'mime_types': ['image/*']}),
+        ],
     ),
     'courses-achats': _rule(
         slug='courses-achats', label='Courses & Achats',
@@ -136,6 +190,13 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         requires_gps_tracking=True, show_contacts=True, mission_type='delivery',
         deposit_reason='Caution = montant des achats confiés au prestataire.',
         requirement_labels=['Véhicule', 'Photo ticket', 'GPS', 'Montant achats'],
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('shopping_list', 'textarea', 'Liste des articles', True),
+            FieldDefinition('store_name', 'text', 'Magasin', True),
+            FieldDefinition('estimated_amount', 'number', 'Montant estimé (XOF)', True, validation={'min': 0}),
+            FieldDefinition('receipt_required', 'boolean', 'Ticket obligatoire ?', True, default=True),
+        ],
     ),
     'import-export': _rule(
         slug='import-export', label='Import/Export',
@@ -146,10 +207,22 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         requires_id_verification=True, requires_gps_tracking=True,
         deposit_reason='Caution = valeur déclarée de la marchandise en transit douanier.',
         requirement_labels=['Entreprise', 'Valeur marchandise', 'Photo', 'Signature'],
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation', 'exigences_prestataire'],
+        custom_fields=[
+            FieldDefinition('commercial_invoice', 'file', 'Facture commerciale', True, validation={'mime_types': ['application/pdf', 'image/*']}),
+            FieldDefinition('packing_list', 'file', 'Liste de colisage', True, validation={'mime_types': ['application/pdf', 'image/*']}),
+            FieldDefinition('customs_documents', 'file', 'Documents douaniers', True, validation={'mime_types': ['application/pdf', 'image/*']}),
+        ],
     ),
     'transport-personne': _rule(
         slug='transport-personne', label='Transport personne', date_label='Départ prévu',
         show_time_range=True, show_contacts=True, base=_TRANSPORT,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation', 'exigences_prestataire'],
+        custom_fields=[
+            FieldDefinition('passenger_count', 'number', 'Nombre de passagers', True, validation={'min': 1}),
+            FieldDefinition('luggage', 'boolean', 'Bagages ?', False, default=False),
+            FieldDefinition('vehicle_type', 'select', 'Type de véhicule', False, options=['Voiture', 'SUV', 'Van', 'Moto']),
+        ],
     ),
     'covoiturage': _rule(
         slug='covoiturage', label='Covoiturage',
@@ -158,6 +231,11 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         date_label='Trajet', show_time_range=True,
         deposit_reason='Caution modérée pour trajets partagés.',
         requirement_labels=['Véhicule', 'Identité', 'GPS'],
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation', 'exigences_prestataire'],
+        custom_fields=[
+            FieldDefinition('passenger_count', 'number', 'Nombre de passagers', True, validation={'min': 1}),
+            FieldDefinition('luggage', 'boolean', 'Bagages ?', False, default=False),
+        ],
     ),
     'demenagement': _rule(
         slug='demenagement', label='Déménagement',
@@ -167,6 +245,20 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         date_label='Date du déménagement', show_time_range=True,
         deposit_reason='Caution élevée — biens de valeur transportés.',
         requirement_labels=['Véhicule', 'Photo', 'Signature', 'GPS'],
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('pickup_floor', 'number', 'Étage départ', False, validation={'min': 0}),
+            FieldDefinition('delivery_floor', 'number', 'Étage arrivée', False, validation={'min': 0}),
+            FieldDefinition('pickup_elevator', 'boolean', 'Ascenseur départ ?', False, default=False),
+            FieldDefinition('delivery_elevator', 'boolean', 'Ascenseur arrivée ?', False, default=False),
+            FieldDefinition('box_count', 'number', 'Nombre de cartons', False, validation={'min': 0}),
+            FieldDefinition('furniture_count', 'number', 'Nombre de meubles', False, validation={'min': 0}),
+            FieldDefinition('appliances_count', 'number', 'Électroménager', False, validation={'min': 0}),
+            FieldDefinition('fragile_items', 'boolean', 'Objets fragiles ?', False, default=False),
+            FieldDefinition('labor_included', 'boolean', 'Main d\'œuvre incluse ?', False, default=True),
+            FieldDefinition('truck_included', 'boolean', 'Camion inclus ?', False, default=True),
+            FieldDefinition('packing_included', 'boolean', 'Emballage inclus ?', False, default=False),
+        ],
     ),
     'transport-lourd': _rule(
         slug='transport-lourd', label='Transport lourd',
@@ -176,6 +268,7 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         date_label='Date transport', show_time_range=True,
         deposit_reason='Caution élevée pour transport professionnel lourd.',
         requirement_labels=['Entreprise', 'Véhicule', 'Photo', 'Signature'],
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation', 'exigences_prestataire'],
     ),
     # ── Services à domicile ───────────────────────────────────────────────────
     'nettoyage-menage': _rule(
@@ -183,6 +276,15 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         deposit_percent=10, deposit_floor=2000, requires_photo=True,
         date_label='Date de travail', deposit_reason='Caution standard domicile.',
         requirement_labels=['Photo avant/après'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('property_type', 'select', 'Type de bien', True, options=['Maison', 'Appartement', 'Bureau', 'Autre']),
+            FieldDefinition('surface_area', 'number', 'Surface (m²)', False, validation={'min': 0}),
+            FieldDefinition('room_count', 'number', 'Nombre de pièces', False, validation={'min': 1}),
+            FieldDefinition('products_provided', 'boolean', 'Produits fournis ?', False, default=False),
+            FieldDefinition('deep_cleaning', 'boolean', 'Nettoyage profond ?', False, default=False),
+            FieldDefinition('windows_included', 'boolean', 'Vitres incluses ?', False, default=False),
+        ],
     ),
     'aide-domicile': _rule(
         slug='aide-domicile', label='Aide à domicile',
@@ -190,6 +292,14 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         min_reputation_score=50, date_label="Date d'assistance",
         deposit_reason='Accès au domicile — identité vérifiée obligatoire.',
         requirement_labels=['Identité', 'Photo'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation', 'exigences_prestataire'],
+        custom_fields=[
+            FieldDefinition('assisted_person', 'text', 'Personne assistée', True),
+            FieldDefinition('age', 'number', 'Âge', False, validation={'min': 0}),
+            FieldDefinition('mobility', 'select', 'Mobilité', False, options=['Autonome', 'Réduite', 'Fauteuil roulant']),
+            FieldDefinition('special_needs', 'textarea', 'Besoins particuliers', False),
+            FieldDefinition('emergency_contact', 'text', 'Contact urgence', True),
+        ],
     ),
     'garde-enfants': _rule(
         slug='garde-enfants', label="Garde d'enfants",
@@ -197,8 +307,16 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         requires_photo=True, min_reputation_score=70,
         date_label='Horaire de garde',
         deposit_reason='Caution renforcée — responsabilité enfants.',
-        requirement_labels=['Identité vérifiée', 'Réputation 70+', 'Photo'],
-        base=_HOME,
+        requirement_labels=['Identité vérifiée', 'Réputation 70+', 'Photo'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation', 'exigences_prestataire'],
+        custom_fields=[
+            FieldDefinition('child_age', 'number', 'Âge des enfants', True, validation={'min': 0}),
+            FieldDefinition('child_count', 'number', "Nombre d'enfants", True, validation={'min': 1}),
+            FieldDefinition('schedule', 'text', 'Horaires', True),
+            FieldDefinition('allergies', 'textarea', 'Allergies', False),
+            FieldDefinition('special_needs', 'textarea', 'Besoins spécifiques', False),
+            FieldDefinition('parental_authorization', 'file', 'Autorisation parentale', True, validation={'mime_types': ['application/pdf', 'image/*']}),
+        ],
     ),
     'gardiennage': _rule(
         slug='gardiennage', label='Gardiennage',
@@ -206,72 +324,166 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         requires_signature=True, date_label='Période de garde',
         deposit_reason='Surveillance — caution et identité obligatoires.',
         requirement_labels=['Identité', 'Photo', 'Signature'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation', 'exigences_prestataire'],
+        custom_fields=[
+            FieldDefinition('property_type', 'select', 'Type de bien', True, options=['Maison', 'Appartement', 'Bureau', 'Entrepôt']),
+            FieldDefinition('guard_period', 'text', 'Période de garde', True),
+        ],
     ),
     'jardinage': _rule(
         slug='jardinage', label='Jardinage',
         deposit_percent=10, deposit_floor=2000, requires_photo=True,
         date_label='Date intervention', requirement_labels=['Photo'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('surface_area', 'number', 'Surface (m²)', False, validation={'min': 0}),
+            FieldDefinition('garden_type', 'select', 'Type de jardin', False, options=['Jardin', 'Terrasse', 'Balcon', 'Potager']),
+            FieldDefinition('mowing', 'boolean', 'Tonte', False, default=True),
+            FieldDefinition('pruning', 'boolean', 'Taille', False, default=False),
+            FieldDefinition('weeding', 'boolean', 'Désherbage', False, default=False),
+            FieldDefinition('planting', 'boolean', 'Plantation', False, default=False),
+        ],
     ),
     'bricolage': _rule(
         slug='bricolage', label='Bricolage',
         deposit_percent=15, requires_photo=True, date_label='Date intervention',
         requirement_labels=['Photo'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('work_type', 'text', 'Type de travaux', True),
+            FieldDefinition('material_available', 'boolean', 'Matériel disponible ?', False, default=False),
+        ],
     ),
     'maintenance-reparation': _rule(
         slug='maintenance-reparation', label='Maintenance & Réparation',
         deposit_percent=15, requires_photo=True, date_label='Intervention',
         requirement_labels=['Photo'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('device_type', 'text', "Type d'appareil", True),
+            FieldDefinition('brand', 'text', 'Marque', False),
+            FieldDefinition('model', 'text', 'Modèle', False),
+            FieldDefinition('age', 'number', 'Ancienneté (années)', False, validation={'min': 0}),
+            FieldDefinition('symptom', 'textarea', 'Symptôme de la panne', True),
+            FieldDefinition('problem_description', 'textarea', 'Description du problème', True),
+            FieldDefinition('appearance_date', 'date', 'Date d\'apparition', False),
+            FieldDefinition('parts_replacement', 'boolean', 'Pièces à remplacer ?', False, default=False),
+            FieldDefinition('estimated_quote', 'number', 'Devis estimé (XOF)', False, validation={'min': 0}),
+        ],
     ),
     'plomberie': _rule(
         slug='plomberie', label='Plomberie', deposit_percent=15, requires_photo=True,
         date_label='Intervention', requirement_labels=['Photo'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('leak_type', 'select', 'Type de fuite', True, options=['Fuite robinet', 'Fuite tuyau', 'Fuite réservoir', 'Autre']),
+            FieldDefinition('location', 'text', 'Localisation', True),
+            FieldDefinition('urgency', 'select', 'Urgence', True, options=['Faible', 'Moyenne', 'Haute', 'Urgente']),
+        ],
     ),
     'electricite': _rule(
         slug='electricite', label='Électricité', deposit_percent=20, requires_photo=True,
         date_label='Intervention', requirement_labels=['Photo'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('problem_type', 'text', 'Type de panne', True),
+            FieldDefinition('general_cutoff', 'boolean', 'Coupure générale ?', False, default=False),
+        ],
     ),
     'climatisation': _rule(
         slug='climatisation', label='Climatisation', deposit_percent=20, requires_photo=True,
         date_label='Intervention', requirement_labels=['Photo'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('device_type', 'select', "Type d'appareil", False, options=['Clim split', 'Clim mobile', 'Clim central', 'Autre']),
+            FieldDefinition('brand', 'text', 'Marque', False),
+            FieldDefinition('model', 'text', 'Modèle', False),
+        ],
     ),
     'menuiserie': _rule(
         slug='menuiserie', label='Menuiserie', deposit_percent=15, requires_photo=True,
         date_label='Date travaux', requirement_labels=['Photo'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('furniture_type', 'text', 'Type de meuble', True),
+            FieldDefinition('dimensions', 'text', 'Dimensions', False),
+        ],
     ),
     'metallerie': _rule(
         slug='metallerie', label='Métallerie', deposit_percent=20, requires_photo=True,
         date_label='Date travaux', requirement_labels=['Photo'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('work_type', 'text', 'Type de travail', True),
+        ],
     ),
     'peinture': _rule(
         slug='peinture', label='Peinture', deposit_percent=15, requires_photo=True,
         date_label='Date travaux', requirement_labels=['Photo'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('surface_area', 'number', 'Surface (m²)', False, validation={'min': 0}),
+            FieldDefinition('desired_color', 'text', 'Couleur souhaitée', False),
+            FieldDefinition('paint_type', 'select', 'Type de peinture', False, options=['Acrylique', 'Glycéro', 'Satinee', 'Mate']),
+        ],
     ),
     'maconnerie': _rule(
         slug='maconnerie', label='Maçonnerie', deposit_percent=20, requires_photo=True,
         date_label='Date travaux', requirement_labels=['Photo'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('work_type', 'text', 'Type de travaux', True),
+        ],
     ),
     'carrelage': _rule(
         slug='carrelage', label='Carrelage', deposit_percent=15, requires_photo=True,
         date_label='Date travaux', requirement_labels=['Photo'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('surface_area', 'number', 'Surface (m²)', False, validation={'min': 0}),
+        ],
     ),
     'cuisine': _rule(
         slug='cuisine', label='Cuisine', deposit_percent=15, requires_photo=True,
         date_label='Date service', requirement_labels=['Photo'], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('person_count', 'number', 'Nombre de personnes', True, validation={'min': 1}),
+            FieldDefinition('menu', 'textarea', 'Menu', True),
+            FieldDefinition('allergies', 'textarea', 'Allergies', False),
+        ],
     ),
     'coiffure': _rule(
         slug='coiffure', label='Coiffure',
         requires_deposit=False, deposit_mode='none',
         date_label='RDV', requirement_labels=[], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'financier'],
+        custom_fields=[
+            FieldDefinition('hairstyle_type', 'text', 'Type de coiffure', True),
+            FieldDefinition('hair_length', 'select', 'Longueur cheveux', False, options=['Court', 'Moyen', 'Long']),
+            FieldDefinition('at_home', 'boolean', 'À domicile ?', False, default=False),
+            FieldDefinition('inspiration_photo', 'file', 'Photo inspiration', False, validation={'mime_types': ['image/*']}),
+            FieldDefinition('current_photo', 'file', 'Photo actuelle', False, validation={'mime_types': ['image/*']}),
+        ],
     ),
     'esthetique': _rule(
         slug='esthetique', label='Esthétique',
         requires_deposit=False, deposit_mode='none',
         date_label='RDV', requirement_labels=[], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'medias', 'financier'],
+        custom_fields=[
+            FieldDefinition('treatment_type', 'text', 'Type de soin', True),
+            FieldDefinition('inspiration_photo', 'file', 'Modèle souhaité', False, validation={'mime_types': ['image/*']}),
+        ],
     ),
     'massage': _rule(
         slug='massage', label='Massage',
         requires_deposit=False, deposit_mode='none',
         date_label='RDV', requirement_labels=[], base=_HOME,
+        enabled_blocks=['localisation', 'planification', 'financier'],
+        custom_fields=[
+            FieldDefinition('massage_type', 'select', 'Type de massage', True, options=['Relaxant', 'Sportif', 'Thérapeutique', 'Autre']),
+        ],
     ),
     # ── Professionnel / conseil ───────────────────────────────────────────────
     'cours-particuliers': _rule(
@@ -280,18 +492,51 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         date_label='Horaire cours',
         deposit_reason='Caution légère — accès domicile / élève.',
         requirement_labels=['Identité'], base=_PRO,
+        enabled_blocks=['localisation', 'planification', 'securite', 'financier', 'validation', 'exigences_prestataire'],
+        custom_fields=[
+            FieldDefinition('subject', 'text', 'Matière', True),
+            FieldDefinition('student_level', 'select', 'Niveau', False, options=['Primaire', 'Collège', 'Lycée', 'Universitaire', 'Adulte']),
+        ],
     ),
     'technologie': _rule(
         slug='technologie', label='Technologie', deposit_percent=10, requires_photo=True,
         date_label='Intervention', requirement_labels=['Photo'], base=_PRO,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('device_type', 'text', "Type d'appareil", True),
+            FieldDefinition('os', 'text', 'Système d\'exploitation', False),
+            FieldDefinition('brand', 'text', 'Marque', False),
+            FieldDefinition('model', 'text', 'Modèle', False),
+            FieldDefinition('problem_description', 'textarea', 'Description du problème', True),
+            FieldDefinition('error_message', 'text', 'Message d\'erreur', False),
+            FieldDefinition('appearance_date', 'date', 'Date d\'apparition', False),
+            FieldDefinition('screenshots', 'file', 'Captures d\'écran', False, validation={'mime_types': ['image/*']}),
+            FieldDefinition('logs', 'file', 'Fichiers journaux', False, validation={'mime_types': ['text/*', 'application/json']}),
+        ],
     ),
     'couture': _rule(
         slug='couture', label='Couture', deposit_percent=10,
         date_label='RDV', requirement_labels=[], base=_PRO,
+        enabled_blocks=['localisation', 'planification', 'medias', 'financier'],
+        custom_fields=[
+            FieldDefinition('garment_type', 'text', 'Type de vêtement', True),
+            FieldDefinition('size', 'text', 'Taille', True),
+            FieldDefinition('fabric_provided', 'boolean', 'Tissu fourni ?', False, default=False),
+            FieldDefinition('pattern', 'file', 'Patron', False, validation={'mime_types': ['application/pdf', 'image/*']}),
+            FieldDefinition('desired_model_photo', 'file', 'Modèle souhaité', False, validation={'mime_types': ['image/*']}),
+        ],
     ),
     'photographie': _rule(
         slug='photographie', label='Photographie', deposit_percent=15, requires_photo=True,
         date_label='Événement', requirement_labels=['Portfolio / Photo'], base=_PRO,
+        enabled_blocks=['localisation', 'planification', 'medias', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('event_type', 'text', 'Type d\'événement', True),
+            FieldDefinition('person_count', 'number', 'Nombre de personnes', False, validation={'min': 1}),
+            FieldDefinition('duration', 'number', 'Durée (heures)', False, validation={'min': 1}),
+            FieldDefinition('expected_photos', 'number', 'Photos attendues', False, validation={'min': 1}),
+            FieldDefinition('format', 'select', 'Format', False, options=['JPEG', 'RAW', 'Les deux']),
+        ],
     ),
     'services-administratifs': _rule(
         slug='services-administratifs', label='Services administratifs',
@@ -299,40 +544,91 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         date_label='Échéance dossier',
         deposit_reason='Documents confiés — identité requise.',
         requirement_labels=['Identité', 'Photo récépissé'], base=_PRO,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation', 'exigences_prestataire'],
+        custom_fields=[
+            FieldDefinition('organization', 'text', 'Organisme concerné', True),
+            FieldDefinition('procedure_type', 'text', 'Type de démarche', True),
+            FieldDefinition('deadline', 'date', 'Date limite', True),
+            FieldDefinition('id_document', 'file', 'Pièce d\'identité', True, validation={'mime_types': ['image/*', 'application/pdf']}),
+            FieldDefinition('power_of_attorney', 'file', 'Procuration', False, validation={'mime_types': ['application/pdf', 'image/*']}),
+            FieldDefinition('admin_documents', 'file', 'Documents administratifs', False, validation={'mime_types': ['application/pdf', 'image/*']}),
+        ],
     ),
     'traduction': _rule(
         slug='traduction', label='Traduction', deposit_percent=5,
         date_label='Deadline', requirement_labels=[], base=_PRO,
+        enabled_blocks=['planification', 'medias', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('source_language', 'text', 'Langue source', True),
+            FieldDefinition('target_language', 'text', 'Langue cible', True),
+            FieldDefinition('page_count', 'number', 'Nombre de pages', False, validation={'min': 1}),
+            FieldDefinition('source_file', 'file', 'Fichier à traduire', True, validation={'mime_types': ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'text/plain']}),
+        ],
     ),
     'redaction': _rule(
         slug='redaction', label='Rédaction', deposit_percent=5,
         date_label='Deadline', requirement_labels=[], base=_PRO,
+        enabled_blocks=['planification', 'medias', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('document_type', 'text', 'Type de document', True),
+            FieldDefinition('word_count', 'number', 'Nombre de mots', False, validation={'min': 1}),
+            FieldDefinition('language', 'text', 'Langue', True),
+            FieldDefinition('source_file', 'file', 'Fichier source', False, validation={'mime_types': ['application/pdf', 'application/msword', 'text/plain']}),
+            FieldDefinition('instructions', 'textarea', 'Consignes détaillées', False),
+        ],
     ),
     'comptabilite': _rule(
         slug='comptabilite', label='Comptabilité',
         deposit_percent=10, requires_id_verification=True,
         date_label='Deadline', requirement_labels=['Identité'], base=_PRO,
+        enabled_blocks=['planification', 'medias', 'securite', 'financier', 'validation', 'exigences_prestataire'],
+        custom_fields=[
+            FieldDefinition('invoices', 'file', 'Factures', False, validation={'mime_types': ['application/pdf', 'image/*']}),
+            FieldDefinition('bank_statements', 'file', 'Relevés bancaires', False, validation={'mime_types': ['application/pdf', 'image/*']}),
+            FieldDefinition('financial_statements', 'file', 'États financiers', False, validation={'mime_types': ['application/pdf', 'image/*']}),
+        ],
     ),
     'conseil-juridique': _rule(
         slug='conseil-juridique', label='Conseil juridique',
         deposit_percent=15, requires_id_verification=True,
         date_label='RDV', requirement_labels=['Identité'], base=_PRO,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation', 'exigences_prestataire'],
+        custom_fields=[
+            FieldDefinition('contracts', 'file', 'Contrats', False, validation={'mime_types': ['application/pdf', 'image/*']}),
+            FieldDefinition('correspondence', 'file', 'Courriers', False, validation={'mime_types': ['application/pdf', 'image/*']}),
+            FieldDefinition('supporting_documents', 'file', 'Pièces justificatives', False, validation={'mime_types': ['application/pdf', 'image/*']}),
+        ],
     ),
     'divertissement': _rule(
         slug='divertissement', label='Divertissement',
         deposit_percent=15, requires_photo=True, date_label='Événement',
         requirement_labels=['Photo'], base=_PRO,
+        enabled_blocks=['localisation', 'planification', 'medias', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('event_type', 'text', 'Type d\'événement', True),
+        ],
     ),
     'decor-evenementiel': _rule(
         slug='decor-evenementiel', label='Décor événementiel',
         deposit_percent=20, requires_photo=True, date_label='Événement',
         requirement_labels=['Photo'], base=_PRO,
+        enabled_blocks=['localisation', 'planification', 'medias', 'financier', 'validation'],
+        custom_fields=[
+            FieldDefinition('event_type', 'text', 'Type d\'événement', True),
+        ],
     ),
     'immobilier': _rule(
         slug='immobilier', label='Immobilier',
         deposit_percent=10, requires_id_verification=True, requires_photo=True,
         date_label='Visite', requirement_labels=['Identité', 'Photo'],
         base=_PRO,
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation', 'exigences_prestataire'],
+        custom_fields=[
+            FieldDefinition('address', 'text', 'Adresse', True),
+            FieldDefinition('property_type', 'select', 'Type de bien', True, options=['Appartement', 'Maison', 'Bureau', 'Terrain', 'Commerce']),
+            FieldDefinition('mission_type', 'select', 'Type de mission', True, options=['Visite', 'État des lieux', 'Photos']),
+            FieldDefinition('report_pdf', 'file', 'Rapport PDF', False, validation={'mime_types': ['application/pdf']}),
+        ],
     ),
     'securite': _rule(
         slug='securite', label='Sécurité',
@@ -343,6 +639,12 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         requirement_labels=['Entreprise', 'Identité', 'Signature'],
         requires_pickup=False, requires_delivery=False,
         location_label='Lieu de mission',
+        enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation', 'exigences_prestataire'],
+        custom_fields=[
+            FieldDefinition('agent_count', 'number', 'Nombre d\'agents', False, validation={'min': 1}),
+            FieldDefinition('site_plan', 'file', 'Plan du site', False, validation={'mime_types': ['application/pdf', 'image/*']}),
+            FieldDefinition('security_instructions', 'file', 'Consignes de sécurité', False, validation={'mime_types': ['application/pdf', 'image/*']}),
+        ],
     ),
     'autre': _rule(
         slug='autre', label='Autre',
@@ -350,6 +652,7 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         deposit_reason='Caution standard (10 % du budget).',
         requirement_labels=['GPS'],
         mission_type='other',
+        enabled_blocks=['localisation', 'planification', 'securite', 'financier'],
     ),
 }
 

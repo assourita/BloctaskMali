@@ -370,6 +370,9 @@ class MissionCreateSerializer(serializers.ModelSerializer):
     phone_number = serializers.CharField(required=False, allow_blank=True)
     operator = serializers.CharField(required=False, allow_blank=True)
 
+    # Dynamic custom fields from category schema
+    custom_data = serializers.JSONField(required=False, default=dict)
+
     class Meta:
         model = Mission
         fields = [
@@ -386,7 +389,8 @@ class MissionCreateSerializer(serializers.ModelSerializer):
             'merchandise_value',
             'escrow_enabled', 'escrow_amount', 'platform_fee',
             'start_time', 'end_time', 'estimated_duration',
-            'payment_method', 'country_code', 'phone_number', 'operator'
+            'payment_method', 'country_code', 'phone_number', 'operator',
+            'custom_data',
         ]
 
     def to_internal_value(self, data):
@@ -442,8 +446,11 @@ class MissionCreateSerializer(serializers.ModelSerializer):
         if rule.requires_delivery and not data.get('delivery_address'):
             raise serializers.ValidationError({'delivery_address': 'Adresse de livraison requise pour cette catégorie.'})
 
-        # Requirements JSON + caution estimée
+        # Merge custom_data with requirements payload
+        custom_data = data.get('custom_data', {})
         req_payload = {**data, 'requires_vehicle': rule.requires_vehicle or data.get('requires_vehicle')}
+        req_payload.update(custom_data)
+        
         requirements_dict = build_requirements_payload(req_payload, rule)
         data['_requirements_dict'] = requirements_dict
 
@@ -497,6 +504,7 @@ class MissionCreateSerializer(serializers.ModelSerializer):
         validated_data.pop('delivery_contact_name', None)
         validated_data.pop('delivery_contact_phone', None)
         requirements_dict = validated_data.pop('_requirements_dict', None)
+        validated_data.pop('custom_data', None)  # Remove custom_data as it's merged into requirements
 
         mission = super().create(validated_data)
 
