@@ -318,7 +318,7 @@ class WalletTransactionListView(generics.ListAPIView):
 
 
 class KYCSubmissionView(generics.UpdateAPIView):
-    """Soumission KYC"""
+    """Soumission KYC avec analyse IA automatique"""
     serializer_class = KYCSerializer
     permission_classes = [permissions.IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
@@ -327,11 +327,71 @@ class KYCSubmissionView(generics.UpdateAPIView):
         return self.request.user
     
     def perform_update(self, serializer):
-        serializer.save(
+        user = serializer.save(
             kyc_status=User.KYCStatus.PENDING,
             kyc_submitted_at=timezone.now(),
             kyc_rejection_reason='',
+            kyc_ai_decision=None,
+            kyc_ai_confidence=None,
+            kyc_ai_analysis=None,
+            kyc_ai_analyzed_at=None,
+            kyc_admin_override=False,
+            kyc_admin_override_by=None,
+            kyc_admin_override_at=None,
+            kyc_admin_override_reason='',
         )
+        
+        # Déclencher l'analyse IA en arrière-plan
+        from .ai_kyc_service import analyze_kyc_submission
+        from django.core.files.storage import default_storage
+        
+        try:
+            if user.id_card_front and user.id_card_back and user.selfie_verification:
+                id_card_front_url = default_storage.url(user.id_card_front.name)
+                id_card_back_url = default_storage.url(user.id_card_back.name)
+                selfie_url = default_storage.url(user.selfie_verification.name)
+                
+                user_data = {
+                    'first_name': user.first_name,
+                    'last_name': user.last_name,
+                    'nina': user.nina or '',
+                }
+                
+                analysis = analyze_kyc_submission(
+                    id_card_front_url,
+                    id_card_back_url,
+                    selfie_url,
+                    user_data
+                )
+                
+                # Mettre à jour l'utilisateur avec les résultats IA
+                user.kyc_ai_decision = analysis.get('final_decision')
+                user.kyc_ai_confidence = analysis.get('final_confidence')
+                user.kyc_ai_analysis = analysis
+                user.kyc_ai_analyzed_at = timezone.now()
+                
+                # Appliquer la décision IA si confiance élevée
+                if analysis.get('final_decision') == 'approved' and analysis.get('final_confidence', 0) >= 0.8:
+                    user.kyc_status = User.KYCStatus.VERIFIED
+                    user.kyc_verified_at = timezone.now()
+                elif analysis.get('final_decision') == 'rejected' and analysis.get('final_confidence', 0) >= 0.7:
+                    user.kyc_status = User.KYCStatus.REJECTED
+                    reasons = []
+                    for doc_result in analysis.values():
+                        if isinstance(doc_result, dict) and 'reasons' in doc_result:
+                            reasons.extend(doc_result['reasons'])
+                    user.kyc_rejection_reason = '; '.join(reasons) if reasons else 'Rejeté par analyse IA'
+                
+                user.save(update_fields=[
+                    'kyc_ai_decision', 'kyc_ai_confidence', 'kyc_ai_analysis',
+                    'kyc_ai_analyzed_at', 'kyc_status', 'kyc_verified_at',
+                    'kyc_rejection_reason'
+                ])
+        except Exception as e:
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.error(f"AI KYC analysis failed for user {user.id}: {e}")
+            # En cas d'erreur, laisser en PENDING pour revue manuelle
 
 
 class PhoneVerificationRequestView(APIView):

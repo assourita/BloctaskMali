@@ -4,6 +4,7 @@ BlockTask Users URLs
 
 from django.urls import path
 from . import views
+from . import admin_kyc_views
 
 urlpatterns = [
     # Auth
@@ -36,6 +37,10 @@ urlpatterns = [
     path('kyc/submit/', views.KYCSubmissionView.as_view(), name='kyc-submit'),
     path('kyc/verify-phone/', views.PhoneVerificationRequestView.as_view(), name='kyc-verify-phone'),
     path('kyc/confirm-phone/', views.PhoneVerificationConfirmView.as_view(), name='kyc-confirm-phone'),
+    
+    # Admin KYC Override
+    path('kyc/override/<uuid:user_id>/', admin_kyc_views.override_kyc_decision, name='kyc-override'),
+    path('kyc/analysis/<uuid:user_id>/', admin_kyc_views.get_kyc_ai_analysis, name='kyc-ai-analysis'),
     
     # Security
     path('password/change/', views.ChangePasswordView.as_view(), name='change-password'),

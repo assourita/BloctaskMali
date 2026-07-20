@@ -81,6 +81,29 @@ class User(AbstractUser):
     kyc_verified_at = models.DateTimeField(blank=True, null=True)
     kyc_rejection_reason = models.TextField(blank=True, default='')
     
+    # AI KYC Analysis
+    kyc_ai_decision = models.CharField(
+        max_length=20,
+        choices=[('approved', 'Approuvé'), ('rejected', 'Rejeté'), ('manual_review', 'Revue manuelle')],
+        blank=True,
+        null=True
+    )
+    kyc_ai_confidence = models.FloatField(blank=True, null=True)
+    kyc_ai_analysis = models.JSONField(blank=True, null=True)  # Stocke le résultat complet de l'analyse IA
+    kyc_ai_analyzed_at = models.DateTimeField(blank=True, null=True)
+    
+    # Admin Override
+    kyc_admin_override = models.BooleanField(default=False)
+    kyc_admin_override_by = models.ForeignKey(
+        'self',
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='kyc_overrides'
+    )
+    kyc_admin_override_at = models.DateTimeField(blank=True, null=True)
+    kyc_admin_override_reason = models.TextField(blank=True)
+    
     # Sécurité
     two_factor_enabled = models.BooleanField(default=False)
     two_factor_secret = models.CharField(max_length=255, blank=True, null=True)
