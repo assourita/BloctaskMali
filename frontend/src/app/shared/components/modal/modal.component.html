@@ -1,0 +1,20 @@
+<div *ngIf="open" class="bt-modal-overlay" (click)="closable ? close() : null">
+  <div
+    class="bt-modal"
+    [class]="[
+      'bt-modal',
+      `bt-modal--${size}`
+    ]"
+    (click)="$event.stopPropagation()"
+  >
+    <div *ngIf="title || closable" class="bt-modal__header">
+      <h2 *ngIf="title" class="bt-modal__title">{{ title }}</h2>
+      <button *ngIf="closable" class="bt-modal__close" (click)="close()">
+        <mat-icon>close</mat-icon>
+      </button>
+    </div>
+    <div class="bt-modal__content">
+      <ng-content></ng-content>
+    </div>
+  </div>
+</div>

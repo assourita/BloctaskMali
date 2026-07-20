@@ -1,0 +1,22 @@
+<button
+  mat-button
+  [type]="type"
+  [disabled]="disabled || loading"
+  [class]="[
+    'bt-button',
+    `bt-button--${variant}`,
+    `bt-button--${size}`,
+    fullWidth ? 'bt-button--full-width' : ''
+  ]"
+>
+  <mat-spinner *ngIf="loading" diameter="16" class="bt-button__spinner"></mat-spinner>
+  <mat-icon *ngIf="icon && iconPosition === 'left' && !loading" class="bt-button__icon bt-button__icon--left">
+    {{ icon }}
+  </mat-icon>
+  <span class="bt-button__content" *ngIf="!loading">
+    <ng-content></ng-content>
+  </span>
+  <mat-icon *ngIf="icon && iconPosition === 'right' && !loading" class="bt-button__icon bt-button__icon--right">
+    {{ icon }}
+  </mat-icon>
+</button>

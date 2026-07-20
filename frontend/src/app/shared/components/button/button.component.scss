@@ -1,0 +1,165 @@
+@import '../../../core/design-system';
+
+.bt-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  font-family: typography.$font-family-sans;
+  font-weight: typography.$font-weight-semibold;
+  border-radius: componentRadius.$button;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  text-decoration: none;
+  cursor: pointer;
+  user-select: none;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+    opacity: 0;
+    transition: opacity 0.2s ease;
+  }
+
+  &:hover::before {
+    opacity: 1;
+  }
+
+  &:active {
+    transform: scale(0.98);
+  }
+
+  &--primary {
+    background: linear-gradient(135deg, colors.$primary-500 0%, colors.$primary-600 100%);
+    color: colors.$text-inverse;
+    box-shadow: shadows.$primary-base;
+
+    &:hover {
+      background: linear-gradient(135deg, colors.$primary-600 0%, colors.$primary-700 100%);
+      box-shadow: shadows.$primary-md;
+    }
+
+    &:active {
+      background: linear-gradient(135deg, colors.$primary-700 0%, colors.$primary-800 100%);
+    }
+  }
+
+  &--secondary {
+    background: linear-gradient(135deg, colors.$secondary-500 0%, colors.$secondary-600 100%);
+    color: colors.$text-inverse;
+    box-shadow: shadows.$secondary-base;
+
+    &:hover {
+      background: linear-gradient(135deg, colors.$secondary-600 0%, colors.$secondary-700 100%);
+      box-shadow: shadows.$secondary-md;
+    }
+
+    &:active {
+      background: linear-gradient(135deg, colors.$secondary-700 0%, colors.$secondary-800 100%);
+    }
+  }
+
+  &--outline {
+    background: transparent;
+    color: colors.$text-primary;
+    border: 2px solid colors.$border-primary;
+
+    &:hover {
+      background: colors.$surface-hover;
+      border-color: colors.$border-focus;
+    }
+
+    &:active {
+      background: colors.$surface-active;
+    }
+  }
+
+  &--ghost {
+    background: transparent;
+    color: colors.$text-secondary;
+
+    &:hover {
+      background: colors.$surface-hover;
+      color: colors.$text-primary;
+    }
+
+    &:active {
+      background: colors.$surface-active;
+    }
+  }
+
+  &--danger {
+    background: linear-gradient(135deg, colors.$error-500 0%, colors.$error-600 100%);
+    color: colors.$text-inverse;
+    box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.15);
+
+    &:hover {
+      background: linear-gradient(135deg, colors.$error-600 0%, colors.$error-700 100%);
+      box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.2);
+    }
+
+    &:active {
+      background: linear-gradient(135deg, colors.$error-700 0%, colors.$error-800 100%);
+    }
+  }
+
+  &--sm {
+    padding: 0.375rem 0.875rem;
+    font-size: typography.$font-size-sm;
+    height: 2rem;
+  }
+
+  &--md {
+    padding: 0.625rem 1.25rem;
+    font-size: typography.$font-size-base;
+    height: 2.5rem;
+  }
+
+  &--lg {
+    padding: 0.875rem 1.75rem;
+    font-size: typography.$font-size-lg;
+    height: 3rem;
+  }
+
+  &--full-width {
+    width: 100%;
+  }
+
+  &__spinner {
+    width: 1rem;
+    height: 1rem;
+    ::ng-deep circle {
+      stroke: currentColor;
+    }
+  }
+
+  &__icon {
+    font-size: 1.125rem;
+    width: 1.125rem;
+    height: 1.125rem;
+    flex-shrink: 0;
+
+    &--left {
+      margin-right: -0.25rem;
+    }
+
+    &--right {
+      margin-left: -0.25rem;
+    }
+  }
+
+  &__content {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}

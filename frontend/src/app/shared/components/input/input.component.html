@@ -1,0 +1,37 @@
+<div
+  class="bt-input-wrapper"
+  [class]="[
+    'bt-input-wrapper',
+    `bt-input-wrapper--${size}`,
+    error ? 'bt-input-wrapper--error' : '',
+    isFocused ? 'bt-input-wrapper--focused' : '',
+    disabled ? 'bt-input-wrapper--disabled' : ''
+  ]"
+>
+  <label *ngIf="label" class="bt-input__label">
+    {{ label }}
+    <span *ngIf="required" class="bt-input__required">*</span>
+  </label>
+  <div class="bt-input__container">
+    <mat-icon *ngIf="prefixIcon" class="bt-input__icon bt-input__icon--prefix">
+      {{ prefixIcon }}
+    </mat-icon>
+    <input
+      [type]="type"
+      [placeholder]="placeholder"
+      [value]="value"
+      [disabled]="disabled"
+      [readonly]="readonly"
+      [attr.required]="required"
+      (input)="onInput($event)"
+      (focus)="onFocus()"
+      (blur)="onBlur()"
+      class="bt-input"
+    />
+    <mat-icon *ngIf="suffixIcon" class="bt-input__icon bt-input__icon--suffix">
+      {{ suffixIcon }}
+    </mat-icon>
+  </div>
+  <p *ngIf="error" class="bt-input__error">{{ error }}</p>
+  <p *ngIf="hint && !error" class="bt-input__hint">{{ hint }}</p>
+</div>

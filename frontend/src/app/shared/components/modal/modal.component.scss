@@ -1,0 +1,105 @@
+@import '../../../core/design-system';
+
+.bt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: colors.$background-overlay;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: spacing.$4;
+  animation: fadeIn 0.2s ease;
+}
+
+.bt-modal {
+  background: colors.$background-primary;
+  border-radius: componentRadius.$modal;
+  box-shadow: shadows.$xl;
+  max-width: 100%;
+  max-height: 90vh;
+  overflow: hidden;
+  animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &--sm {
+    width: 24rem;
+  }
+
+  &--md {
+    width: 32rem;
+  }
+
+  &--lg {
+    width: 48rem;
+  }
+
+  &--xl {
+    width: 64rem;
+  }
+
+  &__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: spacing.$6;
+    border-bottom: 1px solid colors.$border-primary;
+  }
+
+  &__title {
+    margin: 0;
+    font-size: typography.$font-size-lg;
+    font-weight: typography.$font-weight-semibold;
+    color: colors.$text-primary;
+  }
+
+  &__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: componentRadius.$md;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: colors.$text-tertiary;
+    transition: all 0.2s ease;
+
+    &:hover {
+      background: colors.$surface-hover;
+      color: colors.$text-primary;
+    }
+
+    mat-icon {
+      font-size: 1.25rem;
+      width: 1.25rem;
+      height: 1.25rem;
+    }
+  }
+
+  &__content {
+    padding: spacing.$6;
+    overflow-y: auto;
+    max-height: calc(90vh - 5rem);
+  }
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(1rem);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,0 +1,11 @@
+<mat-card
+  [class]="[
+    'bt-card',
+    `bt-card--${variant}`,
+    `bt-card--padding-${padding}`,
+    hoverable ? 'bt-card--hoverable' : '',
+    clickable ? 'bt-card--clickable' : ''
+  ]"
+>
+  <ng-content></ng-content>
+</mat-card>

@@ -1,0 +1,11 @@
+<div
+  [class]="[
+    'bt-avatar',
+    `bt-avatar--${size}`,
+    `bt-avatar--${variant}`
+  ]"
+>
+  <img *ngIf="src" [src]="src" [alt]="alt" class="bt-avatar__image" />
+  <span *ngIf="!src" class="bt-avatar__initials">{{ initials }}</span>
+  <span *ngIf="status" class="bt-avatar__status bt-avatar__status--{{ status }}"></span>
+</div>

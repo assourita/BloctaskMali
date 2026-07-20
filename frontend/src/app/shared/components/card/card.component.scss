@@ -1,0 +1,87 @@
+@import '../../../core/design-system';
+
+.bt-card {
+  font-family: typography.$font-family-sans;
+  border-radius: componentRadius.$card;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &--default {
+    background: colors.$background-primary;
+    box-shadow: shadows.$base;
+    border: 1px solid colors.$border-primary;
+  }
+
+  &--elevated {
+    background: colors.$background-primary;
+    box-shadow: shadows.$lg;
+    border: 1px solid colors.$border-secondary;
+  }
+
+  &--outlined {
+    background: colors.$background-primary;
+    box-shadow: none;
+    border: 2px solid colors.$border-primary;
+  }
+
+  &--flat {
+    background: colors.$background-secondary;
+    box-shadow: none;
+    border: 1px solid colors.$border-tertiary;
+  }
+
+  &--padding-none {
+    padding: 0;
+  }
+
+  &--padding-sm {
+    padding: spacing.$4;
+  }
+
+  &--padding-md {
+    padding: spacing.$6;
+  }
+
+  &--padding-lg {
+    padding: spacing.$8;
+  }
+
+  &--hoverable {
+    cursor: pointer;
+
+    &:hover {
+      transform: translateY(-2px);
+      box-shadow: shadows.$xl;
+    }
+  }
+
+  &--clickable {
+    cursor: pointer;
+
+    &:active {
+      transform: translateY(0);
+      box-shadow: shadows.$base;
+    }
+  }
+
+  ::ng-deep {
+    .mat-mdc-card-content {
+      padding: 0;
+    }
+
+    .mat-mdc-card-header {
+      padding: spacing.$6;
+      border-bottom: 1px solid colors.$border-primary;
+    }
+
+    .mat-mdc-card-subtitle {
+      color: colors.$text-tertiary;
+      font-size: typography.$font-size-sm;
+    }
+
+    .mat-mdc-card-title {
+      color: colors.$text-primary;
+      font-size: typography.$font-size-lg;
+      font-weight: typography.$font-weight-semibold;
+    }
+  }
+}

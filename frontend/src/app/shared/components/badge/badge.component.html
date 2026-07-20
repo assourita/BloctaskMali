@@ -1,0 +1,16 @@
+<span
+  [class]="[
+    'bt-badge',
+    `bt-badge--${variant}`,
+    `bt-badge--${size}`,
+    dot ? 'bt-badge--dot' : ''
+  ]"
+>
+  <ng-container *ngIf="!dot">
+    <ng-content></ng-content>
+    <span *ngIf="count !== undefined" class="bt-badge__count">
+      {{ count > maxCount ? `${maxCount}+` : count }}
+    </span>
+  </ng-container>
+  <span *ngIf="dot" class="bt-badge__dot"></span>
+</span>
