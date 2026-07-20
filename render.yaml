@@ -54,6 +54,8 @@ services:
         sync: false
       - key: OPENAI_API_KEY
         sync: false
+      - key: AI_KYC_ENABLED
+        value: "false"
       - key: REDIS_URL
         fromService:
           name: blocktask-redis

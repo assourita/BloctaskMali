@@ -327,6 +327,8 @@ class KYCSubmissionView(generics.UpdateAPIView):
         return self.request.user
     
     def perform_update(self, serializer):
+        from django.conf import settings
+        
         user = serializer.save(
             kyc_status=User.KYCStatus.PENDING,
             kyc_submitted_at=timezone.now(),
@@ -341,7 +343,13 @@ class KYCSubmissionView(generics.UpdateAPIView):
             kyc_admin_override_reason='',
         )
         
-        # Déclencher l'analyse IA en arrière-plan
+        # Déclencher l'analyse IA en arrière-plan seulement si activé
+        if not getattr(settings, 'AI_KYC_ENABLED', False):
+            import logging
+            logger = logging.getLogger(__name__)
+            logger.info(f"AI KYC analysis disabled for user {user.id}, skipping automatic analysis")
+            return
+        
         from .ai_kyc_service import analyze_kyc_submission
         from django.core.files.storage import default_storage
         

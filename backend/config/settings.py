@@ -280,6 +280,10 @@ REQUIRE_EMAIL_VERIFICATION = os.getenv('REQUIRE_EMAIL_VERIFICATION', 'True').low
 # Google OAuth (Console Google Cloud → Identifiants OAuth 2.0 → Client Web)
 GOOGLE_CLIENT_ID = os.getenv('GOOGLE_CLIENT_ID', '')
 
+# AI KYC Configuration
+AI_KYC_ENABLED = os.getenv('AI_KYC_ENABLED', 'False').lower() == 'true'
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '')
+
 # SMS Configuration (Twilio)
 TWILIO_ACCOUNT_SID = os.getenv('TWILIO_ACCOUNT_SID', '')
 TWILIO_AUTH_TOKEN = os.getenv('TWILIO_AUTH_TOKEN', '')

@@ -41,6 +41,8 @@ urlpatterns = [
     # Admin KYC Override
     path('kyc/override/<uuid:user_id>/', admin_kyc_views.override_kyc_decision, name='kyc-override'),
     path('kyc/analysis/<uuid:user_id>/', admin_kyc_views.get_kyc_ai_analysis, name='kyc-ai-analysis'),
+    path('kyc/ai/toggle/', admin_kyc_views.toggle_ai_kyc, name='kyc-ai-toggle'),
+    path('kyc/ai/status/', admin_kyc_views.get_ai_kyc_status, name='kyc-ai-status'),
     
     # Security
     path('password/change/', views.ChangePasswordView.as_view(), name='change-password'),

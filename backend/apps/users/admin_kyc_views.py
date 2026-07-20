@@ -1,11 +1,59 @@
-"""Vues admin pour override des décisions KYC IA."""
+"""Vues admin pour override des décisions KYC IA et configuration."""
 from rest_framework import permissions, status
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from django.utils import timezone
 from django.contrib.auth import get_user_model
+from django.conf import settings
 
 User = get_user_model()
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def toggle_ai_kyc(request):
+    """Permet à un admin d'activer/désactiver l'analyse IA KYC."""
+    if not request.user.has_role('admin'):
+        return Response(
+            {'error': 'Accès réservé aux administrateurs'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    enabled = request.data.get('enabled', False)
+    
+    # Note: Ceci ne modifie que la variable d'environnement pour la session actuelle
+    # Pour un changement permanent, il faut modifier la variable d'environnement sur Render
+    # Cette vue est principalement pour le développement/testing
+    if not hasattr(settings, '_AI_KYC_ENABLED_OVERRIDE'):
+        settings._AI_KYC_ENABLED_OVERRIDE = enabled
+    
+    return Response({
+        'message': f'Analyse IA KYC {"activée" if enabled else "désactivée"}',
+        'ai_kyc_enabled': enabled,
+        'note': 'Pour un changement permanent, modifiez la variable d\'environnement AI_KYC_ENABLED sur Render'
+    })
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def get_ai_kyc_status(request):
+    """Récupère le statut actuel de l'analyse IA KYC."""
+    if not request.user.has_role('admin'):
+        return Response(
+            {'error': 'Accès réservé aux administrateurs'},
+            status=status.HTTP_403_FORBIDDEN
+        )
+    
+    # Vérifier d'abord l'override de session
+    if hasattr(settings, '_AI_KYC_ENABLED_OVERRIDE'):
+        enabled = settings._AI_KYC_ENABLED_OVERRIDE
+    else:
+        enabled = getattr(settings, 'AI_KYC_ENABLED', False)
+    
+    return Response({
+        'ai_kyc_enabled': enabled,
+        'openai_api_configured': bool(getattr(settings, 'OPENAI_API_KEY', '')),
+    })
 
 
 @api_view(['POST'])
