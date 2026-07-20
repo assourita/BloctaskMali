@@ -24,6 +24,7 @@ import { BlockchainService } from '../../../../core/services/blockchain.service'
 import { MALI_COUNTRY, DEFAULT_PHONE_PREFIX } from '../../../../core/constants/africa.constants';
 import { AuthService } from '../../../../core/services/auth.service';
 import { EnterpriseMissionsNavComponent } from '../../../enterprise/enterprise-missions-nav.component';
+import { CategorySchemaService, CategorySchema, FieldDefinition } from '../../../../core/services/category-schema.service';
 
 interface CategoryRules {
   slug: string;
@@ -351,6 +352,53 @@ interface CategoryConfig {
                 <p class="deposit-hint" *ngIf="requiresMerchandiseValue && !merchandiseValue">
                   Saisissez la valeur de la marchandise pour calculer la caution (équivalent au prix confié).
                 </p>
+
+                <!-- Render custom fields from category schema -->
+                <div *ngIf="categorySchema?.custom_fields && categorySchema.custom_fields.length > 0" class="custom-fields-section">
+                  <h4>Champs spécifiques — {{ selectedCategory?.name }}</h4>
+                  <div *ngFor="let field of categorySchema.custom_fields" class="custom-field">
+                    <mat-form-field appearance="fill" class="full-width" *ngIf="field.type === 'text' || field.type === 'textarea'">
+                      <mat-label>{{ field.label }}{{ field.required ? ' *' : '' }}</mat-label>
+                      <input *ngIf="field.type === 'text'" matInput [placeholder]="field.placeholder || ''"
+                        [(ngModel)]="customData[field.name]" [ngModelOptions]="{standalone: true}">
+                      <textarea *ngIf="field.type === 'textarea'" matInput rows="3"
+                        [placeholder]="field.placeholder || ''"
+                        [(ngModel)]="customData[field.name]" [ngModelOptions]="{standalone: true}"></textarea>
+                      <mat-hint *ngIf="field.help_text">{{ field.help_text }}</mat-hint>
+                    </mat-form-field>
+
+                    <mat-form-field appearance="fill" class="full-width" *ngIf="field.type === 'number'">
+                      <mat-label>{{ field.label }}{{ field.required ? ' *' : '' }}</mat-label>
+                      <input matInput type="number" [placeholder]="field.placeholder || ''"
+                        [(ngModel)]="customData[field.name]" [ngModelOptions]="{standalone: true}">
+                      <mat-hint *ngIf="field.help_text">{{ field.help_text }}</mat-hint>
+                    </mat-form-field>
+
+                    <div class="custom-select" *ngIf="field.type === 'select' && field.options">
+                      <label>{{ field.label }}{{ field.required ? ' *' : '' }}</label>
+                      <select [(ngModel)]="customData[field.name]" [ngModelOptions]="{standalone: true}">
+                        <option value="" disabled selected>Choisir...</option>
+                        <option *ngFor="let opt of field.options" [ngValue]="opt">{{ opt }}</option>
+                      </select>
+                      <p class="hint" *ngIf="field.help_text">{{ field.help_text }}</p>
+                    </div>
+
+                    <div class="custom-checkbox" *ngIf="field.type === 'boolean'">
+                      <mat-checkbox [(ngModel)]="customData[field.name]" [ngModelOptions]="{standalone: true}">
+                        {{ field.label }}{{ field.required ? ' *' : '' }}
+                      </mat-checkbox>
+                      <p class="hint" *ngIf="field.help_text">{{ field.help_text }}</p>
+                    </div>
+
+                    <mat-form-field appearance="fill" class="full-width" *ngIf="field.type === 'date'">
+                      <mat-label>{{ field.label }}{{ field.required ? ' *' : '' }}</mat-label>
+                      <input matInput [matDatepicker]="datePicker" [(ngModel)]="customData[field.name]" [ngModelOptions]="{standalone: true}">
+                      <mat-datepicker-toggle matIconSuffix [for]="datePicker"></mat-datepicker-toggle>
+                      <mat-datepicker #datePicker></mat-datepicker>
+                      <mat-hint *ngIf="field.help_text">{{ field.help_text }}</mat-hint>
+                    </mat-form-field>
+                  </div>
+                </div>
 
                 <div class="checkbox-group">
                   <mat-checkbox [(ngModel)]="requirements.requires_vehicle" [ngModelOptions]="{standalone: true}"
@@ -979,6 +1027,109 @@ interface CategoryConfig {
     }
     .deposit-hint {
       font-size: 13px; color: #92400e; margin: -8px 0 16px; line-height: 1.45;
+    }
+
+    .custom-fields-section {
+      background: #f0f9ff;
+      border: 1px solid #bae6fd;
+      border-radius: 12px;
+      padding: 20px;
+      margin-bottom: 24px;
+
+      h4 {
+        margin: 0 0 16px 0;
+        color: #0c4a6e;
+        font-size: 15px;
+        font-weight: 600;
+      }
+    }
+
+    .custom-field {
+      margin-bottom: 16px;
+
+      &:last-child {
+        margin-bottom: 0;
+      }
+    }
+
+    .custom-select {
+      margin-bottom: 16px;
+
+      label {
+        display: block;
+        font-size: 12px;
+        font-weight: 500;
+        color: #6C5CE7;
+        margin-bottom: 4px;
+        margin-left: 12px;
+      }
+
+      select {
+        width: 100%;
+        padding: 20px 40px 6px 16px;
+        font-size: 15px;
+        color: #1e293b;
+        background: #f8fafc;
+        border: none;
+        border-bottom: 1px solid #cbd5e1;
+        border-radius: 12px 12px 0 0;
+        cursor: pointer;
+        appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%2364748b'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 12px center;
+        background-size: 20px;
+        min-height: 56px;
+
+        &:focus {
+          outline: none;
+          border-bottom-color: #6C5CE7;
+          border-bottom-width: 2px;
+          background-color: #f1f5f9;
+        }
+
+        option {
+          color: #1e293b;
+          background: white;
+          padding: 12px;
+          font-size: 15px;
+        }
+
+        option:first-child {
+          color: #64748b;
+        }
+      }
+
+      .hint {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 4px;
+        margin-left: 12px;
+      }
+    }
+
+    .custom-checkbox {
+      margin-bottom: 16px;
+
+      mat-checkbox {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border-radius: 8px;
+        transition: background 0.2s ease;
+
+        &:hover {
+          background: #e2e8f0;
+        }
+      }
+
+      .hint {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 4px;
+        margin-left: 4px;
+      }
     }
 
     .checkbox-group {
@@ -1653,6 +1804,18 @@ interface CategoryConfig {
 export class CreateMissionComponent implements OnInit {
   private apiUrl = environment.apiUrl;
 
+  constructor(
+    private fb: FormBuilder,
+    private http: HttpClient,
+    private router: Router,
+    private paymentService: PaymentService,
+    private web3Service: Web3Service,
+    private blockchainService: BlockchainService,
+    private authService: AuthService,
+    private snackBar: MatSnackBar,
+    private categorySchemaService: CategorySchemaService,
+  ) {}
+
   get isEnterprise(): boolean {
     return this.authService.getActiveRole() === 'enterprise';
   }
@@ -1690,6 +1853,9 @@ export class CreateMissionComponent implements OnInit {
   categories: Category[] = [];
   loadingCategories = false;
   selectedCategory: Category | null = null;
+  categorySchema: CategorySchema | null = null;
+  schemaLoading = false;
+  customData: Record<string, any> = {};
 
   // Category configuration mapping - supports partial slug matching
   private categoryConfigs: { [key: string]: CategoryConfig } = {
@@ -1817,6 +1983,10 @@ export class CreateMissionComponent implements OnInit {
     this.applyApiRules();
     this.updateFormForCategory();
     this.refreshDepositPreview();
+    // Load category schema for dynamic fields
+    if (this.selectedCategory?.slug) {
+      this.loadCategorySchema(this.selectedCategory.slug);
+    }
   }
 
   get apiRules(): CategoryRules | null {
@@ -2035,6 +2205,24 @@ export class CreateMissionComponent implements OnInit {
       }
     });
   }
+
+  loadCategorySchema(slug: string): void {
+    if (!slug) return;
+    this.schemaLoading = true;
+    this.categorySchemaService.getCategorySchema(slug).subscribe({
+      next: (schema) => {
+        this.categorySchema = schema;
+        this.customData = {}; // Reset custom data when category changes
+        this.schemaLoading = false;
+      },
+      error: (err) => {
+        console.error('Error loading category schema:', err);
+        this.categorySchema = null;
+        this.customData = {};
+        this.schemaLoading = false;
+      },
+    });
+  }
   
   createMission(): void {
     console.log('Creating mission...');
@@ -2135,7 +2323,9 @@ export class CreateMissionComponent implements OnInit {
       // Escrow fields
       escrow_enabled: true,
       escrow_amount: fees.escrowAmount,
-      platform_fee: fees.platformFee
+      platform_fee: fees.platformFee,
+      // Custom data from category schema
+      custom_data: this.customData
     };
 
     console.log('Creating mission with payment data:', missionData);
