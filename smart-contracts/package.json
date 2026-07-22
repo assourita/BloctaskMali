@@ -6,6 +6,7 @@
     "compile": "hardhat compile",
     "test": "hardhat test",
     "setup:env": "node scripts/setup-env.js",
+    "init:sepolia-wallet": "node scripts/init-sepolia-wallet.js",
     "deploy:local": "hardhat run scripts/deploy.js --network localhost",
     "deploy:sepolia": "hardhat run scripts/deploy.js --network sepolia",
     "deploy:sepolia:full": "npm run compile && npm run deploy:sepolia && npm run export-abi && node scripts/apply-config.js sepolia",

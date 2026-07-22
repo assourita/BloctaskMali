@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.*
+!.env.example
+cache/
+artifacts/
+coverage/
+coverage.json
+typechain/
+typechain-types/
+_wallet_tmp.json
+*.log

@@ -252,7 +252,10 @@ CELERY_TIMEZONE = TIME_ZONE
 
 # Blockchain Configuration
 BLOCKCHAIN_CONFIG = {
-    'ETHEREUM_RPC_URL': os.getenv('ETHEREUM_RPC_URL', 'https://sepolia.infura.io/v3/YOUR_KEY'),
+    'ETHEREUM_RPC_URL': os.getenv(
+        'ETHEREUM_RPC_URL',
+        'https://ethereum-sepolia-rpc.publicnode.com',
+    ),
     'ESCROW_CONTRACT_ADDRESS': os.getenv('ESCROW_CONTRACT_ADDRESS', ''),
     'REPUTATION_CONTRACT_ADDRESS': os.getenv('REPUTATION_CONTRACT_ADDRESS', ''),
     'LITIGATION_CONTRACT_ADDRESS': os.getenv('LITIGATION_CONTRACT_ADDRESS', ''),

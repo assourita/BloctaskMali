@@ -7,7 +7,7 @@ export const environment = {
   ethereum: {
     chainId: '0xaa36a7', // Sepolia
     chainName: 'Sepolia Test Network',
-    rpcUrl: 'https://sepolia.infura.io/v3/YOUR_INFURA_KEY',
+    rpcUrl: 'https://ethereum-sepolia-rpc.publicnode.com',
     explorerUrl: 'https://sepolia.etherscan.io',
     nativeCurrency: {
       name: 'SepoliaETH',
@@ -16,11 +16,11 @@ export const environment = {
     }
   },
   
-  // Adresses contrats (après déploiement — voir smart-contracts/README_MALI.md)
+  // Adresses contrats (après `npm run deploy:sepolia:full`)
   contracts: {
-    escrow: '0xd8b934580fcE35a11B58C6D73aDeE468a2833fa8',
-    reputation: '0xf8e81D47203A594245E36C48e151709F0C19fBe8',
-    litigation: '0xD7ACd2a9FD159E69Bb102A1ca21C9a3e3A5F771B'
+    escrow: '',
+    reputation: '',
+    litigation: ''
   },
   
   // Firebase

@@ -96,17 +96,18 @@ def record_provider_deposit(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def blockchain_status(request):
-    """État de la connexion blockchain et adresses des contrats."""
+    """État de la connexion blockchain et adresses des contrats (Sepolia)."""
     from django.conf import settings
     cfg = getattr(settings, 'BLOCKCHAIN_CONFIG', {})
     connected = blockchain_service.is_connected()
     chain_id = cfg.get('CHAIN_ID')
-    escrow_address = cfg.get('ESCROW_CONTRACT_ADDRESS', '')
-    reputation_address = cfg.get('REPUTATION_CONTRACT_ADDRESS', '')
-    litigation_address = cfg.get('LITIGATION_CONTRACT_ADDRESS', '')
+    escrow_address = cfg.get('ESCROW_CONTRACT_ADDRESS', '') or ''
+    reputation_address = cfg.get('REPUTATION_CONTRACT_ADDRESS', '') or ''
+    litigation_address = cfg.get('LITIGATION_CONTRACT_ADDRESS', '') or ''
 
     latest_block = None
     relayer_balance_wei = None
+    relayer_address = getattr(settings, 'BLOCKCHAIN_RELAYER_ADDRESS', '') or ''
     contracts_loaded = {
         'escrow': bool(getattr(blockchain_service, 'escrow_contract', None)),
         'reputation': bool(getattr(blockchain_service, 'reputation_contract', None)),
@@ -123,6 +124,7 @@ def blockchain_status(request):
             try:
                 from eth_account import Account
                 acct = Account.from_key(relayer_key)
+                relayer_address = acct.address
                 relayer_balance_wei = blockchain_service.web3.eth.get_balance(acct.address)
             except Exception:
                 relayer_balance_wei = None
@@ -141,11 +143,16 @@ def blockchain_status(request):
         'litigation_address': litigation_address,
         'contracts_loaded': contracts_loaded,
         'blockchain_enabled': escrow_service.is_blockchain_enabled(),
-        'relayer_balance_wei': relayer_balance_wei,
+        'relayer_address': relayer_address,
+        'relayer_balance_wei': str(relayer_balance_wei) if relayer_balance_wei is not None else None,
         'explorer_base_url': (
             'https://sepolia.etherscan.io' if chain_id == 11155111 else ''
         ),
         'deployment_ready': connected and all([escrow_address, reputation_address, litigation_address]),
+        'setup_hint': (
+            None if escrow_service.is_blockchain_enabled()
+            else 'Déployez via: cd smart-contracts && npm run deploy:sepolia:full'
+        ),
     })
 
 

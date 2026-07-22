@@ -81,6 +81,21 @@ services:
         value: "false"         # mettre true quand l'email sera configuré
       - key: EMAIL_BACKEND
         value: "django.core.mail.backends.console.EmailBackend"
+      # Blockchain Sepolia — renseigner après déploiement des contrats
+      - key: ETHEREUM_RPC_URL
+        sync: false
+      - key: CHAIN_ID
+        value: "11155111"
+      - key: ESCROW_CONTRACT_ADDRESS
+        sync: false
+      - key: REPUTATION_CONTRACT_ADDRESS
+        sync: false
+      - key: LITIGATION_CONTRACT_ADDRESS
+        sync: false
+      - key: BLOCKCHAIN_RELAYER_PRIVATE_KEY
+        sync: false
+      - key: BLOCKCHAIN_RELAYER_ADDRESS
+        sync: false
     healthCheckPath: /api/config/health/   # à créer si non existant
 
   # ── Frontend Angular (Static Site) ─────────────────────────────
