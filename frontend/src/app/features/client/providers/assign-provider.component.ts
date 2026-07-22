@@ -4,12 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { ActivatedRoute, RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatFormFieldModule } from '@angular/material/form-field';
-import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatCardModule } from '@angular/material/card';
 import { MatTabsModule } from '@angular/material/tabs';
 
 import {
@@ -32,8 +28,8 @@ import { AssignMissionDialogComponent } from '../../landing/assign-mission-dialo
   standalone: true,
   imports: [
     CommonModule, FormsModule, RouterModule,
-    MatButtonModule, MatIconModule, MatFormFieldModule, MatInputModule,
-    MatProgressSpinnerModule, MatDialogModule, MatChipsModule, MatCardModule,
+    MatButtonModule, MatIconModule,
+    MatProgressSpinnerModule, MatDialogModule,
     MatTabsModule,
   ],
   template: `
@@ -69,45 +65,51 @@ import { AssignMissionDialogComponent } from '../../landing/assign-mission-dialo
           </ng-template>
 
           <div class="tab-panel">
-            <mat-form-field appearance="outline" class="search-field">
-              <mat-label>Rechercher par nom, ville ou compétence</mat-label>
-              <mat-icon matPrefix>search</mat-icon>
-              <input matInput [(ngModel)]="providerFilter" (ngModelChange)="applyProviderFilter()" />
-            </mat-form-field>
+            <div class="search-bar">
+              <mat-icon>search</mat-icon>
+              <input
+                type="search"
+                placeholder="Rechercher par nom, ville ou compétence"
+                [(ngModel)]="providerFilter"
+                (ngModelChange)="applyProviderFilter()"
+              />
+            </div>
 
             <div class="loading" *ngIf="loadingProviders">
-              <mat-spinner diameter="40"></mat-spinner>
+              <mat-spinner diameter="36"></mat-spinner>
               <span>Chargement des prestataires…</span>
             </div>
 
             <div class="list" *ngIf="!loadingProviders">
-              <mat-card class="item-card" *ngFor="let p of filteredProviders; let i = index">
-                <div class="card-top">
-                  <div class="avatar-wrap" [style.background]="gradient(i)">
-                    <img *ngIf="p.profile_picture" [src]="p.profile_picture" [alt]="name(p)" />
-                    <span *ngIf="!p.profile_picture">{{ initial(p) }}</span>
+              <div class="row" *ngFor="let p of filteredProviders; let i = index">
+                <div class="avatar" [style.background]="gradient(i)">
+                  <img *ngIf="p.profile_picture" [src]="p.profile_picture" [alt]="name(p)" />
+                  <span *ngIf="!p.profile_picture">{{ initial(p) }}</span>
+                </div>
+                <div class="body">
+                  <div class="title-line">
+                    <span class="name">{{ name(p) }}</span>
+                    <mat-icon class="verified" *ngIf="p.identity_verified" title="Identité vérifiée">verified</mat-icon>
+                    <span class="city" *ngIf="p.city">· {{ p.city }}</span>
                   </div>
-                  <div class="info">
-                    <h3>
-                      {{ name(p) }}
-                      <mat-icon class="verified" *ngIf="p.identity_verified" title="Identité vérifiée">verified</mat-icon>
-                    </h3>
-                    <p class="meta"><mat-icon class="inline-star">star</mat-icon> {{ rating(p) }} · {{ p.completed_missions }} missions · {{ levelLabel(p.level) }}</p>
-                    <p class="city" *ngIf="p.city"><mat-icon>location_on</mat-icon> {{ p.city }}</p>
-                    <mat-chip-set *ngIf="p.skills?.length">
-                      <mat-chip *ngFor="let skill of p.skills.slice(0, 3)">{{ skill }}</mat-chip>
-                    </mat-chip-set>
+                  <div class="meta-line">
+                    <mat-icon class="star">star</mat-icon>
+                    <span>{{ rating(p) }}</span>
+                    <span class="dot">·</span>
+                    <span>{{ p.completed_missions }} missions</span>
+                    <span class="dot">·</span>
+                    <span>{{ levelLabel(p.level) }}</span>
+                    <ng-container *ngIf="p.skills?.length">
+                      <span class="dot">·</span>
+                      <span class="skills">{{ p.skills.slice(0, 3).join(', ') }}</span>
+                    </ng-container>
                   </div>
                 </div>
-                <div class="card-actions">
-                  <button mat-button (click)="openProviderProfile(p, i)">
-                    <mat-icon>person</mat-icon> Voir profil
-                  </button>
-                  <button mat-raised-button color="primary" (click)="assignToProvider(p)">
-                    <mat-icon>send</mat-icon> Attribuer une mission
-                  </button>
+                <div class="actions">
+                  <button type="button" class="btn-ghost" (click)="openProviderProfile(p, i)">Profil</button>
+                  <button type="button" class="btn-primary" (click)="assignToProvider(p)">Attribuer</button>
                 </div>
-              </mat-card>
+              </div>
 
               <div class="empty" *ngIf="!filteredProviders.length">
                 <mat-icon>person_search</mat-icon>
@@ -125,47 +127,47 @@ import { AssignMissionDialogComponent } from '../../landing/assign-mission-dialo
           </ng-template>
 
           <div class="tab-panel">
-            <mat-form-field appearance="outline" class="search-field">
-              <mat-label>Rechercher par nom ou ville</mat-label>
-              <mat-icon matPrefix>search</mat-icon>
-              <input matInput [(ngModel)]="enterpriseFilter" (ngModelChange)="applyEnterpriseFilter()" />
-            </mat-form-field>
+            <div class="search-bar">
+              <mat-icon>search</mat-icon>
+              <input
+                type="search"
+                placeholder="Rechercher par nom ou ville"
+                [(ngModel)]="enterpriseFilter"
+                (ngModelChange)="applyEnterpriseFilter()"
+              />
+            </div>
 
             <div class="loading" *ngIf="loadingEnterprises">
-              <mat-spinner diameter="40"></mat-spinner>
+              <mat-spinner diameter="36"></mat-spinner>
               <span>Chargement des entreprises…</span>
             </div>
 
             <div class="list" *ngIf="!loadingEnterprises">
-              <mat-card class="item-card enterprise-card" *ngFor="let e of filteredEnterprises">
-                <div class="card-top">
-                  <div class="logo-wrap">
-                    <img *ngIf="e.logo" [src]="e.logo" [alt]="enterpriseName(e)" />
-                    <mat-icon *ngIf="!e.logo">business</mat-icon>
+              <div class="row" *ngFor="let e of filteredEnterprises">
+                <div class="avatar logo">
+                  <img *ngIf="e.logo" [src]="e.logo" [alt]="enterpriseName(e)" />
+                  <mat-icon *ngIf="!e.logo">business</mat-icon>
+                </div>
+                <div class="body">
+                  <div class="title-line">
+                    <span class="name">{{ enterpriseName(e) }}</span>
+                    <mat-icon class="verified" *ngIf="e.is_verified" title="Entreprise vérifiée">verified</mat-icon>
+                    <span class="city">· {{ enterpriseCity(e) }}</span>
                   </div>
-                  <div class="info">
-                    <h3>
-                      {{ enterpriseName(e) }}
-                      <mat-icon class="verified enterprise" *ngIf="e.is_verified" title="Entreprise vérifiée">verified</mat-icon>
-                    </h3>
-                    <p class="meta">
+                  <div class="meta-line">
+                    <ng-container *ngIf="e.total_missions_posted || e.total_employees; else partner">
                       <span *ngIf="e.total_missions_posted">{{ e.total_missions_posted }} mission{{ e.total_missions_posted > 1 ? 's' : '' }}</span>
-                      <span *ngIf="e.total_missions_posted && e.total_employees"> · </span>
+                      <span class="dot" *ngIf="e.total_missions_posted && e.total_employees">·</span>
                       <span *ngIf="e.total_employees">{{ e.total_employees }} employé{{ e.total_employees > 1 ? 's' : '' }}</span>
-                      <span *ngIf="!e.total_missions_posted && !e.total_employees">Partenaire BlockTask</span>
-                    </p>
-                    <p class="city"><mat-icon>location_on</mat-icon> {{ enterpriseCity(e) }}</p>
+                    </ng-container>
+                    <ng-template #partner>Partenaire BlockTask</ng-template>
                   </div>
                 </div>
-                <div class="card-actions">
-                  <button mat-button (click)="openEnterpriseProfile(e)">
-                    <mat-icon>business</mat-icon> Voir profil
-                  </button>
-                  <button mat-raised-button class="enterprise-btn" (click)="assignToEnterprise(e)">
-                    <mat-icon>send</mat-icon> Solliciter
-                  </button>
+                <div class="actions">
+                  <button type="button" class="btn-ghost" (click)="openEnterpriseProfile(e)">Profil</button>
+                  <button type="button" class="btn-primary" (click)="assignToEnterprise(e)">Solliciter</button>
                 </div>
-              </mat-card>
+              </div>
 
               <div class="empty" *ngIf="!filteredEnterprises.length">
                 <mat-icon>business_center</mat-icon>
@@ -179,9 +181,9 @@ import { AssignMissionDialogComponent } from '../../landing/assign-mission-dialo
   `,
   styles: [`
     .page {
-      max-width: 960px;
+      max-width: 920px;
       margin: 0 auto;
-      padding: 24px;
+      padding: 20px 20px 40px;
     }
 
     .page-header {
@@ -190,26 +192,25 @@ import { AssignMissionDialogComponent } from '../../landing/assign-mission-dialo
       align-items: flex-start;
       gap: 16px;
       flex-wrap: wrap;
-      margin-bottom: 24px;
+      margin-bottom: 16px;
     }
 
     .page-header h1 {
       display: flex;
       align-items: center;
-      gap: 10px;
-      margin: 0 0 6px;
-      font-size: 26px;
+      gap: 8px;
+      margin: 0 0 4px;
+      font-size: 22px;
+      font-weight: 700;
       color: #0f172a;
     }
 
     .page-header p {
       margin: 0;
       color: #64748b;
-      max-width: 560px;
-    }
-
-    .assign-tabs ::ng-deep .mat-mdc-tab-labels {
-      margin-bottom: 8px;
+      font-size: 14px;
+      max-width: 520px;
+      line-height: 1.45;
     }
 
     .assign-tabs ::ng-deep .mat-mdc-tab .mdc-tab__text-label {
@@ -220,212 +221,254 @@ import { AssignMissionDialogComponent } from '../../landing/assign-mission-dialo
 
     .tab-count {
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
       background: #e2e8f0;
       color: #475569;
       padding: 1px 7px;
-      border-radius: 10px;
-      margin-left: 2px;
+      border-radius: 999px;
     }
 
     .tab-panel {
-      padding-top: 8px;
+      padding-top: 12px;
     }
 
-    .search-field {
-      width: 100%;
-      margin-bottom: 20px;
+    .search-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 42px;
+      padding: 0 12px;
+      margin-bottom: 12px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      background: #fff;
+    }
+
+    .search-bar mat-icon {
+      color: #94a3b8;
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    .search-bar input {
+      flex: 1;
+      border: 0;
+      outline: none;
+      background: transparent;
+      font-size: 14px;
+      color: #0f172a;
     }
 
     .loading {
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 12px;
-      padding: 48px;
+      gap: 10px;
+      padding: 40px;
       color: #64748b;
+      font-size: 14px;
     }
 
     .list {
       display: flex;
       flex-direction: column;
-      gap: 10px;
-    }
-
-    .item-card {
-      padding: 14px 16px;
-      border-radius: 12px;
       border: 1px solid #e2e8f0;
-      display: flex;
+      border-radius: 12px;
+      overflow: hidden;
+      background: #fff;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 40px minmax(0, 1fr) auto;
       align-items: center;
-      justify-content: space-between;
-      gap: 16px;
-      flex-wrap: wrap;
+      gap: 12px;
+      padding: 10px 12px;
+      border-bottom: 1px solid #f1f5f9;
+      min-height: 56px;
     }
 
-    .card-top {
-      display: flex;
-      gap: 14px;
-      align-items: flex-start;
-      flex: 1;
-      min-width: 220px;
-      margin-bottom: 0;
+    .row:last-child {
+      border-bottom: 0;
     }
 
-    .avatar-wrap, .logo-wrap {
-      width: 52px;
-      height: 52px;
+    .row:hover {
+      background: #f8fafc;
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
       border-radius: 50%;
-      flex-shrink: 0;
       display: flex;
       align-items: center;
       justify-content: center;
       overflow: hidden;
+      color: #fff;
+      font-weight: 700;
+      font-size: 13px;
+      flex-shrink: 0;
     }
 
-    .logo-wrap {
-      border-radius: 12px;
-      background: #ede9fe;
-      color: #7c3aed;
+    .avatar.logo {
+      border-radius: 10px;
+      background: #ecfdf3;
+      color: #16a34a;
     }
 
-    .logo-wrap mat-icon {
-      font-size: 26px;
-      width: 26px;
-      height: 26px;
+    .avatar.logo mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
     }
 
-    .logo-wrap img, .avatar-wrap img {
+    .avatar img {
       width: 100%;
       height: 100%;
       object-fit: cover;
     }
 
-    .avatar-wrap {
-      color: white;
-      font-weight: 700;
-      font-size: 18px;
-    }
-
-    .info {
+    .body {
       min-width: 0;
-      flex: 1;
     }
 
-    .info h3 {
-      margin: 0 0 2px;
-      font-size: 1rem;
+    .title-line {
       display: flex;
       align-items: center;
-      gap: 6px;
-      line-height: 1.3;
+      gap: 4px;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .name {
+      font-size: 14px;
+      font-weight: 700;
+      color: #0f172a;
     }
 
     .verified {
-      color: #3CB371;
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
-    }
-
-    .verified.enterprise {
-      color: #7c3aed;
-    }
-
-    .meta, .city {
-      margin: 0 0 4px;
-      font-size: 13px;
-      color: #64748b;
-      display: flex;
-      align-items: center;
-      gap: 4px;
-      flex-wrap: wrap;
-    }
-
-    .inline-star {
-      font-size: 14px !important;
-      width: 14px !important;
-      height: 14px !important;
-      color: #f59e0b;
-    }
-
-    .city mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-    }
-
-    .info ::ng-deep .mat-mdc-chip-set {
-      margin-top: 4px;
-    }
-
-    .info ::ng-deep .mdc-evolution-chip-set__chips {
-      gap: 4px;
-    }
-
-    .info ::ng-deep .mat-mdc-chip {
-      font-size: 11px;
-      min-height: 24px;
-      text-transform: capitalize;
-    }
-
-    .card-actions {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-      border-top: none;
-      padding-top: 0;
-      margin-left: auto;
+      color: #16a34a;
+      font-size: 15px !important;
+      width: 15px !important;
+      height: 15px !important;
       flex-shrink: 0;
     }
 
-    .enterprise-btn {
-      background: #7c3aed !important;
-      color: white !important;
+    .city {
+      color: #64748b;
+      font-size: 13px;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
-    @media (max-width: 700px) {
-      .item-card {
-        flex-direction: column;
-        align-items: stretch;
-      }
-      .card-actions {
-        width: 100%;
-        justify-content: stretch;
-        border-top: 1px solid #f1f5f9;
-        padding-top: 12px;
-      }
-      .card-actions button {
-        flex: 1;
-      }
+    .meta-line {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 2px;
+      font-size: 12px;
+      color: #64748b;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .star {
+      color: #f59e0b;
+      font-size: 13px !important;
+      width: 13px !important;
+      height: 13px !important;
+    }
+
+    .dot {
+      color: #cbd5e1;
+    }
+
+    .skills {
+      text-transform: capitalize;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
+
+    .btn-ghost,
+    .btn-primary {
+      height: 32px;
+      padding: 0 12px;
+      border-radius: 8px;
+      border: 0;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+
+    .btn-ghost {
+      background: transparent;
+      color: #475569;
+    }
+
+    .btn-ghost:hover {
+      background: #f1f5f9;
+    }
+
+    .btn-primary {
+      background: #16a34a;
+      color: #fff;
+    }
+
+    .btn-primary:hover {
+      background: #15803d;
     }
 
     .empty {
       text-align: center;
-      padding: 48px 16px;
+      padding: 36px 16px;
       color: #94a3b8;
+      border: 0;
     }
 
     .empty mat-icon {
-      font-size: 48px;
-      width: 48px;
-      height: 48px;
-      margin-bottom: 8px;
+      font-size: 40px;
+      width: 40px;
+      height: 40px;
+      margin-bottom: 6px;
     }
 
     .mission-banner {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 12px 16px;
-      margin-bottom: 16px;
+      padding: 10px 14px;
+      margin-bottom: 12px;
       border-radius: 10px;
       background: #ecfdf3;
       color: #065f46;
-      font-size: 14px;
+      font-size: 13px;
       border: 1px solid #bbf7d0;
+    }
+
+    @media (max-width: 640px) {
+      .row {
+        grid-template-columns: 40px minmax(0, 1fr);
+        grid-template-rows: auto auto;
+      }
+
+      .actions {
+        grid-column: 1 / -1;
+        justify-content: flex-end;
+        padding-top: 2px;
+      }
     }
   `]
 })
