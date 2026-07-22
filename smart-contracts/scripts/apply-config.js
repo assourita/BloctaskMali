@@ -128,10 +128,15 @@ patchFrontendEnv(
   path.join(root, "frontend", "src", "environments", "environment.ts"),
   "frontend environment.ts",
 );
-patchFrontendEnv(
-  path.join(root, "frontend", "src", "environments", "environment.prod.ts"),
-  "frontend environment.prod.ts",
-);
+// Ne jamais pousser des adresses Remix VM dans la config production
+if (network !== "remix-vm") {
+  patchFrontendEnv(
+    path.join(root, "frontend", "src", "environments", "environment.prod.ts"),
+    "frontend environment.prod.ts",
+  );
+} else {
+  console.log("ℹ️  remix-vm : environment.prod.ts non modifié (Render reste sans adresses VM)");
+}
 
 const scEnvPath = path.join(__dirname, "..", ".env");
 if (fs.existsSync(scEnvPath)) {

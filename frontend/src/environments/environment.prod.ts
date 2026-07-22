@@ -16,11 +16,11 @@ export const environment = {
     }
   },
 
-  // Remplies après `npm run deploy:sepolia:full` (ou via API /escrow/blockchain/status/)
+  // Remplies après déploiement Sepolia (Remix MetaMask ou Hardhat) — pas Remix VM
   contracts: {
-    escrow: '',
-    reputation: '',
-    litigation: ''
+    escrow: '0x65412089E7242e8d4Ef627c3ff408B000675112d',
+    reputation: '0x6Dda046F34E1Fef33210a5fEA25a0B22E50ed8E7',
+    litigation: '0x40Ed2a277dAF12Da6bec5af312D0e68897dEd417'
   },
 
   firebase: {

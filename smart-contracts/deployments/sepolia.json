@@ -1,0 +1,24 @@
+{
+  "network": "sepolia",
+  "chainId": 11155111,
+  "deployer": "",
+  "timestamp": "2026-07-22T15:42:20.828Z",
+  "note": "Déployé via Remix + MetaMask sur Sepolia",
+  "contracts": {
+    "EscrowContract": {
+      "address": "0x65412089E7242e8d4Ef627c3ff408B000675112d",
+      "envKey": "ESCROW_CONTRACT_ADDRESS"
+    },
+    "ReputationContract": {
+      "address": "0x6Dda046F34E1Fef33210a5fEA25a0B22E50ed8E7",
+      "envKey": "REPUTATION_CONTRACT_ADDRESS"
+    },
+    "LitigationContract": {
+      "address": "0x40Ed2a277dAF12Da6bec5af312D0e68897dEd417",
+      "envKey": "LITIGATION_CONTRACT_ADDRESS",
+      "constructorArgs": [
+        "0x65412089E7242e8d4Ef627c3ff408B000675112d"
+      ]
+    }
+  }
+}

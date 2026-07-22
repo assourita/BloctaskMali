@@ -1,6 +1,6 @@
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 
 from apps.missions.models import Mission
@@ -94,9 +94,9 @@ def record_provider_deposit(request):
 
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([AllowAny])
 def blockchain_status(request):
-    """État de la connexion blockchain et adresses des contrats (Sepolia)."""
+    """État de la connexion blockchain et adresses des contrats (Sepolia). Public pour le diagnostic."""
     from django.conf import settings
     cfg = getattr(settings, 'BLOCKCHAIN_CONFIG', {})
     connected = blockchain_service.is_connected()
