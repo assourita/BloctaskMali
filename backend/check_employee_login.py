@@ -11,7 +11,7 @@ sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 django.setup()
 
 from django.contrib.auth import get_user_model
-from apps.users.models import Employee
+from apps.users.employee_helpers import primary_employee
 
 User = get_user_model()
 
@@ -42,8 +42,8 @@ def check_employee_login_issue():
             print(f"  - Hash du mot de passe: {user.password[:20]}...")
         
         # Vérifier si c'est un employé
-        try:
-            employee = user.employee_profile
+        employee = primary_employee(user)
+        if employee:
             print(f"\n👷 PROFIL EMPLOYÉ:")
             print(f"  - Employee ID: {employee.id}")
             print(f"  - Entreprise: {employee.enterprise.company_name}")
@@ -51,7 +51,7 @@ def check_employee_login_issue():
             print(f"  - Actif: {employee.is_active}")
             print(f"  - Email employé: {employee.email}")
             print(f"  - Téléphone: {employee.phone}")
-        except Employee.DoesNotExist:
+        else:
             print(f"\n❌ PAS DE PROFIL EMPLOYÉ TROUVÉ")
         
         # Tester quelques mots de passe courants

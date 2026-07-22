@@ -6,6 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
+import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSliderModule } from '@angular/material/slider';
 import { Observable } from 'rxjs';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
@@ -14,6 +15,11 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AuthService, User } from '../../../core/services/auth.service';
 import { MissionService, Mission } from '../../../core/services/mission.service';
 import { PaymentMethodFlowService } from '../../../core/services/payment-method-flow.service';
+import {
+  EnterpriseService,
+  EnterpriseInvite,
+  ProviderEnterpriseMembership,
+} from '../../../core/services/enterprise.service';
 import { formatXOF, DEFAULT_MAP_CENTER } from '../../../core/constants/africa.constants';
 import { environment } from '../../../../environments/environment';
 
@@ -28,6 +34,7 @@ import { environment } from '../../../../environments/environment';
     MatIconModule,
     MatChipsModule,
     MatProgressBarModule,
+    MatProgressSpinnerModule,
     MatSliderModule,
     MatSnackBarModule,
     MatDialogModule,
@@ -39,6 +46,25 @@ import { environment } from '../../../../environments/environment';
         <h1>Bonjour {{ (currentUser$ | async)?.first_name || 'Prestataire' }} !</h1>
         <p>Prêt à trouver de nouvelles missions sur BlockTask ?</p>
       </div>
+
+      <div class="work-mode-toggle">
+        <button
+          mat-stroked-button
+          [class.active]="workMode === 'independent'"
+          (click)="workMode = 'independent'"
+        >
+          Indépendant
+        </button>
+        <button
+          mat-stroked-button
+          [class.active]="workMode === 'enterprises'"
+          (click)="workMode = 'enterprises'"
+        >
+          Mes entreprises
+        </button>
+      </div>
+
+      <ng-container *ngIf="workMode === 'independent'">
       
       <!-- Earnings Card -->
       <mat-card class="earnings-card">
@@ -225,11 +251,62 @@ import { environment } from '../../../../environments/environment';
           </div>
         </mat-card-content>
       </mat-card>
+      </ng-container>
+
+      <ng-container *ngIf="workMode === 'enterprises'">
+        <div class="enterprises-section">
+          <mat-card *ngFor="let inv of pendingEnterpriseInvites" class="invite-banner">
+            <div class="invite-banner-content">
+              <mat-icon>business</mat-icon>
+              <div>
+                <strong>{{ inv.enterprise_name }}</strong> vous invite à rejoindre son équipe
+                <span class="invite-meta" *ngIf="inv.position"> · {{ inv.position }}</span>
+                <span class="invite-meta" *ngIf="inv.message"> — « {{ inv.message }} »</span>
+              </div>
+            </div>
+            <div class="invite-actions">
+              <button mat-raised-button class="accept-btn" (click)="acceptInvite(inv)" [disabled]="inviteActionId === inv.id">
+                Accepter
+              </button>
+              <button mat-stroked-button color="warn" (click)="rejectInvite(inv)" [disabled]="inviteActionId === inv.id">
+                Refuser
+              </button>
+            </div>
+          </mat-card>
+
+          <p class="enterprises-hint">
+            <mat-icon>info</mat-icon>
+            Les missions assignées par une entreprise apparaissent dans <strong>Mes missions</strong>.
+          </p>
+
+          <div class="loading" *ngIf="enterprisesLoading"><mat-spinner diameter="36"></mat-spinner></div>
+
+          <div *ngIf="!enterprisesLoading">
+            <mat-card class="enterprise-card" *ngFor="let m of enterpriseMemberships">
+              <div class="enterprise-info">
+                <mat-icon>domain</mat-icon>
+                <div>
+                  <h3>{{ m.enterprise_name }}</h3>
+                  <p>{{ m.position || m.role }} · {{ m.is_active ? 'Actif' : 'Inactif' }}</p>
+                  <span class="hired-at" *ngIf="m.hired_at">Membre depuis {{ m.hired_at | date:'mediumDate' }}</span>
+                </div>
+              </div>
+              <mat-chip [class]="m.is_active ? 'active-chip' : 'inactive-chip'">
+                {{ m.is_active ? 'Lié' : 'Inactif' }}
+              </mat-chip>
+            </mat-card>
+            <p class="empty-enterprises" *ngIf="!enterpriseMemberships.length && !pendingEnterpriseInvites.length">
+              Aucune entreprise liée pour le moment.
+            </p>
+          </div>
+        </div>
+      </ng-container>
     </div>
   `,
   styles: [`
     .dashboard-container {
       padding: 24px;
+      padding-bottom: 48px;
       display: flex;
       flex-direction: column;
       gap: 24px;
@@ -257,7 +334,124 @@ import { environment } from '../../../../environments/environment';
       }
     }
 
+    .work-mode-toggle {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 8px;
+
+      button {
+        border-radius: 999px;
+        font-weight: 500;
+      }
+
+      button.active {
+        background: #16a34a;
+        border-color: #16a34a;
+        color: #fff;
+      }
+    }
+
+    .enterprises-section {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .invite-banner {
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+      flex-wrap: wrap;
+      border-left: 4px solid #16a34a;
+      background: #f0fdf4;
+    }
+
+    .invite-banner-content {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      flex: 1;
+      min-width: 200px;
+
+      mat-icon { color: #16a34a; margin-top: 2px; }
+      .invite-meta { font-size: 13px; color: #6b7280; }
+    }
+
+    .invite-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .accept-btn {
+      background: #16a34a !important;
+      color: #fff !important;
+    }
+
+    .enterprises-hint {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 0;
+      padding: 12px 16px;
+      background: #eff6ff;
+      border-radius: 8px;
+      font-size: 14px;
+      color: #374151;
+
+      mat-icon { font-size: 20px; width: 20px; height: 20px; color: #2563eb; }
+    }
+
+    .loading {
+      display: flex;
+      justify-content: center;
+      padding: 40px;
+    }
+
+    .enterprise-card {
+      padding: 20px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 16px;
+    }
+
+    .enterprise-info {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+
+      mat-icon { color: #16a34a; margin-top: 2px; }
+      h3 { margin: 0 0 4px; font-size: 16px; }
+      p { margin: 0; font-size: 13px; color: #6b7280; }
+      .hired-at { display: block; font-size: 12px; color: #9ca3af; margin-top: 4px; }
+    }
+
+    mat-chip.active-chip { background: #d1fae5 !important; color: #065f46 !important; }
+    mat-chip.inactive-chip { background: #f3f4f6 !important; color: #6b7280 !important; }
+
+    .empty-enterprises {
+      text-align: center;
+      color: #9ca3af;
+      padding: 40px;
+      margin: 0;
+    }
+
     .earnings-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 1rem;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
+
+      &:hover {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+        transform: translateY(-2px);
+      }
+
       .earnings-header {
         display: flex;
         justify-content: space-between;
@@ -356,6 +550,17 @@ import { environment } from '../../../../environments/environment';
     }
 
     .availability-card {
+      border: 1px solid #e5e7eb;
+      border-radius: 1rem;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      transition: box-shadow 0.2s ease, transform 0.2s ease;
+
+      &:hover {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+        transform: translateY(-2px);
+      }
+
       .availability-content {
         display: flex;
         justify-content: space-between;
@@ -580,6 +785,11 @@ import { environment } from '../../../../environments/environment';
     }
 
     @media (max-width: 768px) {
+      .dashboard-container {
+        padding: 16px;
+        padding-bottom: 40px;
+      }
+
       .earnings-card .earnings-header {
         flex-direction: column;
         gap: 24px;
@@ -600,6 +810,12 @@ import { environment } from '../../../../environments/environment';
 
       .performance-card .performance-grid {
         grid-template-columns: repeat(2, 1fr);
+      }
+    }
+
+    @media (max-width: 480px) {
+      .performance-card .performance-grid {
+        grid-template-columns: 1fr;
       }
     }
   `]
@@ -649,10 +865,17 @@ export class ProviderDashboardComponent implements OnInit {
   weeklyMissions = 0;
   avgCompletionTime = 2.5;
   satisfactionRate = 98;
+
+  workMode: 'independent' | 'enterprises' = 'independent';
+  pendingEnterpriseInvites: EnterpriseInvite[] = [];
+  enterpriseMemberships: ProviderEnterpriseMembership[] = [];
+  enterprisesLoading = false;
+  inviteActionId: string | null = null;
   
   constructor(
     private authService: AuthService,
     private missionService: MissionService,
+    private enterpriseService: EnterpriseService,
     private http: HttpClient,
     private snackBar: MatSnackBar,
     private dialog: MatDialog,
@@ -664,6 +887,53 @@ export class ProviderDashboardComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadDashboard();
+    this.loadEnterpriseData();
+  }
+
+  loadEnterpriseData(): void {
+    this.enterprisesLoading = true;
+    this.enterpriseService.getMyEnterpriseInvites().subscribe({
+      next: (invites) => {
+        this.pendingEnterpriseInvites = invites.filter((i) => i.status === 'pending');
+      },
+    });
+    this.enterpriseService.getMyEnterprises().subscribe({
+      next: (memberships) => {
+        this.enterpriseMemberships = memberships;
+        this.enterprisesLoading = false;
+      },
+      error: () => { this.enterprisesLoading = false; },
+    });
+  }
+
+  acceptInvite(inv: EnterpriseInvite): void {
+    this.inviteActionId = inv.id;
+    this.enterpriseService.acceptEnterpriseInvite(inv.id).subscribe({
+      next: () => {
+        this.inviteActionId = null;
+        this.snackBar.open(`Vous avez rejoint ${inv.enterprise_name}`, 'Fermer', { duration: 4000 });
+        this.loadEnterpriseData();
+      },
+      error: (err) => {
+        this.inviteActionId = null;
+        this.snackBar.open(err.error?.detail || 'Erreur acceptation', 'Fermer', { duration: 4000 });
+      },
+    });
+  }
+
+  rejectInvite(inv: EnterpriseInvite): void {
+    this.inviteActionId = inv.id;
+    this.enterpriseService.rejectEnterpriseInvite(inv.id).subscribe({
+      next: () => {
+        this.inviteActionId = null;
+        this.snackBar.open('Invitation refusée', 'Fermer', { duration: 3000 });
+        this.loadEnterpriseData();
+      },
+      error: (err) => {
+        this.inviteActionId = null;
+        this.snackBar.open(err.error?.detail || 'Erreur', 'Fermer', { duration: 4000 });
+      },
+    });
   }
 
   private headers(): HttpHeaders {

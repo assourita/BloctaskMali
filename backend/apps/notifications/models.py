@@ -41,6 +41,10 @@ class Notification(models.Model):
         
         GPS_LOCATION = 'gps_location', 'Mise à jour GPS'
         MISSION_REMINDER = 'mission_reminder', 'Rappel mission'
+
+        ENTERPRISE_INVITE = 'enterprise_invite', 'Invitation entreprise'
+        ENTERPRISE_INVITE_ACCEPTED = 'enterprise_invite_accepted', 'Invitation acceptée'
+        MISSION_ASSIGNED = 'mission_assigned', 'Mission assignée'
     
     class Priority(models.TextChoices):
         LOW = 'low', 'Basse'

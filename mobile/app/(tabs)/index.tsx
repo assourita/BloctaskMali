@@ -3,21 +3,32 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import { getMyMissions, getStats } from '../../src/api/missions';
-import { getEnterpriseProfile } from '../../src/api/enterprise';
+import {
+  acceptEnterpriseInvite,
+  getEnterpriseProfile,
+  getMyEnterpriseInvites,
+  getMyEnterprises,
+  rejectEnterpriseInvite,
+  type EnterpriseInvite,
+  type ProviderEnterpriseMembership,
+} from '../../src/api/enterprise';
 import { getProviderProfile } from '../../src/api/deposits';
 import { getMyReputation } from '../../src/api/reputation';
 import { toggleAvailability } from '../../src/api/profile';
 import { useScreenLoad } from '../../src/utils/useScreenLoad';
 import { AppLayout } from '../../src/components/layout/AppLayout';
-import { WelcomeBanner, StatGrid, SoftCard } from '../../src/components/widgets';
+import { WelcomeBanner, StatGrid, SoftCard, TabBar } from '../../src/components/widgets';
 import { ProviderEarningsCard, AvailabilityCard } from '../../src/components/providerWidgets';
 import { MissionCard } from '../../src/components/MissionCard';
 import { Loader } from '../../src/components/ui';
+import { PrimaryButton, SecondaryButton } from '../../src/components/buttons';
 import { formatXOF } from '../../src/constants/africa';
 import { colors, spacing } from '../../src/constants/theme';
 import type { Mission, MissionStats } from '../../src/types';
 
 const ACTIVE_STATUSES = ['funded', 'published', 'accepted', 'in_progress', 'submitted'];
+
+type ProviderWorkMode = 'independent' | 'enterprises';
 
 export default function DashboardScreen() {
   const { user, activeRole, refreshProfile } = useAuth();
@@ -30,6 +41,10 @@ export default function DashboardScreen() {
   const [enterpriseDeposit, setEnterpriseDeposit] = useState(0);
   const [employeeCount, setEmployeeCount] = useState(0);
   const [togglingAvail, setTogglingAvail] = useState(false);
+  const [workMode, setWorkMode] = useState<ProviderWorkMode>('independent');
+  const [myInvites, setMyInvites] = useState<EnterpriseInvite[]>([]);
+  const [myEnterprises, setMyEnterprises] = useState<ProviderEnterpriseMembership[]>([]);
+  const [inviteBusyId, setInviteBusyId] = useState<string | null>(null);
 
   const loadData = useCallback(async () => {
     try {
@@ -37,12 +52,16 @@ export default function DashboardScreen() {
       setStats(s);
       setMissions(m);
       if (isProvider) {
-        const [profile, rep] = await Promise.all([
+        const [profile, rep, invites, memberships] = await Promise.all([
           getProviderProfile(),
           getMyReputation().catch(() => null),
+          getMyEnterpriseInvites().catch(() => [] as EnterpriseInvite[]),
+          getMyEnterprises().catch(() => [] as ProviderEnterpriseMembership[]),
         ]);
         setIsAvailable(profile?.is_available !== false);
         setAvgRating(rep?.average_rating ?? 0);
+        setMyInvites(invites.filter((i) => i.status === 'pending'));
+        setMyEnterprises(memberships.filter((x) => x.is_active));
       }
       if (isEnterprise) {
         const ep = await getEnterpriseProfile();
@@ -75,8 +94,27 @@ export default function DashboardScreen() {
     }
   };
 
+  const respondInvite = async (id: string, accept: boolean) => {
+    setInviteBusyId(id);
+    try {
+      if (accept) {
+        await acceptEnterpriseInvite(id);
+        Alert.alert('Bienvenue', 'Vous êtes maintenant lié à cette entreprise.');
+      } else {
+        await rejectEnterpriseInvite(id);
+      }
+      await reload();
+    } catch {
+      Alert.alert('Erreur', accept ? 'Acceptation impossible' : 'Refus impossible');
+    } finally {
+      setInviteBusyId(null);
+    }
+  };
+
   const providerSubtitle = isProvider
-    ? 'Prêt à trouver de nouvelles missions sur BlockTask ?'
+    ? workMode === 'enterprises'
+      ? 'Gérez vos liens entreprises et invitations.'
+      : 'Prêt à trouver de nouvelles missions sur BlockTask ?'
     : undefined;
 
   return (
@@ -97,48 +135,124 @@ export default function DashboardScreen() {
         <Loader />
       ) : isProvider ? (
         <>
-          <ProviderEarningsCard
-            totalEarned={stats?.total_earned ?? 0}
-            completedMissions={stats?.completed_missions ?? 0}
-            averageRating={avgRating || 4.5}
-            responseTime="1.5h"
-            level={stats?.level}
-            reputationScore={stats?.reputation_score}
+          <TabBar
+            value={workMode}
+            onChange={(id) => setWorkMode(id as ProviderWorkMode)}
+            tabs={[
+              { id: 'independent', label: 'Indépendant' },
+              {
+                id: 'enterprises',
+                label: 'Entreprises',
+                count: myInvites.length > 0 ? myInvites.length : myEnterprises.length || undefined,
+              },
+            ]}
           />
 
-          <AvailabilityCard
-            isAvailable={isAvailable}
-            loading={togglingAvail}
-            onToggle={handleToggleAvail}
-          />
+          {workMode === 'independent' ? (
+            <>
+              <ProviderEarningsCard
+                totalEarned={stats?.total_earned ?? 0}
+                completedMissions={stats?.completed_missions ?? 0}
+                averageRating={avgRating || 4.5}
+                responseTime="1.5h"
+                level={stats?.level}
+                reputationScore={stats?.reputation_score}
+              />
 
-          <View style={styles.actions}>
-            <ActionBtn label="Trouver des missions" onPress={() => router.push('/(tabs)/available')} primary />
-            <ActionBtn label="Ma caution" onPress={() => router.push('/deposit')} />
-          </View>
-          <View style={styles.actions}>
-            <ActionBtn label="Ma réputation" onPress={() => router.push('/reputation')} />
-            <ActionBtn label="Mes missions" onPress={() => router.push('/(tabs)/missions')} />
-          </View>
+              <AvailabilityCard
+                isAvailable={isAvailable}
+                loading={togglingAvail}
+                onToggle={handleToggleAvail}
+              />
 
-          <SoftCard>
-            <View style={styles.sectionHead}>
-              <Text style={styles.sectionTitle}>Mission en cours</Text>
-              <Pressable onPress={() => router.push('/(tabs)/missions')}>
-                <Text style={styles.link}>Voir tout</Text>
-              </Pressable>
-            </View>
-            {ongoing.length === 0 ? (
-              <View style={styles.emptyBox}>
-                <Text style={styles.empty}>Aucune mission en cours</Text>
-                <Pressable style={styles.cta} onPress={() => router.push('/(tabs)/available')}>
-                  <Text style={styles.ctaText}>Trouver des missions</Text>
-                </Pressable>
+              <View style={styles.actions}>
+                <ActionBtn label="Trouver des missions" onPress={() => router.push('/(tabs)/available')} primary />
+                <ActionBtn label="Ma caution" onPress={() => router.push('/deposit')} />
               </View>
-            ) : (
-              ongoing.map((m) => <MissionCard key={m.id} mission={m} showActions onChanged={reload} />)
-            )}
-          </SoftCard>
+              <View style={styles.actions}>
+                <ActionBtn label="Ma réputation" onPress={() => router.push('/reputation')} />
+                <ActionBtn label="Mes missions" onPress={() => router.push('/(tabs)/missions')} />
+              </View>
+
+              <SoftCard>
+                <View style={styles.sectionHead}>
+                  <Text style={styles.sectionTitle}>Mission en cours</Text>
+                  <Pressable onPress={() => router.push('/(tabs)/missions')}>
+                    <Text style={styles.link}>Voir tout</Text>
+                  </Pressable>
+                </View>
+                {ongoing.length === 0 ? (
+                  <View style={styles.emptyBox}>
+                    <Text style={styles.empty}>Aucune mission en cours</Text>
+                    <Pressable style={styles.cta} onPress={() => router.push('/(tabs)/available')}>
+                      <Text style={styles.ctaText}>Trouver des missions</Text>
+                    </Pressable>
+                  </View>
+                ) : (
+                  ongoing.map((m) => <MissionCard key={m.id} mission={m} showActions onChanged={reload} />)
+                )}
+              </SoftCard>
+            </>
+          ) : (
+            <>
+              {myInvites.length > 0 && (
+                <SoftCard style={{ marginBottom: spacing.md }}>
+                  <Text style={styles.sectionTitle}>Invitations en attente</Text>
+                  {myInvites.map((inv) => (
+                    <View key={inv.id} style={styles.inviteBlock}>
+                      <Text style={styles.inviteTitle}>{inv.enterprise_name}</Text>
+                      <Text style={styles.enterpriseMeta}>
+                        {inv.position || inv.role}
+                        {inv.message ? ` · ${inv.message}` : ''}
+                      </Text>
+                      <View style={styles.inviteActions}>
+                        <View style={{ flex: 1 }}>
+                          <PrimaryButton
+                            label="Accepter"
+                            loading={inviteBusyId === inv.id}
+                            onPress={() => respondInvite(inv.id, true)}
+                          />
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <SecondaryButton
+                            label="Refuser"
+                            onPress={() => respondInvite(inv.id, false)}
+                          />
+                        </View>
+                      </View>
+                    </View>
+                  ))}
+                </SoftCard>
+              )}
+
+              <SoftCard>
+                <Text style={styles.sectionTitle}>Mes entreprises</Text>
+                {myEnterprises.length === 0 ? (
+                  <Text style={[styles.empty, { marginTop: spacing.sm }]}>
+                    Aucune entreprise liée pour le moment.
+                  </Text>
+                ) : (
+                  myEnterprises.map((m) => (
+                    <View key={m.id} style={styles.membershipRow}>
+                      <Text style={styles.inviteTitle}>{m.enterprise_name}</Text>
+                      <Text style={styles.enterpriseMeta}>
+                        {m.position || m.role}
+                        {m.hired_at
+                          ? ` · depuis ${new Date(m.hired_at).toLocaleDateString('fr-FR')}`
+                          : ''}
+                      </Text>
+                    </View>
+                  ))
+                )}
+                <Text style={[styles.enterpriseMeta, { marginTop: spacing.md }]}>
+                  Les missions assignées via une entreprise apparaissent dans Mes missions.
+                </Text>
+                <Pressable style={[styles.cta, { alignSelf: 'flex-start' }]} onPress={() => router.push('/(tabs)/missions')}>
+                  <Text style={styles.ctaText}>Voir mes missions</Text>
+                </Pressable>
+              </SoftCard>
+            </>
+          )}
         </>
       ) : (
         <>
@@ -222,6 +336,10 @@ const styles = StyleSheet.create({
   cta: { marginTop: spacing.md, backgroundColor: colors.primary, paddingHorizontal: spacing.lg, paddingVertical: 12, borderRadius: 10 },
   ctaText: { color: '#fff', fontWeight: '700' },
   enterpriseMeta: { color: colors.textMuted, fontSize: 13, marginTop: 4 },
+  inviteBlock: { marginTop: spacing.md, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
+  inviteTitle: { fontWeight: '700', color: colors.text, fontSize: 15 },
+  inviteActions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
+  membershipRow: { marginTop: spacing.md },
   onboarding: {
     backgroundColor: colors.warningLight, borderRadius: 14, padding: spacing.md,
     marginBottom: spacing.md, borderWidth: 1, borderColor: '#f59e0b',

@@ -39,7 +39,7 @@ import {
       <!-- Company Header -->
       <div class="company-header">
         <div class="company-info">
-          <div class="logo">🏢</div>
+          <div class="logo"><mat-icon>business</mat-icon></div>
           <div class="details">
             <h1>{{ companyName }}</h1>
             <div class="meta">
@@ -289,9 +289,12 @@ import {
   styles: [`
     .dashboard-container {
       padding: 24px;
+      padding-bottom: 48px;
       display: flex;
       flex-direction: column;
       gap: 24px;
+      max-width: 1400px;
+      margin: 0 auto;
     }
     .loading { display: flex; justify-content: center; padding: 60px; }
     .empty-row { text-align: center; color: #9ca3af; padding: 24px; }
@@ -304,10 +307,10 @@ import {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 24px;
-      background: white;
-      border-radius: 16px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      padding: 24px 28px;
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 1rem;
 
       .company-info {
         display: flex;
@@ -315,19 +318,36 @@ import {
         gap: 20px;
 
         .logo {
-          font-size: 48px;
+          width: 56px;
+          height: 56px;
+          border-radius: 0.75rem;
+          background: linear-gradient(135deg, #3CB371 0%, #16a34a 100%);
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          flex-shrink: 0;
+
+          mat-icon {
+            font-size: 28px;
+            width: 28px;
+            height: 28px;
+            color: #ffffff;
+          }
         }
 
         .details {
           h1 {
             margin: 0 0 8px 0;
             font-size: 24px;
+            font-weight: 700;
+            color: #111827;
           }
 
           .meta {
             display: flex;
             align-items: center;
             gap: 16px;
+            flex-wrap: wrap;
 
             span {
               font-size: 14px;
@@ -340,6 +360,7 @@ import {
       .company-actions {
         display: flex;
         gap: 12px;
+        flex-shrink: 0;
       }
     }
 
@@ -354,6 +375,17 @@ import {
       align-items: center;
       gap: 16px;
       padding: 20px;
+      min-height: 6.5rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 1rem;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+      &:hover {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
+        transform: translateY(-3px);
+      }
 
       .stat-icon {
         width: 48px;
@@ -681,18 +713,20 @@ import {
     }
 
     @media (max-width: 1024px) {
-      .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
       .bottom-grid {
         grid-template-columns: 1fr;
       }
     }
 
     @media (max-width: 768px) {
+      .dashboard-container {
+        padding: 16px;
+        padding-bottom: 40px;
+      }
+
       .company-header {
         flex-direction: column;
+        align-items: stretch;
         gap: 20px;
 
         .company-actions {
@@ -702,7 +736,8 @@ import {
       }
 
       .stats-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
       }
 
       .quick-actions-bar {
@@ -711,6 +746,12 @@ import {
 
       .missions-table-card {
         overflow-x: auto;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
       }
     }
   `]

@@ -208,3 +208,75 @@ export async function getPublicEnterpriseProfile(id: string): Promise<Enterprise
 }> {
   return apiRequest(`/users/enterprises/${id}/public/`);
 }
+
+export interface EnterpriseInvite {
+  id: string;
+  email: string;
+  status: string;
+  role: string;
+  position: string;
+  message?: string;
+  expires_at?: string;
+  created_at?: string;
+  enterprise_id: string;
+  enterprise_name: string;
+  user_exists?: boolean;
+  invited_by_name?: string;
+}
+
+export interface ProviderEnterpriseMembership {
+  id: string;
+  enterprise_id: string;
+  enterprise_name: string;
+  role: string;
+  position: string;
+  is_active: boolean;
+  hired_at?: string;
+}
+
+export async function inviteProvider(payload: {
+  email: string;
+  role?: string;
+  position?: string;
+  message?: string;
+}): Promise<EnterpriseInvite> {
+  return apiRequest('/users/enterprise/employees/invite/', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function listEnterpriseInvites(status = 'pending'): Promise<EnterpriseInvite[]> {
+  const data = await apiRequest<EnterpriseInvite[] | { results: EnterpriseInvite[] }>(
+    `/users/enterprise/invites/?status=${encodeURIComponent(status)}`,
+  );
+  return unwrap(data);
+}
+
+export async function cancelEnterpriseInvite(id: string): Promise<EnterpriseInvite> {
+  return apiRequest(`/users/enterprise/invites/${id}/cancel/`, { method: 'POST', body: '{}' });
+}
+
+export async function getMyEnterpriseInvites(): Promise<EnterpriseInvite[]> {
+  const data = await apiRequest<EnterpriseInvite[] | { results: EnterpriseInvite[] }>(
+    '/users/me/enterprise-invites/',
+  );
+  return unwrap(data);
+}
+
+export async function acceptEnterpriseInvite(
+  id: string,
+): Promise<{ invite: EnterpriseInvite; membership: ProviderEnterpriseMembership }> {
+  return apiRequest(`/users/me/enterprise-invites/${id}/accept/`, { method: 'POST', body: '{}' });
+}
+
+export async function rejectEnterpriseInvite(id: string): Promise<EnterpriseInvite> {
+  return apiRequest(`/users/me/enterprise-invites/${id}/reject/`, { method: 'POST', body: '{}' });
+}
+
+export async function getMyEnterprises(): Promise<ProviderEnterpriseMembership[]> {
+  const data = await apiRequest<ProviderEnterpriseMembership[] | { results: ProviderEnterpriseMembership[] }>(
+    '/users/me/enterprises/',
+  );
+  return unwrap(data);
+}

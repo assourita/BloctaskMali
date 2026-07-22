@@ -12,6 +12,7 @@ import {
   EnterpriseService,
   EnterpriseEmployee,
   EmployeeAssignment,
+  EnterpriseInvite,
 } from '../../../core/services/enterprise.service';
 import {
   EmployeeDetailPanelComponent,
@@ -44,9 +45,14 @@ type PageTab = 'employees' | 'assignments';
           <h1><mat-icon>people</mat-icon> Employés</h1>
           <p>{{ activeCount }} actif(s) · {{ employees.length }} au total</p>
         </div>
-        <button mat-raised-button color="primary" (click)="openCreateForm()" *ngIf="pageTab === 'employees'">
-          <mat-icon>person_add</mat-icon> Nouvel employé
-        </button>
+        <div class="header-actions" *ngIf="pageTab === 'employees'">
+          <button mat-stroked-button (click)="openInviteForm()">
+            <mat-icon>mail_outline</mat-icon> Inviter un prestataire
+          </button>
+          <button mat-raised-button color="primary" (click)="openCreateForm()">
+            <mat-icon>person_add</mat-icon> Nouvel employé
+          </button>
+        </div>
       </div>
 
       <nav class="page-tabs">
@@ -65,6 +71,43 @@ type PageTab = 'employees' | 'assignments';
           <button mat-stroked-button [color]="filter === 'inactive' ? 'primary' : undefined" (click)="filter = 'inactive'">Inactifs</button>
           <button mat-stroked-button (click)="load()"><mat-icon>refresh</mat-icon> Actualiser</button>
         </div>
+
+        <mat-card *ngIf="pendingInvites.length" class="invites-card">
+          <h3>Invitations en attente ({{ pendingInvites.length }})</h3>
+          <div class="invite-row" *ngFor="let inv of pendingInvites">
+            <div class="invite-info">
+              <strong>{{ inv.email }}</strong>
+              <span class="meta">{{ roleLabel(inv.role) }} · {{ inv.position || '—' }}</span>
+              <span class="meta" *ngIf="inv.created_at">Envoyée le {{ inv.created_at | date:'short' }}</span>
+            </div>
+            <button mat-stroked-button color="warn" (click)="cancelInvite(inv)" [disabled]="cancellingInviteId === inv.id">
+              Annuler
+            </button>
+          </div>
+        </mat-card>
+
+        <mat-card *ngIf="showInviteForm" class="form-card">
+          <h3>Inviter un prestataire</h3>
+          <p class="form-hint">Pour un compte existant sur BlockTask — il recevra une invitation à rejoindre votre entreprise.</p>
+          <div class="form-grid">
+            <input class="field" [(ngModel)]="inviteForm.email" placeholder="Email *" type="email" />
+            <input class="field" [(ngModel)]="inviteForm.position" placeholder="Poste" />
+            <select class="field" [(ngModel)]="inviteForm.role">
+              <option value="agent">Agent terrain</option>
+              <option value="manager">Manager</option>
+              <option value="admin">Administrateur</option>
+              <option value="hr">Ressources humaines</option>
+              <option value="accountant">Comptable</option>
+            </select>
+          </div>
+          <textarea class="field message-field" [(ngModel)]="inviteForm.message" placeholder="Message optionnel" rows="2"></textarea>
+          <div class="form-actions">
+            <button mat-button (click)="cancelInviteForm()">Annuler</button>
+            <button mat-raised-button color="primary" (click)="submitInvite()" [disabled]="inviting">
+              {{ inviting ? 'Envoi...' : 'Envoyer l\'invitation' }}
+            </button>
+          </div>
+        </mat-card>
 
         <mat-card *ngIf="showForm" class="form-card">
           <h3>Nouvel employé</h3>
@@ -128,6 +171,18 @@ type PageTab = 'employees' | 'assignments';
       h1 { margin: 0 0 4px; display: flex; align-items: center; gap: 8px; font-size: 22px; }
       p { margin: 0; color: #6b7280; font-size: 14px; }
     }
+    .header-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .invites-card { padding: 20px; margin-bottom: 20px;
+      h3 { margin: 0 0 12px; font-size: 16px; }
+    }
+    .invite-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f3f4f6;
+      &:last-child { border-bottom: none; }
+    }
+    .invite-info { display: flex; flex-direction: column; gap: 2px;
+      .meta { font-size: 12px; color: #6b7280; }
+    }
+    .form-hint { margin: 0 0 12px; font-size: 13px; color: #6b7280; }
+    .message-field { width: 100%; margin-bottom: 12px; resize: vertical; box-sizing: border-box; }
     .page-tabs { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
     .page-tabs button.active { border-color: #2e7d32; color: #2e7d32; }
     .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
@@ -164,10 +219,15 @@ export class EnterpriseEmployeesComponent implements OnInit {
   loading = true;
   saving = false;
   showForm = false;
+  showInviteForm = false;
+  inviting = false;
+  cancellingInviteId: string | null = null;
+  pendingInvites: EnterpriseInvite[] = [];
   selectedId: string | null = null;
   filter: EmployeeFilter = 'all';
   pageTab: PageTab = 'employees';
   form = { first_name: '', last_name: '', email: '', phone: '', position: '', role: 'agent' };
+  inviteForm = { email: '', role: 'agent', position: '', message: '' };
 
   constructor(
     private enterpriseService: EnterpriseService,
@@ -207,12 +267,68 @@ export class EnterpriseEmployeesComponent implements OnInit {
       next: (a) => { this.assignments = a; this.loading = false; },
       error: () => { this.loading = false; },
     });
+    this.enterpriseService.listEnterpriseInvites('pending').subscribe({
+      next: (invites) => { this.pendingInvites = invites; },
+    });
   }
 
   openCreateForm(): void {
     this.selectedId = null;
+    this.showInviteForm = false;
     this.form = { first_name: '', last_name: '', email: '', phone: '', position: '', role: 'agent' };
     this.showForm = true;
+  }
+
+  openInviteForm(): void {
+    this.selectedId = null;
+    this.showForm = false;
+    this.inviteForm = { email: '', role: 'agent', position: '', message: '' };
+    this.showInviteForm = true;
+  }
+
+  cancelInviteForm(): void {
+    this.showInviteForm = false;
+  }
+
+  submitInvite(): void {
+    if (!this.inviteForm.email?.trim()) {
+      this.snack.open('L\'email est requis', 'Fermer', { duration: 3000 });
+      return;
+    }
+    this.inviting = true;
+    this.enterpriseService.inviteProvider({
+      email: this.inviteForm.email.trim(),
+      role: this.inviteForm.role,
+      position: this.inviteForm.position || undefined,
+      message: this.inviteForm.message || undefined,
+    }).subscribe({
+      next: () => {
+        this.inviting = false;
+        this.snack.open('Invitation envoyée', 'Fermer', { duration: 3000 });
+        this.cancelInviteForm();
+        this.load();
+      },
+      error: (err) => {
+        this.inviting = false;
+        this.snack.open(err.error?.detail || 'Erreur envoi invitation', 'Fermer', { duration: 4000 });
+      },
+    });
+  }
+
+  cancelInvite(inv: EnterpriseInvite): void {
+    if (!confirm(`Annuler l'invitation pour ${inv.email} ?`)) return;
+    this.cancellingInviteId = inv.id;
+    this.enterpriseService.cancelEnterpriseInvite(inv.id).subscribe({
+      next: () => {
+        this.cancellingInviteId = null;
+        this.snack.open('Invitation annulée', 'Fermer', { duration: 3000 });
+        this.load();
+      },
+      error: (err) => {
+        this.cancellingInviteId = null;
+        this.snack.open(err.error?.detail || 'Erreur', 'Fermer', { duration: 4000 });
+      },
+    });
   }
 
   openEmployeePanel(e: EnterpriseEmployee, editing = false): void {
@@ -258,7 +374,16 @@ export class EnterpriseEmployeesComponent implements OnInit {
       },
       error: (err) => {
         this.saving = false;
-        this.snack.open(err.error?.detail || 'Erreur', 'Fermer', { duration: 4000 });
+        const detail = err.error?.detail || '';
+        if (typeof detail === 'string' && detail.toLowerCase().includes('existe déjà')) {
+          this.snack.open(
+            'Un compte existe déjà avec cet email. Utilisez « Inviter un prestataire » pour l\'ajouter à votre entreprise.',
+            'Fermer',
+            { duration: 6000 },
+          );
+        } else {
+          this.snack.open(detail || 'Erreur', 'Fermer', { duration: 4000 });
+        }
       },
     });
   }

@@ -221,6 +221,7 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
   styles: [`
     .dashboard-container {
       padding: 2rem;
+      padding-bottom: 3rem;
       display: flex;
       flex-direction: column;
       gap: 2rem;
@@ -229,16 +230,16 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
       font-family: system-ui, -apple-system, sans-serif;
     }
 
-    /* Welcome Section - Stripe Style */
+    /* Welcome Section - BlockTask Green */
     .welcome-section {
-      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      background: linear-gradient(135deg, #3CB371 0%, #16a34a 100%);
       color: #ffffff;
       padding: 2rem;
       border-radius: 1.5rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
+      box-shadow: 0 10px 15px -3px rgba(22, 163, 74, 0.25);
       
       .welcome-content {
         h1 {
@@ -256,7 +257,7 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
 
       .create-btn {
         background: #ffffff;
-        color: #4f46e5;
+        color: #16a34a;
         border: none;
         border-radius: 0.75rem;
         padding: 0.875rem 1.75rem;
@@ -266,7 +267,8 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
         transition: all 0.2s ease;
 
         &:hover {
-          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+          background: #f0fdf4;
+          box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.15);
           transform: translateY(-1px);
         }
 
@@ -288,16 +290,17 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
       flex-direction: column;
       gap: 1rem;
       padding: 1.5rem;
+      min-height: 10rem;
       border: 1px solid #e5e7eb;
       border-radius: 1rem;
       background: #ffffff;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      transition: all 0.2s ease;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
       position: relative;
 
       &:hover {
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        transform: translateY(-2px);
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(22, 163, 74, 0.08);
+        transform: translateY(-3px);
       }
 
       .stat-icon {
@@ -381,7 +384,7 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
       }
 
       &--wallet .stat-icon {
-        background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+        background: linear-gradient(135deg, #3CB371 0%, #16a34a 100%);
         color: #ffffff;
       }
     }
@@ -410,8 +413,8 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
       transition: all 0.2s ease;
 
       &:hover {
-        border-color: #6366f1;
-        background: #f9fafb;
+        border-color: #16a34a;
+        background: #f0fdf4;
         color: #111827;
       }
 
@@ -467,8 +470,8 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
       transition: all 0.2s ease;
 
       &:hover {
-        border-color: #6366f1;
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        border-color: #16a34a;
+        box-shadow: 0 2px 4px rgba(22, 163, 74, 0.1);
       }
     }
 
@@ -491,7 +494,7 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
     .mission-price {
       font-size: 1.125rem;
       font-weight: 800;
-      color: #4f46e5;
+      color: #16a34a;
     }
 
     .mission-details {
@@ -634,7 +637,7 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
       }
 
       &.mission {
-        background: linear-gradient(135deg, #818cf8 0%, #4f46e5 100%);
+        background: linear-gradient(135deg, #3CB371 0%, #16a34a 100%);
       }
 
       &.payment {
@@ -667,15 +670,10 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
     }
 
     /* Responsive */
-    @media (max-width: 1024px) {
-      .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
     @media (max-width: 768px) {
       .dashboard-container {
         padding: 1rem;
+        padding-bottom: 2.5rem;
       }
 
       .welcome-section {
@@ -689,7 +687,8 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
       }
 
       .stats-grid {
-        grid-template-columns: 1fr;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
       }
 
       .quick-actions {
@@ -698,6 +697,12 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
         .action-btn {
           width: 100%;
         }
+      }
+    }
+
+    @media (max-width: 480px) {
+      .stats-grid {
+        grid-template-columns: 1fr;
       }
     }
   `]

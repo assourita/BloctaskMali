@@ -302,29 +302,30 @@ class EnterpriseProfile(models.Model):
 
 
 class Employee(models.Model):
-    """Employé rattaché à une entreprise"""
-    
+    """Employé rattaché à une entreprise (un prestataire peut lier plusieurs entreprises)."""
+
     class Role(models.TextChoices):
         ADMIN = 'admin', 'Administrateur'
         MANAGER = 'manager', 'Manager'
         ACCOUNTANT = 'accountant', 'Comptable'
         HR = 'hr', 'Ressources Humaines'
         AGENT = 'agent', 'Agent'
-    
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     enterprise = models.ForeignKey(
         EnterpriseProfile,
         on_delete=models.CASCADE,
         related_name='employees'
     )
-    user = models.OneToOneField(
+    # FK (pas OneToOne) : un même user provider peut être employee de plusieurs entreprises
+    user = models.ForeignKey(
         User,
         on_delete=models.CASCADE,
-        related_name='employee_profile',
+        related_name='employee_links',
         blank=True,
         null=True
     )
-    
+
     # Informations
     first_name = models.CharField(max_length=100)
     last_name = models.CharField(max_length=100)
@@ -332,35 +333,112 @@ class Employee(models.Model):
     phone = models.CharField(max_length=17)
     position = models.CharField(max_length=100)
     role = models.CharField(max_length=20, choices=Role.choices, default=Role.AGENT)
-    
+
     # Documents
     nina = models.CharField(max_length=20, blank=True)
     id_card = models.ImageField(upload_to='employees/id/', blank=True, null=True)
     photo = models.ImageField(upload_to='employees/photos/', blank=True, null=True)
-    
+
     # Statistiques
     missions_completed = models.PositiveIntegerField(default=0)
     missions_failed = models.PositiveIntegerField(default=0)
-    
+
     # Statut
     is_active = models.BooleanField(default=True)
     hired_at = models.DateTimeField(auto_now_add=True)
     terminated_at = models.DateTimeField(blank=True, null=True)
-    
+
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
-    
+
     class Meta:
         db_table = 'employees'
         ordering = ['-created_at']
-    
+        constraints = [
+            models.UniqueConstraint(
+                fields=['enterprise', 'user'],
+                condition=models.Q(user__isnull=False),
+                name='uniq_employee_enterprise_user',
+            ),
+        ]
+
     def __str__(self):
         return f"{self.first_name} {self.last_name} - {self.enterprise.company_name}"
 
 
+class EnterpriseInvite(models.Model):
+    """Invitation entreprise -> prestataire (acceptation obligatoire)."""
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'En attente'
+        ACCEPTED = 'accepted', 'Acceptée'
+        REJECTED = 'rejected', 'Refusée'
+        CANCELLED = 'cancelled', 'Annulée'
+        EXPIRED = 'expired', 'Expirée'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    enterprise = models.ForeignKey(
+        EnterpriseProfile,
+        on_delete=models.CASCADE,
+        related_name='provider_invites',
+    )
+    email = models.EmailField()
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='enterprise_invites',
+        blank=True,
+        null=True,
+        help_text='Prestataire cible si le compte existe déjà',
+    )
+    invited_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='sent_enterprise_invites',
+    )
+    role = models.CharField(
+        max_length=20,
+        choices=Employee.Role.choices,
+        default=Employee.Role.AGENT,
+    )
+    position = models.CharField(max_length=100, blank=True, default='Agent terrain')
+    token = models.CharField(max_length=64, unique=True, db_index=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    message = models.TextField(blank=True)
+    expires_at = models.DateTimeField()
+    responded_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'enterprise_invites'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['email', 'status']),
+            models.Index(fields=['enterprise', 'status']),
+        ]
+
+    def __str__(self):
+        return f"Invite {self.email} -> {self.enterprise.company_name} ({self.status})"
+
+    @property
+    def is_pending(self) -> bool:
+        from django.utils import timezone
+        if self.status != self.Status.PENDING:
+            return False
+        return self.expires_at > timezone.now()
+
+
 class LoginHistory(models.Model):
     """Historique des connexions"""
-    
+
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='login_history')
     ip_address = models.GenericIPAddressField()
     user_agent = models.TextField()
@@ -369,11 +447,11 @@ class LoginHistory(models.Model):
     is_successful = models.BooleanField(default=True)
     failure_reason = models.CharField(max_length=255, blank=True)
     timestamp = models.DateTimeField(auto_now_add=True)
-    
+
     class Meta:
         db_table = 'login_history'
         ordering = ['-timestamp']
-    
+
     def __str__(self):
         return f"{self.user.email} - {self.timestamp}"
 

@@ -314,4 +314,75 @@ export class EnterpriseService {
   getFinancesSummary(): Observable<EnterpriseFinancesSummary> {
     return this.http.get<EnterpriseFinancesSummary>(`${this.apiUrl}/enterprises/finances/summary/`);
   }
+
+  inviteProvider(data: {
+    email: string;
+    role?: string;
+    position?: string;
+    message?: string;
+  }): Observable<EnterpriseInvite> {
+    return this.http.post<EnterpriseInvite>(
+      `${this.apiUrl}/users/enterprise/employees/invite/`,
+      data,
+    );
+  }
+
+  listEnterpriseInvites(status: string = 'pending'): Observable<EnterpriseInvite[]> {
+    const params = new HttpParams().set('status', status);
+    return this.http.get<EnterpriseInvite[]>(`${this.apiUrl}/users/enterprise/invites/`, { params });
+  }
+
+  cancelEnterpriseInvite(id: string): Observable<EnterpriseInvite> {
+    return this.http.post<EnterpriseInvite>(
+      `${this.apiUrl}/users/enterprise/invites/${id}/cancel/`,
+      {},
+    );
+  }
+
+  getMyEnterpriseInvites(): Observable<EnterpriseInvite[]> {
+    return this.http.get<EnterpriseInvite[]>(`${this.apiUrl}/users/me/enterprise-invites/`);
+  }
+
+  acceptEnterpriseInvite(id: string): Observable<{ invite: EnterpriseInvite; membership: ProviderEnterpriseMembership }> {
+    return this.http.post<{ invite: EnterpriseInvite; membership: ProviderEnterpriseMembership }>(
+      `${this.apiUrl}/users/me/enterprise-invites/${id}/accept/`,
+      {},
+    );
+  }
+
+  rejectEnterpriseInvite(id: string): Observable<EnterpriseInvite> {
+    return this.http.post<EnterpriseInvite>(
+      `${this.apiUrl}/users/me/enterprise-invites/${id}/reject/`,
+      {},
+    );
+  }
+
+  getMyEnterprises(): Observable<ProviderEnterpriseMembership[]> {
+    return this.http.get<ProviderEnterpriseMembership[]>(`${this.apiUrl}/users/me/enterprises/`);
+  }
+}
+
+export interface EnterpriseInvite {
+  id: string;
+  email: string;
+  status: string;
+  role: string;
+  position: string;
+  message?: string;
+  expires_at?: string;
+  created_at?: string;
+  enterprise_id: string;
+  enterprise_name: string;
+  user_exists?: boolean;
+  invited_by_name?: string;
+}
+
+export interface ProviderEnterpriseMembership {
+  id: string;
+  enterprise_id: string;
+  enterprise_name: string;
+  role: string;
+  position: string;
+  is_active: boolean;
+  hired_at?: string;
 }

@@ -49,4 +49,5 @@ def is_enterprise_manager(user) -> bool:
 
 
 def is_enterprise_field_agent(user) -> bool:
-    return hasattr(user, 'employee_profile') and user.employee_profile.is_active
+    from apps.users.employee_helpers import user_has_active_employee_link
+    return user_has_active_employee_link(user)

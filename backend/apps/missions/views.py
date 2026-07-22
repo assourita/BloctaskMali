@@ -22,6 +22,7 @@ from .serializers import (
 from .permissions import IsMissionOwner, IsMissionProvider, CanApplyToMission
 from apps.users.permissions import HasKycPlatformAccess
 from apps.users.roles import get_effective_role
+from apps.users.employee_helpers import primary_employee, user_has_active_employee_link
 
 
 def _accept_application(mission, application, changed_by):
@@ -251,7 +252,7 @@ class MissionViewSet(viewsets.ModelViewSet):
                 if scope in ('provider', 'received') and profile:
                     queryset = queryset.filter(
                         Q(assigned_enterprise=profile)
-                        | Q(provider__employee_profile__enterprise=profile)
+                        | Q(provider__employee_links__enterprise=profile)
                     )
                 else:
                     queryset = queryset.filter(client=user)
@@ -373,7 +374,7 @@ class MissionViewSet(viewsets.ModelViewSet):
             ).exclude(client=user).select_related(
                 'client', 'provider', 'category'
             ).prefetch_related('applications')
-            if hasattr(user, 'employee_profile'):
+            if user_has_active_employee_link(user):
                 return Response({'error': 'Les agents entreprise voient leurs missions assignées'}, status=403)
         else:
             return Response({'error': 'Activez l\'espace prestataire ou entreprise'}, status=403)
@@ -455,7 +456,7 @@ class MissionViewSet(viewsets.ModelViewSet):
             from apps.users.roles import can_act_as_provider, get_effective_role
             if not can_act_as_provider(request.user) or get_effective_role(request.user) != 'provider':
                 return Response({'error': 'Activez l\'espace prestataire'}, status=status.HTTP_403_FORBIDDEN)
-            if hasattr(request.user, 'employee_profile'):
+            if user_has_active_employee_link(request.user):
                 return Response(
                     {'error': 'Les agents entreprise ne postulent pas — le gérant postule pour l\'entreprise'},
                     status=status.HTTP_403_FORBIDDEN,
@@ -1748,27 +1749,24 @@ def get_start_suggestions(mission, user):
     suggestions = []
     
     # Vérifier si l'utilisateur est un employé
-    try:
-        employee = user.employee_profile
-        if employee == mission.executing_employee:
+    employee = primary_employee(user)
+    if employee and employee == mission.executing_employee:
+        suggestions.append({
+            'action': 'use_employee_view',
+            'label': 'Voir les détails employé',
+            'url': f'/api/missions/{mission.id}/employee-view/',
+            'description': 'Utilisez la vue employé pour voir l\'état réel et les actions disponibles'
+        })
+
+        # Si échéance dépassée
+        from django.utils import timezone
+        if mission.deposit_deadline and mission.deposit_deadline < timezone.now() and not mission.deposit_paid:
             suggestions.append({
-                'action': 'use_employee_view',
-                'label': 'Voir les détails employé',
-                'url': f'/api/missions/{mission.id}/employee-view/',
-                'description': 'Utilisez la vue employé pour voir l\'état réel et les actions disponibles'
+                'action': 'claim_timeout',
+                'label': 'Signaler l\'échéance',
+                'url': f'/api/missions/{mission.id}/claim-timeout/',
+                'description': 'Le délai est dépassé, signalez-le pour faire avancer la mission'
             })
-            
-            # Si échéance dépassée
-            from django.utils import timezone
-            if mission.deposit_deadline and mission.deposit_deadline < timezone.now() and not mission.deposit_paid:
-                suggestions.append({
-                    'action': 'claim_timeout',
-                    'label': 'Signaler l\'échéance',
-                    'url': f'/api/missions/{mission.id}/claim-timeout/',
-                    'description': 'Le délai est dépassé, signalez-le pour faire avancer la mission'
-                })
-    except:
-        pass
     
     # Si le dépôt n'est pas payé et l'utilisateur est de l'entreprise
     if not mission.deposit_paid and mission.assigned_enterprise:

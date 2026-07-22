@@ -2,11 +2,15 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import {
+  cancelEnterpriseInvite,
   createEmployee,
   getAssignments,
   getEmployees,
+  inviteProvider,
+  listEnterpriseInvites,
   type EmployeeAssignment,
   type EnterpriseEmployee,
+  type EnterpriseInvite,
 } from '../src/api/enterprise';
 import { PrimaryButton, SecondaryButton, Input } from '../src/components/buttons';
 import { Card, Loader } from '../src/components/ui';
@@ -29,7 +33,7 @@ const ROLE_LABELS: Record<string, string> = Object.fromEntries(
   ROLE_OPTIONS.map((r) => [r.id, r.label]),
 );
 
-type PageTab = 'employees' | 'assignments';
+type PageTab = 'employees' | 'assignments' | 'invites';
 type EmployeeFilter = 'all' | 'active' | 'inactive';
 
 const EMPTY_FORM = {
@@ -41,26 +45,43 @@ const EMPTY_FORM = {
   role: 'agent',
 };
 
+const EMPTY_INVITE = {
+  email: '',
+  position: 'Agent terrain',
+  role: 'agent',
+  message: '',
+};
+
 export default function EmployeesScreen() {
   const { redirect: guardRedirect } = useEnterpriseGuard();
   const [pageTab, setPageTab] = useState<PageTab>('employees');
   const [filter, setFilter] = useState<EmployeeFilter>('all');
   const [employees, setEmployees] = useState<EnterpriseEmployee[]>([]);
   const [assignments, setAssignments] = useState<EmployeeAssignment[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<EnterpriseInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [showInviteForm, setShowInviteForm] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [inviting, setInviting] = useState(false);
   const [form, setForm] = useState(EMPTY_FORM);
+  const [inviteForm, setInviteForm] = useState(EMPTY_INVITE);
 
   const load = useCallback(async () => {
     try {
-      const [emps, assigns] = await Promise.all([getEmployees(), getAssignments()]);
+      const [emps, assigns, invites] = await Promise.all([
+        getEmployees(),
+        getAssignments(),
+        listEnterpriseInvites('pending').catch(() => [] as EnterpriseInvite[]),
+      ]);
       setEmployees(emps);
       setAssignments(assigns);
+      setPendingInvites(invites);
     } catch {
       setEmployees([]);
       setAssignments([]);
+      setPendingInvites([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -101,9 +122,46 @@ export default function EmployeesScreen() {
       setShowForm(false);
       await load();
     } catch (e) {
-      Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Enregistrement impossible');
+      const msg = e instanceof ApiError ? e.message : 'Enregistrement impossible';
+      if (/existe déjà/i.test(msg)) {
+        Alert.alert(
+          'Compte existant',
+          'Cet email existe déjà. Utilisez « Inviter » pour lier un prestataire existant.',
+        );
+      } else {
+        Alert.alert('Erreur', msg);
+      }
     } finally {
       setSaving(false);
+    }
+  };
+
+  const sendInvite = async () => {
+    if (!inviteForm.email.trim()) {
+      Alert.alert('Email requis', 'Saisissez l’email du prestataire à inviter.');
+      return;
+    }
+    setInviting(true);
+    try {
+      await inviteProvider(inviteForm);
+      Alert.alert('Invitation envoyée', 'Le prestataire devra accepter avant d’être lié.');
+      setInviteForm(EMPTY_INVITE);
+      setShowInviteForm(false);
+      setPageTab('invites');
+      await load();
+    } catch (e) {
+      Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Invitation impossible');
+    } finally {
+      setInviting(false);
+    }
+  };
+
+  const cancelInvite = async (id: string) => {
+    try {
+      await cancelEnterpriseInvite(id);
+      await load();
+    } catch (e) {
+      Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Annulation impossible');
     }
   };
 
@@ -121,7 +179,22 @@ export default function EmployeesScreen() {
         subtitle={`${activeCount} actif(s) · ${employees.length} au total`}
         action={
           pageTab === 'employees' ? (
-            <PrimaryButton label={showForm ? 'Fermer' : '+ Ajouter'} onPress={() => setShowForm((v) => !v)} />
+            <View style={styles.headerActions}>
+              <SecondaryButton
+                label={showInviteForm ? 'Fermer' : 'Inviter'}
+                onPress={() => {
+                  setShowInviteForm((v) => !v);
+                  setShowForm(false);
+                }}
+              />
+              <PrimaryButton
+                label={showForm ? 'Fermer' : '+ Ajouter'}
+                onPress={() => {
+                  setShowForm((v) => !v);
+                  setShowInviteForm(false);
+                }}
+              />
+            </View>
           ) : undefined
         }
       />
@@ -131,6 +204,7 @@ export default function EmployeesScreen() {
         onChange={(id) => setPageTab(id as PageTab)}
         tabs={[
           { id: 'employees', label: 'Liste', count: employees.length },
+          { id: 'invites', label: 'Invitations', count: pendingInvites.length },
           { id: 'assignments', label: 'Affectations', count: assignments.length },
         ]}
       />
@@ -150,6 +224,51 @@ export default function EmployeesScreen() {
               </Pressable>
             ))}
           </View>
+
+          {showInviteForm && (
+            <SoftCard style={styles.form}>
+              <Text style={styles.formTitle}>Inviter un prestataire</Text>
+              <Text style={styles.hint}>
+                Pour un compte existant : il devra accepter l’invitation avant d’être lié.
+              </Text>
+              <Input
+                placeholder="Email *"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={inviteForm.email}
+                onChangeText={(v) => setInviteForm({ ...inviteForm, email: v })}
+              />
+              <Input
+                placeholder="Poste"
+                value={inviteForm.position}
+                onChangeText={(v) => setInviteForm({ ...inviteForm, position: v })}
+              />
+              <Input
+                placeholder="Message (optionnel)"
+                value={inviteForm.message}
+                onChangeText={(v) => setInviteForm({ ...inviteForm, message: v })}
+              />
+              <View style={styles.roleRow}>
+                {ROLE_OPTIONS.map((r) => (
+                  <Pressable
+                    key={r.id}
+                    onPress={() => setInviteForm({ ...inviteForm, role: r.id })}
+                    style={[styles.roleChip, inviteForm.role === r.id && styles.roleChipActive]}
+                  >
+                    <Text style={[styles.roleText, inviteForm.role === r.id && styles.roleTextActive]}>{r.label}</Text>
+                  </Pressable>
+                ))}
+              </View>
+              <View style={styles.formActions}>
+                <View style={{ flex: 1 }}>
+                  <PrimaryButton label="Envoyer l’invitation" loading={inviting} onPress={sendInvite} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <SecondaryButton label="Annuler" onPress={() => setShowInviteForm(false)} />
+                </View>
+              </View>
+            </SoftCard>
+          )}
 
           {showForm && (
             <SoftCard style={styles.form}>
@@ -214,6 +333,35 @@ export default function EmployeesScreen() {
         </>
       )}
 
+      {pageTab === 'invites' && (
+        loading ? (
+          <Loader />
+        ) : pendingInvites.length === 0 ? (
+          <Text style={styles.empty}>Aucune invitation en attente.</Text>
+        ) : (
+          pendingInvites.map((inv) => (
+            <Card key={inv.id} style={styles.assignCard}>
+              <Text style={styles.name}>{inv.email}</Text>
+              <Text style={styles.meta}>
+                {ROLE_LABELS[inv.role] || inv.role}
+                {inv.position ? ` · ${inv.position}` : ''}
+                {inv.user_exists ? ' · compte existant' : ' · nouvel email'}
+              </Text>
+              {inv.expires_at ? (
+                <Text style={styles.meta}>
+                  Expire le {new Date(inv.expires_at).toLocaleDateString('fr-FR')}
+                </Text>
+              ) : null}
+              <View style={styles.formActions}>
+                <View style={{ flex: 1 }}>
+                  <SecondaryButton label="Annuler l’invitation" onPress={() => cancelInvite(inv.id)} />
+                </View>
+              </View>
+            </Card>
+          ))
+        )
+      )}
+
       {pageTab === 'assignments' && (
         loading ? (
           <Loader />
@@ -240,6 +388,7 @@ export default function EmployeesScreen() {
 }
 
 const styles = StyleSheet.create({
+  headerActions: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   filters: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: spacing.md },
   filterChip: {
     paddingHorizontal: 12,
@@ -254,6 +403,7 @@ const styles = StyleSheet.create({
   filterTextActive: { color: colors.primary },
   form: { marginBottom: spacing.md, gap: spacing.sm },
   formTitle: { fontWeight: '700', fontSize: 16, color: colors.text, marginBottom: 4 },
+  hint: { fontSize: 12, color: colors.textMuted, marginBottom: 4 },
   roleRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   roleChip: {
     paddingHorizontal: 10,

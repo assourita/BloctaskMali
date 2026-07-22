@@ -6,7 +6,7 @@ from django.utils import timezone
 from datetime import timedelta
 
 from apps.missions.models import Mission, MissionStatusHistory
-from apps.users.models import Employee
+from apps.users.employee_helpers import primary_employee
 
 
 @api_view(['GET'])
@@ -14,12 +14,10 @@ from apps.users.models import Employee
 def employee_mission_detail(request, mission_id):
     """Vue détaillée de la mission pour l'employé avec actions d'échéance."""
     try:
-        # Vérifier que l'utilisateur est un employé
-        try:
-            employee = request.user.employee_profile
-        except Employee.DoesNotExist:
+        employee = primary_employee(request.user)
+        if not employee:
             return Response({'error': 'Utilisateur non trouvé ou n\'est pas un employé'}, status=404)
-        
+
         # Récupérer la mission
         mission = Mission.objects.get(id=mission_id)
         
@@ -141,12 +139,10 @@ def employee_mission_detail(request, mission_id):
 def claim_mission_timeout(request, mission_id):
     """Permet à l'employé de signaler une échéance de dépôt."""
     try:
-        # Vérifier que l'utilisateur est un employé
-        try:
-            employee = request.user.employee_profile
-        except Employee.DoesNotExist:
+        employee = primary_employee(request.user)
+        if not employee:
             return Response({'error': 'Utilisateur non trouvé ou n\'est pas un employé'}, status=404)
-        
+
         # Récupérer la mission
         mission = Mission.objects.get(id=mission_id)
         

@@ -1,6 +1,7 @@
 from rest_framework import permissions
 
 from apps.users.roles import can_act_as_provider, get_effective_role
+from apps.users.employee_helpers import primary_employee, user_has_active_employee_link
 from apps.users.kyc_access import can_access_platform, get_kyc_block_message
 from apps.users.models import User
 from .requirements import mission_requires_id_verification
@@ -65,11 +66,12 @@ class IsEnterpriseMember(permissions.BasePermission):
     def has_permission(self, request, view):
         if not request.user.is_authenticated:
             return False
-        return hasattr(request.user, 'employee_profile')
+        return user_has_active_employee_link(request.user)
 
     def has_object_permission(self, request, view, obj):
-        if hasattr(request.user, 'employee_profile'):
-            return obj.client == request.user.employee_profile.enterprise
+        employee = primary_employee(request.user)
+        if employee:
+            return obj.client == employee.enterprise
         return False
 
 

@@ -5,6 +5,7 @@ BlockTask Users URLs
 from django.urls import path
 from . import views
 from . import admin_kyc_views
+from . import invite_views
 
 urlpatterns = [
     # Auth
@@ -26,8 +27,15 @@ urlpatterns = [
     
     # Enterprise
     path('enterprise/profile/', views.EnterpriseProfileView.as_view(), name='enterprise-profile'),
+    path('enterprise/employees/invite/', invite_views.enterprise_invite_provider, name='enterprise-invite-provider'),
     path('enterprise/employees/', views.EmployeeListCreateView.as_view(), name='employee-list'),
     path('enterprise/employees/<uuid:id>/', views.EmployeeDetailView.as_view(), name='employee-detail'),
+    path('enterprise/invites/', invite_views.enterprise_list_invites, name='enterprise-list-invites'),
+    path('enterprise/invites/<uuid:invite_id>/cancel/', invite_views.enterprise_cancel_invite, name='enterprise-cancel-invite'),
+    path('me/enterprise-invites/', invite_views.my_enterprise_invites, name='my-enterprise-invites'),
+    path('me/enterprise-invites/<uuid:invite_id>/accept/', invite_views.accept_my_enterprise_invite, name='accept-enterprise-invite'),
+    path('me/enterprise-invites/<uuid:invite_id>/reject/', invite_views.reject_my_enterprise_invite, name='reject-enterprise-invite'),
+    path('me/enterprises/', invite_views.my_enterprises, name='my-enterprises'),
     
     # Wallet & Transactions
     path('wallet/transactions/', views.WalletTransactionListView.as_view(), name='wallet-transactions'),
