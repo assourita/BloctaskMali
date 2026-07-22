@@ -265,7 +265,7 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
                 <mat-card-title><mat-icon>chat</mat-icon> Messagerie</mat-card-title>
               </mat-card-header>
               <mat-card-content class="chat-wrap">
-                <app-chat [missionId]="missionId" [showSidebar]="false"></app-chat>
+                <app-chat [missionId]="missionId" [showSidebar]="false" [embedded]="true"></app-chat>
               </mat-card-content>
             </mat-card>
 
@@ -504,7 +504,7 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
     .contact-lock { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6b7280; margin: 0; }
     .escrow-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-size: 14px; }
     .escrow-row .ok { color: #059669; }
-    .chat-wrap { min-height: 300px; }
+    .chat-wrap { min-height: 300px; max-height: 520px; overflow: hidden; padding: 0; }
 
     @media (max-width: 960px) {
       .layout { grid-template-columns: 1fr; }

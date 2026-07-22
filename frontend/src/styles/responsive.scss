@@ -1,0 +1,425 @@
+/* ========================================
+   RESPONSIVE UTILITIES - BlockTask
+   ======================================== */
+
+/* Display utilities */
+.hidden-mobile { display: none !important; }
+.hidden-tablet { display: none !important; }
+.hidden-desktop { display: none !important; }
+.hidden-large { display: none !important; }
+
+.block-mobile { display: block !important; }
+.block-tablet { display: block !important; }
+.block-desktop { display: block !important; }
+.block-large { display: block !important; }
+
+.flex-mobile { display: flex !important; }
+.flex-tablet { display: flex !important; }
+.flex-desktop { display: flex !important; }
+.flex-large { display: flex !important; }
+
+/* Mobile (< 768px) */
+@media (max-width: 767px) {
+  .hidden-mobile { display: none !important; }
+  .block-mobile { display: block !important; }
+  .flex-mobile { display: flex !important; }
+  
+  .mobile-hidden { display: none !important; }
+  .mobile-block { display: block !important; }
+  .mobile-flex { display: flex !important; }
+  .mobile-col { flex-direction: column !important; }
+  .mobile-row { flex-direction: row !important; }
+  .mobile-wrap { flex-wrap: wrap !important; }
+  .mobile-nowrap { flex-wrap: nowrap !important; }
+  
+  .mobile-text-left { text-align: left !important; }
+  .mobile-text-center { text-align: center !important; }
+  .mobile-text-right { text-align: right !important; }
+  
+  .mobile-w-full { width: 100% !important; }
+  .mobile-w-auto { width: auto !important; }
+  
+  .mobile-p-2 { padding: var(--space-2) !important; }
+  .mobile-p-3 { padding: var(--space-3) !important; }
+  .mobile-p-4 { padding: var(--space-4) !important; }
+  
+  .mobile-m-0 { margin: 0 !important; }
+  .mobile-m-2 { margin: var(--space-2) !important; }
+  .mobile-m-4 { margin: var(--space-4) !important; }
+  
+  .mobile-gap-2 { gap: var(--space-2) !important; }
+  .mobile-gap-4 { gap: var(--space-4) !important; }
+}
+
+/* Tablet (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .hidden-tablet { display: none !important; }
+  .block-tablet { display: block !important; }
+  .flex-tablet { display: flex !important; }
+  
+  .tablet-hidden { display: none !important; }
+  .tablet-block { display: block !important; }
+  .tablet-flex { display: flex !important; }
+  .tablet-col { flex-direction: column !important; }
+  .tablet-row { flex-direction: row !important; }
+  .tablet-wrap { flex-wrap: wrap !important; }
+  .tablet-nowrap { flex-wrap: nowrap !important; }
+  
+  .tablet-text-left { text-align: left !important; }
+  .tablet-text-center { text-align: center !important; }
+  .tablet-text-right { text-align: right !important; }
+  
+  .tablet-w-full { width: 100% !important; }
+  .tablet-w-auto { width: auto !important; }
+  
+  .tablet-p-3 { padding: var(--space-3) !important; }
+  .tablet-p-4 { padding: var(--space-4) !important; }
+  .tablet-p-5 { padding: var(--space-5) !important; }
+  
+  .tablet-m-0 { margin: 0 !important; }
+  .tablet-m-3 { margin: var(--space-3) !important; }
+  .tablet-m-4 { margin: var(--space-4) !important; }
+  
+  .tablet-gap-3 { gap: var(--space-3) !important; }
+  .tablet-gap-4 { gap: var(--space-4) !important; }
+}
+
+/* Desktop (1024px - 1439px) */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .hidden-desktop { display: none !important; }
+  .block-desktop { display: block !important; }
+  .flex-desktop { display: flex !important; }
+  
+  .desktop-hidden { display: none !important; }
+  .desktop-block { display: block !important; }
+  .desktop-flex { display: flex !important; }
+  .desktop-col { flex-direction: column !important; }
+  .desktop-row { flex-direction: row !important; }
+  .desktop-wrap { flex-wrap: wrap !important; }
+  .desktop-nowrap { flex-wrap: nowrap !important; }
+  
+  .desktop-text-left { text-align: left !important; }
+  .desktop-text-center { text-align: center !important; }
+  .desktop-text-right { text-align: right !important; }
+  
+  .desktop-w-full { width: 100% !important; }
+  .desktop-w-auto { width: auto !important; }
+  
+  .desktop-p-4 { padding: var(--space-4) !important; }
+  .desktop-p-6 { padding: var(--space-6) !important; }
+  
+  .desktop-m-0 { margin: 0 !important; }
+  .desktop-m-4 { margin: var(--space-4) !important; }
+  .desktop-m-6 { margin: var(--space-6) !important; }
+  
+  .desktop-gap-4 { gap: var(--space-4) !important; }
+  .desktop-gap-6 { gap: var(--space-6) !important; }
+}
+
+/* Large Desktop (1440px+) */
+@media (min-width: 1440px) {
+  .hidden-large { display: none !important; }
+  .block-large { display: block !important; }
+  .flex-large { display: flex !important; }
+  
+  .large-hidden { display: none !important; }
+  .large-block { display: block !important; }
+  .large-flex { display: flex !important; }
+  .large-col { flex-direction: column !important; }
+  .large-row { flex-direction: row !important; }
+  .large-wrap { flex-wrap: wrap !important; }
+  .large-nowrap { flex-wrap: nowrap !important; }
+  
+  .large-text-left { text-align: left !important; }
+  .large-text-center { text-align: center !important; }
+  .large-text-right { text-align: right !important; }
+  
+  .large-w-full { width: 100% !important; }
+  .large-w-auto { width: auto !important; }
+  
+  .large-p-6 { padding: var(--space-6) !important; }
+  .large-p-8 { padding: var(--space-8) !important; }
+  
+  .large-m-0 { margin: 0 !important; }
+  .large-m-6 { margin: var(--space-6) !important; }
+  .large-m-8 { margin: var(--space-8) !important; }
+  
+  .large-gap-6 { gap: var(--space-6) !important; }
+  .large-gap-8 { gap: var(--space-8) !important; }
+}
+
+/* ========================================
+   RESPONSIVE GRID SYSTEM
+   ======================================== */
+
+.responsive-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: 1fr;
+}
+
+/* Mobile: 1 column */
+@media (max-width: 767px) {
+  .responsive-grid {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+  
+  .grid-mobile-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Tablet: 2 columns */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .responsive-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-4);
+  }
+  
+  .grid-tablet-1 {
+    grid-template-columns: 1fr;
+  }
+  
+  .grid-tablet-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* Desktop: 3 columns */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  .responsive-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--space-6);
+  }
+  
+  .grid-desktop-2 {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .grid-desktop-4 {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* Large Desktop: 4 columns */
+@media (min-width: 1440px) {
+  .responsive-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--space-6);
+  }
+  
+  .grid-large-3 {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  
+  .grid-large-5 {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* ========================================
+   RESPONSIVE CARDS
+   ======================================== */
+
+.responsive-cards {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .responsive-cards {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-cards {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 1440px) {
+  .responsive-cards {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+/* ========================================
+   RESPONSIVE TYPOGRAPHY
+   ======================================== */
+
+.responsive-text {
+  font-size: clamp(0.875rem, 2vw, 1.125rem);
+  line-height: 1.5;
+}
+
+.responsive-title {
+  font-size: clamp(1.25rem, 3vw, 2rem);
+  line-height: 1.2;
+  font-weight: 600;
+}
+
+.responsive-subtitle {
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
+  line-height: 1.3;
+  font-weight: 500;
+}
+
+/* ========================================
+   RESPONSIVE IMAGES
+   ======================================== */
+
+.responsive-img {
+  max-width: 100%;
+  height: auto;
+  border-radius: var(--radius-lg);
+}
+
+.responsive-img-contain {
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
+.responsive-img-cover {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* ========================================
+   RESPONSIVE TABLES
+   ======================================== */
+
+.responsive-table {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 767px) {
+  .responsive-table {
+    font-size: 0.875rem;
+  }
+  
+  .responsive-table table {
+    min-width: 600px;
+  }
+  
+  .responsive-table th,
+  .responsive-table td {
+    padding: var(--space-2);
+    white-space: nowrap;
+  }
+}
+
+/* ========================================
+   RESPONSIVE FORMS
+   ======================================== */
+
+.responsive-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .responsive-form {
+    max-width: 600px;
+    margin: 0 auto;
+  }
+}
+
+@media (min-width: 1024px) {
+  .responsive-form {
+    max-width: 800px;
+  }
+}
+
+.form-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+@media (min-width: 768px) {
+  .form-row {
+    flex-direction: row;
+    gap: var(--space-6);
+  }
+  
+  .form-row .form-group {
+    flex: 1;
+  }
+}
+
+/* ========================================
+   RESPONSIVE NAVIGATION
+   ======================================== */
+
+.responsive-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+@media (min-width: 768px) {
+  .responsive-nav {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+  }
+}
+
+/* ========================================
+   ACCESSIBILITY
+   ======================================== */
+
+@media (prefers-reduced-motion: reduce) {
+  .responsive-grid,
+  .responsive-cards,
+  .responsive-form,
+  .responsive-nav {
+    transition: none;
+  }
+}
+
+/* Focus visible for better accessibility */
+@media (hover: hover) {
+  .responsive-grid > *,
+  .responsive-cards > * {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  
+  .responsive-grid > *:hover,
+  .responsive-cards > *:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+/* ========================================
+   PRINT STYLES
+   ======================================== */
+
+@media print {
+  .responsive-grid,
+  .responsive-cards {
+    grid-template-columns: 1fr !important;
+    gap: var(--space-2) !important;
+  }
+  
+  .responsive-form {
+    max-width: none !important;
+  }
+  
+  .responsive-nav {
+    flex-direction: column !important;
+  }
+  
+  .hidden-print {
+    display: none !important;
+  }
+}

@@ -15,7 +15,6 @@ import { AuthService, User } from '../../../core/services/auth.service';
 import { MissionService, Mission } from '../../../core/services/mission.service';
 import { formatXOF } from '../../../core/constants/africa.constants';
 import { MissionApplicationsComponent } from '../missions/mission-applications/mission-applications.component';
-import { colors, typography, spacing, shadows, radius } from '../../../core/design-system';
 
 @Component({
   selector: 'app-client-dashboard',
@@ -220,61 +219,59 @@ import { colors, typography, spacing, shadows, radius } from '../../../core/desi
     </div>
   `,
   styles: [`
-    @import '../../../core/design-system';
-
     .dashboard-container {
-      padding: spacing.$8;
+      padding: 2rem;
       display: flex;
       flex-direction: column;
-      gap: spacing.$8;
+      gap: 2rem;
       max-width: 1400px;
       margin: 0 auto;
-      font-family: typography.$font-family-sans;
+      font-family: system-ui, -apple-system, sans-serif;
     }
 
     /* Welcome Section - Stripe Style */
     .welcome-section {
-      background: linear-gradient(135deg, colors.$primary-500 0%, colors.$primary-600 100%);
-      color: colors.$text-inverse;
-      padding: spacing.$8;
-      border-radius: radius.$2xl;
+      background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+      color: #ffffff;
+      padding: 2rem;
+      border-radius: 1.5rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      box-shadow: shadows.$primary-md;
+      box-shadow: 0 10px 15px -3px rgba(99, 102, 241, 0.3);
       
       .welcome-content {
         h1 {
-          margin: 0 0 spacing.$2 0;
-          font-size: typography.$font-size-3xl;
-          font-weight: typography.$font-weight-extrabold;
+          margin: 0 0 0.5rem 0;
+          font-size: 1.875rem;
+          font-weight: 800;
         }
         
         p {
           margin: 0;
-          font-size: typography.$font-size-lg;
+          font-size: 1.125rem;
           opacity: 0.9;
         }
       }
 
       .create-btn {
-        background: colors.$background-primary;
-        color: colors.$primary-600;
+        background: #ffffff;
+        color: #4f46e5;
         border: none;
-        border-radius: radius.$lg;
+        border-radius: 0.75rem;
         padding: 0.875rem 1.75rem;
-        font-weight: typography.$font-weight-semibold;
-        font-size: typography.$font-size-sm;
-        box-shadow: shadows.$base;
+        font-weight: 600;
+        font-size: 0.875rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
         transition: all 0.2s ease;
 
         &:hover {
-          box-shadow: shadows.$md;
+          box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
           transform: translateY(-1px);
         }
 
         mat-icon {
-          margin-right: spacing.$2;
+          margin-right: 0.5rem;
         }
       }
     }
@@ -283,30 +280,30 @@ import { colors, typography, spacing, shadows, radius } from '../../../core/desi
     .stats-grid {
       display: grid;
       grid-template-columns: repeat(4, 1fr);
-      gap: spacing.$6;
+      gap: 1.5rem;
     }
 
     .stat-card {
       display: flex;
       flex-direction: column;
-      gap: spacing.$4;
-      padding: spacing.$6;
-      border: 1px solid colors.$border-primary;
-      border-radius: radius.$xl;
-      background: colors.$background-primary;
-      box-shadow: shadows.$base;
+      gap: 1rem;
+      padding: 1.5rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 1rem;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       transition: all 0.2s ease;
       position: relative;
 
       &:hover {
-        box-shadow: shadows.$lg;
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         transform: translateY(-2px);
       }
 
       .stat-icon {
         width: 3rem;
         height: 3rem;
-        border-radius: radius.$lg;
+        border-radius: 0.75rem;
         display: flex;
         align-items: center;
         justify-content: center;
@@ -321,29 +318,29 @@ import { colors, typography, spacing, shadows, radius } from '../../../core/desi
       .stat-content {
         display: flex;
         flex-direction: column;
-        gap: spacing.$1;
+        gap: 0.25rem;
       }
 
       .stat-value {
-        font-size: typography.$font-size-3xl;
-        font-weight: typography.$font-weight-extrabold;
-        color: colors.$text-primary;
+        font-size: 1.875rem;
+        font-weight: 800;
+        color: #111827;
       }
 
       .stat-label {
-        font-size: typography.$font-size-sm;
-        color: colors.$text-tertiary;
-        font-weight: typography.$font-weight-medium;
+        font-size: 0.875rem;
+        color: #9ca3af;
+        font-weight: 500;
       }
 
       .stat-trend {
         display: flex;
         align-items: center;
-        gap: spacing.$1;
-        font-size: typography.$font-size-xs;
-        font-weight: typography.$font-weight-semibold;
-        padding: spacing.$1 spacing.$2;
-        border-radius: radius.$md;
+        gap: 0.25rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 0.25rem 0.5rem;
+        border-radius: 0.5rem;
         width: fit-content;
 
         mat-icon {
@@ -353,46 +350,46 @@ import { colors, typography, spacing, shadows, radius } from '../../../core/desi
         }
 
         &.positive {
-          background: colors.$success-50;
-          color: colors.$success-600;
+          background: #dcfce7;
+          color: #16a34a;
         }
 
         &.negative {
-          background: colors.$error-50;
-          color: colors.$error-600;
+          background: #fee2e2;
+          color: #dc2626;
         }
 
         &.neutral {
-          background: colors.$neutral-100;
-          color: colors.$neutral-600;
+          background: #f3f4f6;
+          color: #6b7280;
         }
       }
 
       &--active .stat-icon {
-        background: linear-gradient(135deg, colors.$info-400 0%, colors.$info-600 100%);
-        color: colors.$text-inverse;
+        background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
+        color: #ffffff;
       }
 
       &--completed .stat-icon {
-        background: linear-gradient(135deg, colors.$success-400 0%, colors.$success-600 100%);
-        color: colors.$text-inverse;
+        background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+        color: #ffffff;
       }
 
       &--pending .stat-icon {
-        background: linear-gradient(135deg, colors.$warning-400 0%, colors.$warning-600 100%);
-        color: colors.$text-primary;
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        color: #111827;
       }
 
       &--wallet .stat-icon {
-        background: linear-gradient(135deg, colors.$secondary-400 0%, colors.$secondary-600 100%);
-        color: colors.$text-inverse;
+        background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+        color: #ffffff;
       }
     }
 
     /* Quick Actions - Linear Style */
     .quick-actions {
       display: flex;
-      gap: spacing.$4;
+      gap: 1rem;
       flex-wrap: wrap;
     }
 
@@ -400,22 +397,22 @@ import { colors, typography, spacing, shadows, radius } from '../../../core/desi
       flex: 1;
       min-width: 160px;
       height: 3.5rem;
-      border: 2px solid colors.$border-primary;
-      border-radius: radius.$lg;
-      background: colors.$background-primary;
-      color: colors.$text-secondary;
-      font-weight: typography.$font-weight-semibold;
-      font-size: typography.$font-size-sm;
+      border: 2px solid #e5e7eb;
+      border-radius: 0.75rem;
+      background: #ffffff;
+      color: #6b7280;
+      font-weight: 600;
+      font-size: 0.875rem;
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: spacing.$2;
+      gap: 0.5rem;
       transition: all 0.2s ease;
 
       &:hover {
-        border-color: colors.$border-focus;
-        background: colors.$surface-hover;
-        color: colors.$text-primary;
+        border-color: #6366f1;
+        background: #f9fafb;
+        color: #111827;
       }
 
       mat-icon {
@@ -427,25 +424,25 @@ import { colors, typography, spacing, shadows, radius } from '../../../core/desi
 
     /* Missions Card */
     .missions-card {
-      border: 1px solid colors.$border-primary;
-      border-radius: radius.$xl;
-      background: colors.$background-primary;
-      box-shadow: shadows.$base;
+      border: 1px solid #e5e7eb;
+      border-radius: 1rem;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 
       ::ng-deep {
         .mat-mdc-card-header {
-          padding: spacing.$6;
-          border-bottom: 1px solid colors.$border-primary;
+          padding: 1.5rem;
+          border-bottom: 1px solid #e5e7eb;
         }
 
         .mat-mdc-card-title {
-          font-size: typography.$font-size-lg;
-          font-weight: typography.$font-weight-semibold;
-          color: colors.$text-primary;
+          font-size: 1.125rem;
+          font-weight: 600;
+          color: #111827;
         }
 
         .mat-mdc-card-content {
-          padding: spacing.$6;
+          padding: 1.5rem;
         }
       }
 
@@ -459,19 +456,19 @@ import { colors, typography, spacing, shadows, radius } from '../../../core/desi
     .mission-list {
       display: flex;
       flex-direction: column;
-      gap: spacing.$4;
+      gap: 1rem;
     }
 
     .mission-item {
-      padding: spacing.$5;
-      border: 1px solid colors.$border-primary;
-      border-radius: radius.$lg;
-      background: colors.$background-secondary;
+      padding: 1.25rem;
+      border: 1px solid #e5e7eb;
+      border-radius: 0.75rem;
+      background: #f9fafb;
       transition: all 0.2s ease;
 
       &:hover {
-        border-color: colors.$border-focus;
-        box-shadow: shadows.$sm;
+        border-color: #6366f1;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
       }
     }
 
@@ -479,37 +476,37 @@ import { colors, typography, spacing, shadows, radius } from '../../../core/desi
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
-      margin-bottom: spacing.$3;
+      margin-bottom: 0.75rem;
     }
 
     .mission-title {
       h4 {
-        margin: 0 0 spacing.$2 0;
-        font-size: typography.$font-size-base;
-        font-weight: typography.$font-weight-semibold;
-        color: colors.$text-primary;
+        margin: 0 0 0.5rem 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: #111827;
       }
     }
 
     .mission-price {
-      font-size: typography.$font-size-lg;
-      font-weight: typography.$font-weight-extrabold;
-      color: colors.$primary-600;
+      font-size: 1.125rem;
+      font-weight: 800;
+      color: #4f46e5;
     }
 
     .mission-details {
       display: flex;
       flex-direction: column;
-      gap: spacing.$2;
-      margin-bottom: spacing.$3;
+      gap: 0.5rem;
+      margin-bottom: 0.75rem;
     }
 
     .location {
       display: flex;
       align-items: center;
-      gap: spacing.$2;
-      font-size: typography.$font-size-sm;
-      color: colors.$text-tertiary;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: #9ca3af;
 
       mat-icon {
         font-size: 1rem;
@@ -521,27 +518,27 @@ import { colors, typography, spacing, shadows, radius } from '../../../core/desi
     .provider {
       display: flex;
       align-items: center;
-      gap: spacing.$2;
+      gap: 0.5rem;
 
       .avatar {
         width: 2rem;
         height: 2rem;
-        border-radius: componentRadius.$full;
+        border-radius: 9999px;
         object-fit: cover;
       }
 
       span {
-        font-size: typography.$font-size-sm;
-        color: colors.$text-secondary;
-        font-weight: typography.$font-weight-medium;
+        font-size: 0.875rem;
+        color: #6b7280;
+        font-weight: 500;
       }
 
       .rating {
         display: flex;
         align-items: center;
-        gap: spacing.$1;
-        font-size: typography.$font-size-sm;
-        color: colors.$warning-500;
+        gap: 0.25rem;
+        font-size: 0.875rem;
+        color: #f59e0b;
 
         mat-icon {
           font-size: 1rem;
@@ -552,58 +549,58 @@ import { colors, typography, spacing, shadows, radius } from '../../../core/desi
     }
 
     .mission-progress {
-      margin-top: spacing.$4;
+      margin-top: 1rem;
     }
 
     .progress-header {
       display: flex;
       justify-content: space-between;
-      font-size: typography.$font-size-xs;
-      color: colors.$text-tertiary;
-      margin-bottom: spacing.$2;
-      font-weight: typography.$font-weight-medium;
+      font-size: 0.75rem;
+      color: #9ca3af;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
     }
 
     .tracking-btn {
-      margin-top: spacing.$3;
+      margin-top: 0.75rem;
     }
 
     .mission-actions {
-      margin-top: spacing.$4;
+      margin-top: 1rem;
     }
 
     .info-text {
-      font-size: typography.$font-size-sm;
-      color: colors.$text-secondary;
-      margin-bottom: spacing.$3;
+      font-size: 0.875rem;
+      color: #6b7280;
+      margin-bottom: 0.75rem;
     }
 
     .action-buttons {
       display: flex;
-      gap: spacing.$3;
+      gap: 0.75rem;
     }
 
     /* Activity Card */
     .activity-card {
-      border: 1px solid colors.$border-primary;
-      border-radius: radius.$xl;
-      background: colors.$background-primary;
-      box-shadow: shadows.$base;
+      border: 1px solid #e5e7eb;
+      border-radius: 1rem;
+      background: #ffffff;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 
       ::ng-deep {
         .mat-mdc-card-header {
-          padding: spacing.$6;
-          border-bottom: 1px solid colors.$border-primary;
+          padding: 1.5rem;
+          border-bottom: 1px solid #e5e7eb;
         }
 
         .mat-mdc-card-title {
-          font-size: typography.$font-size-lg;
-          font-weight: typography.$font-weight-semibold;
-          color: colors.$text-primary;
+          font-size: 1.125rem;
+          font-weight: 600;
+          color: #111827;
         }
 
         .mat-mdc-card-content {
-          padding: spacing.$6;
+          padding: 1.5rem;
         }
       }
     }
@@ -611,19 +608,19 @@ import { colors, typography, spacing, shadows, radius } from '../../../core/desi
     .activity-list {
       display: flex;
       flex-direction: column;
-      gap: spacing.$4;
+      gap: 1rem;
     }
 
     .activity-item {
       display: flex;
-      gap: spacing.$4;
+      gap: 1rem;
       align-items: flex-start;
     }
 
     .activity-icon {
       width: 2.5rem;
       height: 2.5rem;
-      border-radius: radius.$lg;
+      border-radius: 0.75rem;
       display: flex;
       align-items: center;
       justify-content: center;
@@ -637,19 +634,19 @@ import { colors, typography, spacing, shadows, radius } from '../../../core/desi
       }
 
       &.mission {
-        background: linear-gradient(135deg, colors.$primary-400 0%, colors.$primary-600 100%);
+        background: linear-gradient(135deg, #818cf8 0%, #4f46e5 100%);
       }
 
       &.payment {
-        background: linear-gradient(135deg, colors.$success-400 0%, colors.$success-600 100%);
+        background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
       }
 
       &.review {
-        background: linear-gradient(135deg, colors.$warning-400 0%, colors.$warning-600 100%);
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
       }
 
       &.dispute {
-        background: linear-gradient(135deg, colors.$error-400 0%, colors.$error-600 100%);
+        background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
       }
     }
 
@@ -658,15 +655,15 @@ import { colors, typography, spacing, shadows, radius } from '../../../core/desi
     }
 
     .activity-text {
-      margin: 0 0 spacing.$1 0;
-      font-size: typography.$font-size-sm;
-      color: colors.$text-secondary;
-      line-height: typography.$line-height-relaxed;
+      margin: 0 0 0.25rem 0;
+      font-size: 0.875rem;
+      color: #6b7280;
+      line-height: 1.625;
     }
 
     .activity-time {
-      font-size: typography.$font-size-xs;
-      color: colors.$text-tertiary;
+      font-size: 0.75rem;
+      color: #9ca3af;
     }
 
     /* Responsive */
@@ -678,13 +675,13 @@ import { colors, typography, spacing, shadows, radius } from '../../../core/desi
 
     @media (max-width: 768px) {
       .dashboard-container {
-        padding: spacing.$4;
+        padding: 1rem;
       }
 
       .welcome-section {
         flex-direction: column;
         text-align: center;
-        gap: spacing.$4;
+        gap: 1rem;
 
         .create-btn {
           width: 100%;
@@ -704,6 +701,7 @@ import { colors, typography, spacing, shadows, radius } from '../../../core/desi
       }
     }
   `]
+})
 
 export class ClientDashboardComponent implements OnInit {
   currentUser$: Observable<User | null>;
@@ -795,6 +793,10 @@ export class ClientDashboardComponent implements OnInit {
       'accepted': 'Acceptée'
     };
     return labels[status] || status;
+  }
+
+  formatXOF(value: string): string {
+    return value;
   }
 
   validateMission(mission: { id: string; title: string }): void {

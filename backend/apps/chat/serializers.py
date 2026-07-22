@@ -61,6 +61,7 @@ class MissionMiniSerializer(serializers.Serializer):
 class ConversationSerializer(serializers.ModelSerializer):
     mission = serializers.SerializerMethodField()
     other_participant = serializers.SerializerMethodField()
+    participants = serializers.SerializerMethodField()
     last_message = serializers.SerializerMethodField()
     unread_count = serializers.SerializerMethodField()
     can_write = serializers.SerializerMethodField()
@@ -68,13 +69,18 @@ class ConversationSerializer(serializers.ModelSerializer):
     class Meta:
         model = Conversation
         fields = [
-            'id', 'mission', 'other_participant', 'last_message',
+            'id', 'mission', 'other_participant', 'participants', 'last_message',
             'unread_count', 'can_write', 'is_closed', 'updated_at',
         ]
 
     def _other_user(self, obj):
         user = self.context['request'].user
-        return obj.provider if obj.client_id == user.id else obj.client
+        if obj.client_id == user.id:
+            return obj.provider
+        if obj.provider_id == user.id:
+            return obj.client
+        # Contact livraison : « other » = le prestataire
+        return obj.provider
 
     def get_mission(self, obj):
         m = obj.mission
@@ -83,6 +89,30 @@ class ConversationSerializer(serializers.ModelSerializer):
     def get_other_participant(self, obj):
         u = self._other_user(obj)
         return SenderSerializer(u, context=self.context).data
+
+    def get_participants(self, obj):
+        items = [
+            {
+                'id': str(obj.client_id),
+                'role': 'client',
+                'label': 'Client',
+                **SenderSerializer(obj.client, context=self.context).data,
+            },
+            {
+                'id': str(obj.provider_id),
+                'role': 'provider',
+                'label': 'Prestataire',
+                **SenderSerializer(obj.provider, context=self.context).data,
+            },
+        ]
+        for p in obj.extra_participants.select_related('user').all():
+            items.append({
+                'id': str(p.user_id),
+                'role': p.role,
+                'label': p.label or p.get_role_display(),
+                **SenderSerializer(p.user, context=self.context).data,
+            })
+        return items
 
     def get_last_message(self, obj):
         msg = obj.messages.order_by('-created_at').first()

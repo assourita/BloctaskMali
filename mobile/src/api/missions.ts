@@ -1,6 +1,6 @@
-import { ApiError, apiRequest } from './client';
+import { ApiError, apiFormRequest, apiRequest } from './client';
 import { invalidateCache } from './cache';
-import type { Mission, MissionStats, UserRole } from '../types';
+import type { Mission, MissionMediaItem, MissionStats, UserRole } from '../types';
 
 function unwrapList<T>(data: T[] | { results: T[] }): T[] {
   return Array.isArray(data) ? data : data.results || [];
@@ -106,6 +106,7 @@ export interface CreateMissionWithPaymentPayload extends CreateMissionPayload {
   estimated_duration?: number;
   start_time?: string | null;
   end_time?: string | null;
+  custom_data?: Record<string, unknown>;
 }
 
 /** Crée une mission ET le paiement associé (renvoie payment_id à confirmer). */
@@ -121,6 +122,23 @@ export async function createMissionWithPayment(
       escrow_enabled: true,
     }),
   });
+}
+
+export async function uploadMissionMedia(
+  missionId: string,
+  file: { uri: string; name: string; type: string },
+  fieldName: string,
+  label?: string,
+): Promise<MissionMediaItem> {
+  const formData = new FormData();
+  formData.append('file', {
+    uri: file.uri,
+    name: file.name,
+    type: file.type,
+  } as unknown as Blob);
+  formData.append('field_name', fieldName);
+  if (label) formData.append('label', label);
+  return apiFormRequest<MissionMediaItem>(`/missions/${missionId}/media/`, formData);
 }
 
 export interface TrackingData {

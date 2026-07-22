@@ -167,10 +167,10 @@ class Mission(models.Model):
     )
     requires_qr_validation = models.BooleanField(default=False)
     
-    # Validation automatique
+    # Validation automatique (48h par défaut si client ne valide pas)
     auto_validation_delay = models.PositiveIntegerField(
         help_text="Heures avant validation auto",
-        default=24
+        default=48
     )
     auto_validation_scheduled_at = models.DateTimeField(blank=True, null=True)
     
@@ -422,3 +422,51 @@ class MissionCategoryPrice(models.Model):
     
     def __str__(self):
         return f"{self.category} - {self.city}: {self.average_price}"
+
+
+class MissionMedia(models.Model):
+    """Photos / documents fournis par le client à la création (contexte pour le prestataire)."""
+
+    class MediaKind(models.TextChoices):
+        CONTEXT = 'context', 'Photo contexte'
+        DOCUMENT = 'document', 'Document'
+        OTHER = 'other', 'Autre'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    mission = models.ForeignKey(
+        Mission,
+        on_delete=models.CASCADE,
+        related_name='media_files',
+    )
+    uploaded_by = models.ForeignKey(
+        'users.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='uploaded_mission_media',
+    )
+    field_name = models.CharField(
+        max_length=100,
+        help_text='Nom du champ schéma (ex: context_photos, defect_photos)',
+    )
+    label = models.CharField(max_length=255, blank=True)
+    kind = models.CharField(
+        max_length=20,
+        choices=MediaKind.choices,
+        default=MediaKind.CONTEXT,
+    )
+    file = models.FileField(upload_to='missions/media/%Y/%m/%d/')
+    file_name = models.CharField(max_length=255)
+    file_size = models.PositiveIntegerField(default=0)
+    mime_type = models.CharField(max_length=100, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'mission_media'
+        ordering = ['created_at']
+        indexes = [
+            models.Index(fields=['mission', 'field_name']),
+        ]
+
+    def __str__(self):
+        return f"{self.field_name} — {self.file_name}"

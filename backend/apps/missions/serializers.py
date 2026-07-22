@@ -2,10 +2,32 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import (
     Category, Mission, MissionApplication, MissionSolicitation,
-    MissionStatusHistory, MissionBookmark, MissionReview
+    MissionStatusHistory, MissionBookmark, MissionReview, MissionMedia
 )
 
 User = get_user_model()
+
+
+class MissionMediaSerializer(serializers.ModelSerializer):
+    """Médias contextuels fournis par le client."""
+    url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = MissionMedia
+        fields = [
+            'id', 'field_name', 'label', 'kind', 'url',
+            'file_name', 'file_size', 'mime_type', 'created_at',
+        ]
+        read_only_fields = fields
+
+    def get_url(self, obj):
+        request = self.context.get('request')
+        if not obj.file:
+            return None
+        url = obj.file.url
+        if request:
+            return request.build_absolute_uri(url)
+        return url
 
 
 class UserBasicSerializer(serializers.ModelSerializer):
@@ -113,7 +135,7 @@ class MissionListSerializer(serializers.ModelSerializer):
     class Meta:
         model = Mission
         fields = [
-            'id', 'title', 'mission_hash', 'category', 'category_name', 'category_icon', 'category_slug',
+            'id', 'title', 'description', 'mission_hash', 'category', 'category_name', 'category_icon', 'category_slug',
             'client', 'provider', 'status', 'priority',
             'budget', 'deposit_amount', 'required_deposit', 'deposit_paid', 'deposit_deadline', 'currency',
             'deposit_required', 'requirement_labels', 'requirements',
@@ -214,6 +236,8 @@ class MissionDetailSerializer(serializers.ModelSerializer):
     can_view_counterparty = serializers.SerializerMethodField()
     pending_applications_count = serializers.SerializerMethodField()
     deposit_policy = serializers.SerializerMethodField()
+    custom_details = serializers.SerializerMethodField()
+    media = serializers.SerializerMethodField()
 
     class Meta:
         model = Mission
@@ -232,7 +256,7 @@ class MissionDetailSerializer(serializers.ModelSerializer):
             'auto_validation_delay', 'auto_validation_scheduled_at',
             'escrow_tx_hash', 'mission_contract_id', 'blockchain_status',
             'views_count', 'applications_count', 'pending_applications_count',
-            'requirements', 'payment_id', 'payment_status',
+            'requirements', 'custom_details', 'media', 'payment_id', 'payment_status',
             'assigned_enterprise_id', 'assigned_enterprise_name', 'executing_employee',
             'counterparty', 'can_view_counterparty',
             'created_at', 'updated_at',
@@ -293,6 +317,14 @@ class MissionDetailSerializer(serializers.ModelSerializer):
     def get_requirements(self, obj):
         from .requirements import parse_mission_requirements
         return parse_mission_requirements(obj)
+
+    def get_custom_details(self, obj):
+        from .category_rules import get_custom_field_details
+        return get_custom_field_details(obj)
+
+    def get_media(self, obj):
+        qs = obj.media_files.all()
+        return MissionMediaSerializer(qs, many=True, context=self.context).data
 
     def get_category_rule(self, obj):
         from .category_rules import get_category_rule
@@ -446,11 +478,26 @@ class MissionCreateSerializer(serializers.ModelSerializer):
         if rule.requires_delivery and not data.get('delivery_address'):
             raise serializers.ValidationError({'delivery_address': 'Adresse de livraison requise pour cette catégorie.'})
 
-        # Merge custom_data with requirements payload
-        custom_data = data.get('custom_data', {})
+        # Merge custom_data with requirements payload (fichiers exclus — upload séparé)
+        custom_data = dict(data.get('custom_data') or {})
+        file_field_names = {f.name for f in rule.custom_fields if f.type == 'file'}
+        for name in file_field_names:
+            custom_data.pop(name, None)
+
+        missing_fields = {}
+        for field_def in rule.custom_fields:
+            if field_def.type == 'file' or not field_def.required:
+                continue
+            value = custom_data.get(field_def.name)
+            if value is None or value == '':
+                missing_fields[field_def.name] = f'« {field_def.label} » est obligatoire.'
+        if missing_fields:
+            raise serializers.ValidationError({'custom_data': missing_fields})
+
         req_payload = {**data, 'requires_vehicle': rule.requires_vehicle or data.get('requires_vehicle')}
         req_payload.update(custom_data)
-        
+        data['custom_data'] = custom_data
+
         requirements_dict = build_requirements_payload(req_payload, rule)
         data['_requirements_dict'] = requirements_dict
 

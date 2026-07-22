@@ -59,6 +59,24 @@ interface Dispute {
   messages?: DisputeMessage[];
 }
 
+interface MissionDossierChatMessage {
+  content: string;
+  sender?: { first_name?: string; last_name?: string };
+}
+
+interface MissionDossierProof {
+  file?: string;
+  title?: string;
+  proof_type?: string;
+}
+
+interface MissionDossier {
+  proofs?: MissionDossierProof[];
+  chat_messages?: MissionDossierChatMessage[];
+  gps_trail?: unknown[];
+  media?: unknown[];
+}
+
 @Component({
   selector: 'app-admin-disputes',
   standalone: true,
@@ -292,6 +310,24 @@ interface Dispute {
             <div class="description-box" *ngIf="selectedDispute.requested_resolution">
               <p class="info-label">Résolution demandée</p>
               <p class="desc-text">{{ selectedDispute.requested_resolution }}</p>
+            </div>
+
+            <div class="panel-actions">
+              <button class="action-resolve-btn" type="button" (click)="loadMissionDossier(selectedDispute)" [disabled]="dossierLoading">
+                <mat-icon>folder_open</mat-icon> {{ dossierLoading ? 'Chargement…' : 'Dossier mission complet' }}
+              </button>
+            </div>
+            <div class="dossier-box" *ngIf="missionDossier">
+              <p class="info-label">Dossier arbitrage</p>
+              <p class="info-sub">{{ missionDossier.proofs?.length || 0 }} preuve(s) · {{ missionDossier.chat_messages?.length || 0 }} message(s) · {{ missionDossier.gps_trail?.length || 0 }} point(s) GPS · {{ missionDossier.media?.length || 0 }} média(s)</p>
+              <div class="dossier-proofs" *ngIf="missionDossier.proofs?.length">
+                <a *ngFor="let p of missionDossier.proofs" [href]="p.file" target="_blank" rel="noopener">{{ p.title || p.proof_type }}</a>
+              </div>
+              <div class="dossier-chat" *ngIf="missionDossier.chat_messages?.length">
+                <div *ngFor="let m of missionDossier.chat_messages | slice:0:30" class="message-item">
+                  <strong>{{ m.sender?.first_name }}</strong>: {{ m.content }}
+                </div>
+              </div>
             </div>
 
             <!-- Decision details -->
@@ -564,6 +600,8 @@ export class AdminDisputesComponent implements OnInit, AfterViewInit {
   displayedColumns = ['mission', 'plaintiff', 'defendant', 'reason', 'status', 'decision', 'created_at', 'actions'];
 
   selectedDispute: Dispute | null = null;
+  missionDossier: MissionDossier | null = null;
+  dossierLoading = false;
   searchTerm = '';
   filterStatus = '';
   filterReason = '';
@@ -651,7 +689,27 @@ export class AdminDisputesComponent implements OnInit, AfterViewInit {
     }
   }
 
-  closePanel(): void { this.selectedDispute = null; }
+  closePanel(): void {
+    this.selectedDispute = null;
+    this.missionDossier = null;
+  }
+
+  loadMissionDossier(dispute: Dispute): void {
+    this.dossierLoading = true;
+    this.http.get<MissionDossier>(
+      `${this.apiUrl}/disputes/${dispute.id}/mission-dossier/`,
+      { headers: this.getHeaders() },
+    ).subscribe({
+      next: (data) => {
+        this.missionDossier = data;
+        this.dossierLoading = false;
+      },
+      error: () => {
+        this.dossierLoading = false;
+        this.snackBar.open('Impossible de charger le dossier mission', 'Fermer', { duration: 4000 });
+      },
+    });
+  }
 
   changeStatus(): void {
     if (!this.newStatus || !this.selectedDispute) return;

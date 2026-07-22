@@ -159,10 +159,18 @@ export function DynamicFormField({ field, value, onChange, error }: DynamicFormF
             onPress={handleFilePick}
           >
             <Text style={styles.fileButtonText}>
-              {value ? 'Fichier sélectionné' : 'Choisir un fichier'}
+              {Array.isArray(value) && value.length
+                ? `${value.length} fichier(s) sélectionné(s)`
+                : value
+                  ? 'Fichier sélectionné'
+                  : 'Choisir une ou plusieurs photos'}
             </Text>
           </Pressable>
-          {value && <Text style={styles.fileSelected}>✓ Fichier sélectionné</Text>}
+          {Array.isArray(value) && value.length > 0 ? (
+            <Text style={styles.fileSelected}>✓ {value.length} photo(s)</Text>
+          ) : value ? (
+            <Text style={styles.fileSelected}>✓ Fichier sélectionné</Text>
+          ) : null}
           {field.help_text && <Text style={styles.helpText}>{field.help_text}</Text>}
           {error && <Text style={styles.errorText}>{error}</Text>}
         </View>
@@ -195,16 +203,22 @@ export function DynamicFormField({ field, value, onChange, error }: DynamicFormF
 
   async function handleFilePick() {
     try {
+      const maxFiles = field.validation?.max_files || 8;
       const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.All,
-        allowsEditing: true,
-        aspect: [4, 3],
-        quality: 1,
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsMultipleSelection: maxFiles > 1,
+        selectionLimit: maxFiles,
+        quality: 0.85,
       });
 
-      if (!result.canceled) {
-        onChange(result.assets[0].uri);
-      }
+      if (result.canceled) return;
+      const assets = result.assets.map((asset, index) => ({
+        uri: asset.uri,
+        name: asset.fileName || `photo_${Date.now()}_${index}.jpg`,
+        type: asset.mimeType || 'image/jpeg',
+      }));
+      const existing = Array.isArray(value) ? value : value ? [value] : [];
+      onChange([...existing, ...assets].slice(0, maxFiles));
     } catch (error) {
       Alert.alert('Erreur', 'Impossible de sélectionner le fichier');
     }

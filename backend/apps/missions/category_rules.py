@@ -60,7 +60,10 @@ class CategoryRule:
     field_overrides: dict[str, FieldDefinition] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
-        return asdict(self)
+        data = asdict(self)
+        data['custom_fields'] = [f.to_dict() for f in self.custom_fields]
+        data['field_overrides'] = {k: v.to_dict() for k, v in self.field_overrides.items()}
+        return data
 
 
 def _rule(slug: str, label: str, base: dict | None = None, **overrides) -> CategoryRule:
@@ -275,7 +278,7 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         slug='nettoyage-menage', label='Nettoyage & Ménage',
         deposit_percent=10, deposit_floor=2000, requires_photo=True,
         date_label='Date de travail', deposit_reason='Caution standard domicile.',
-        requirement_labels=['Photo avant/après'], base=_HOME,
+        requirement_labels=['Photo avant/après', 'Photos des pièces'], base=_HOME,
         enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
         custom_fields=[
             FieldDefinition('property_type', 'select', 'Type de bien', True, options=['Maison', 'Appartement', 'Bureau', 'Autre']),
@@ -284,6 +287,11 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
             FieldDefinition('products_provided', 'boolean', 'Produits fournis ?', False, default=False),
             FieldDefinition('deep_cleaning', 'boolean', 'Nettoyage profond ?', False, default=False),
             FieldDefinition('windows_included', 'boolean', 'Vitres incluses ?', False, default=False),
+            FieldDefinition(
+                'context_photos', 'file', 'Photos des pièces à nettoyer', True,
+                validation={'max_files': 8, 'mime_types': ['image/*']},
+                help_text='Ajoutez des photos claires des pièces ou zones à nettoyer pour que le prestataire estime le travail.',
+            ),
         ],
     ),
     'aide-domicile': _rule(
@@ -323,17 +331,22 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         deposit_percent=20, requires_id_verification=True, requires_photo=True,
         requires_signature=True, date_label='Période de garde',
         deposit_reason='Surveillance — caution et identité obligatoires.',
-        requirement_labels=['Identité', 'Photo', 'Signature'], base=_HOME,
+        requirement_labels=['Identité', 'Photo', 'Signature', 'Photos du site'], base=_HOME,
         enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation', 'exigences_prestataire'],
         custom_fields=[
             FieldDefinition('property_type', 'select', 'Type de bien', True, options=['Maison', 'Appartement', 'Bureau', 'Entrepôt']),
             FieldDefinition('guard_period', 'text', 'Période de garde', True),
+            FieldDefinition(
+                'context_photos', 'file', 'Photos du site à surveiller', True,
+                validation={'max_files': 8, 'mime_types': ['image/*']},
+                help_text='Photos de l’entrée, des accès et des zones à surveiller.',
+            ),
         ],
     ),
     'jardinage': _rule(
         slug='jardinage', label='Jardinage',
         deposit_percent=10, deposit_floor=2000, requires_photo=True,
-        date_label='Date intervention', requirement_labels=['Photo'], base=_HOME,
+        date_label='Date intervention', requirement_labels=['Photo', 'Photos du jardin'], base=_HOME,
         enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
         custom_fields=[
             FieldDefinition('surface_area', 'number', 'Surface (m²)', False, validation={'min': 0}),
@@ -342,22 +355,32 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
             FieldDefinition('pruning', 'boolean', 'Taille', False, default=False),
             FieldDefinition('weeding', 'boolean', 'Désherbage', False, default=False),
             FieldDefinition('planting', 'boolean', 'Plantation', False, default=False),
+            FieldDefinition(
+                'context_photos', 'file', 'Photos du jardin / espace', True,
+                validation={'max_files': 8, 'mime_types': ['image/*']},
+                help_text='Photos de l’état actuel du jardin ou de la zone à entretenir.',
+            ),
         ],
     ),
     'bricolage': _rule(
         slug='bricolage', label='Bricolage',
         deposit_percent=15, requires_photo=True, date_label='Date intervention',
-        requirement_labels=['Photo'], base=_HOME,
+        requirement_labels=['Photo', 'Photos des travaux'], base=_HOME,
         enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
         custom_fields=[
             FieldDefinition('work_type', 'text', 'Type de travaux', True),
             FieldDefinition('material_available', 'boolean', 'Matériel disponible ?', False, default=False),
+            FieldDefinition(
+                'context_photos', 'file', 'Photos de l’objet / zone à bricoler', True,
+                validation={'max_files': 8, 'mime_types': ['image/*']},
+                help_text='Photos de l’objet, du meuble ou de la zone concernée par les travaux.',
+            ),
         ],
     ),
     'maintenance-reparation': _rule(
         slug='maintenance-reparation', label='Maintenance & Réparation',
         deposit_percent=15, requires_photo=True, date_label='Intervention',
-        requirement_labels=['Photo'], base=_HOME,
+        requirement_labels=['Photo', 'Photos de la panne'], base=_HOME,
         enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
         custom_fields=[
             FieldDefinition('device_type', 'text', "Type d'appareil", True),
@@ -369,35 +392,55 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
             FieldDefinition('appearance_date', 'date', 'Date d\'apparition', False),
             FieldDefinition('parts_replacement', 'boolean', 'Pièces à remplacer ?', False, default=False),
             FieldDefinition('estimated_quote', 'number', 'Devis estimé (XOF)', False, validation={'min': 0}),
+            FieldDefinition(
+                'context_photos', 'file', 'Photos de l’appareil / panne', True,
+                validation={'max_files': 8, 'mime_types': ['image/*']},
+                help_text='Photos de l’appareil et de la panne ou de l’usure à réparer.',
+            ),
         ],
     ),
     'plomberie': _rule(
         slug='plomberie', label='Plomberie', deposit_percent=15, requires_photo=True,
-        date_label='Intervention', requirement_labels=['Photo'], base=_HOME,
+        date_label='Intervention', requirement_labels=['Photo', 'Photos de la panne'], base=_HOME,
         enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
         custom_fields=[
             FieldDefinition('leak_type', 'select', 'Type de fuite', True, options=['Fuite robinet', 'Fuite tuyau', 'Fuite réservoir', 'Autre']),
             FieldDefinition('location', 'text', 'Localisation', True),
             FieldDefinition('urgency', 'select', 'Urgence', True, options=['Faible', 'Moyenne', 'Haute', 'Urgente']),
+            FieldDefinition(
+                'context_photos', 'file', 'Photos de la fuite / installation', True,
+                validation={'max_files': 8, 'mime_types': ['image/*']},
+                help_text='Photos de la fuite ou de l’installation à réparer.',
+            ),
         ],
     ),
     'electricite': _rule(
         slug='electricite', label='Électricité', deposit_percent=20, requires_photo=True,
-        date_label='Intervention', requirement_labels=['Photo'], base=_HOME,
+        date_label='Intervention', requirement_labels=['Photo', 'Photos de la panne'], base=_HOME,
         enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
         custom_fields=[
             FieldDefinition('problem_type', 'text', 'Type de panne', True),
             FieldDefinition('general_cutoff', 'boolean', 'Coupure générale ?', False, default=False),
+            FieldDefinition(
+                'context_photos', 'file', 'Photos du tableau / panne', True,
+                validation={'max_files': 8, 'mime_types': ['image/*']},
+                help_text='Photos du tableau électrique ou de la zone en panne (sans toucher aux fils).',
+            ),
         ],
     ),
     'climatisation': _rule(
         slug='climatisation', label='Climatisation', deposit_percent=20, requires_photo=True,
-        date_label='Intervention', requirement_labels=['Photo'], base=_HOME,
+        date_label='Intervention', requirement_labels=['Photo', 'Photos de l’appareil'], base=_HOME,
         enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
         custom_fields=[
             FieldDefinition('device_type', 'select', "Type d'appareil", False, options=['Clim split', 'Clim mobile', 'Clim central', 'Autre']),
             FieldDefinition('brand', 'text', 'Marque', False),
             FieldDefinition('model', 'text', 'Modèle', False),
+            FieldDefinition(
+                'context_photos', 'file', 'Photos de l’appareil', True,
+                validation={'max_files': 8, 'mime_types': ['image/*']},
+                help_text='Photos de la climatisation et du problème observé.',
+            ),
         ],
     ),
     'menuiserie': _rule(
@@ -636,12 +679,17 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
         requires_id_verification=True, requires_photo=True, requires_signature=True,
         mission_type='security', date_label='Mission sécurité', show_time_range=True,
         deposit_reason='Mission sécurité — entreprise agréée et caution élevée.',
-        requirement_labels=['Entreprise', 'Identité', 'Signature'],
+        requirement_labels=['Entreprise', 'Identité', 'Signature', 'Photos du site'],
         requires_pickup=False, requires_delivery=False,
         location_label='Lieu de mission',
         enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation', 'exigences_prestataire'],
         custom_fields=[
             FieldDefinition('agent_count', 'number', 'Nombre d\'agents', False, validation={'min': 1}),
+            FieldDefinition(
+                'context_photos', 'file', 'Photos du site à sécuriser', True,
+                validation={'max_files': 8, 'mime_types': ['image/*']},
+                help_text='Photos des accès, périmètre et points sensibles du site.',
+            ),
             FieldDefinition('site_plan', 'file', 'Plan du site', False, validation={'mime_types': ['application/pdf', 'image/*']}),
             FieldDefinition('security_instructions', 'file', 'Consignes de sécurité', False, validation={'mime_types': ['application/pdf', 'image/*']}),
         ],
@@ -713,10 +761,70 @@ def build_requirements_payload(data: dict, rule: CategoryRule) -> dict:
         req['merchandise_value'] = float(data['merchandise_value'])
     if data.get('special_instructions'):
         req['special_instructions'] = data['special_instructions']
-    for key in ('estimated_duration', 'start_time', 'end_time'):
+    for key in ('estimated_duration', 'start_time', 'end_time',
+                'pickup_contact_name', 'pickup_contact_phone',
+                'delivery_contact_name', 'delivery_contact_phone'):
         if data.get(key):
             req[key] = data[key]
+
+    # Champs catégorie (hors fichiers — stockés via MissionMedia)
+    file_field_names = {f.name for f in rule.custom_fields if f.type == 'file'}
+    req['required_media_fields'] = [
+        {'name': f.name, 'label': f.label}
+        for f in rule.custom_fields
+        if f.type == 'file' and f.required
+    ]
+    for field_def in rule.custom_fields:
+        if field_def.name in file_field_names:
+            continue
+        value = data.get(field_def.name)
+        if value is None or value == '':
+            continue
+        if field_def.type == 'number':
+            try:
+                req[field_def.name] = float(value)
+            except (TypeError, ValueError):
+                req[field_def.name] = value
+        else:
+            req[field_def.name] = value
+
     return req
+
+
+def get_custom_field_details(mission) -> list[dict[str, Any]]:
+    """Détails catégorie lisibles pour le prestataire (hors fichiers)."""
+    from .requirements import parse_mission_requirements
+
+    rule = get_category_rule(mission.category)
+    req = parse_mission_requirements(mission)
+    details: list[dict[str, Any]] = []
+
+    extra_labels = {
+        'special_instructions': 'Instructions spéciales',
+        'merchandise_value': 'Valeur marchandise (XOF)',
+        'start_time': 'Heure de début',
+        'end_time': 'Heure de fin',
+        'estimated_duration': 'Durée estimée',
+    }
+    for key, label in extra_labels.items():
+        value = req.get(key)
+        if value is None or value == '':
+            continue
+        details.append({'name': key, 'label': label, 'type': 'text', 'value': value})
+
+    for field_def in rule.custom_fields:
+        if field_def.type == 'file':
+            continue
+        value = req.get(field_def.name)
+        if value is None or value == '':
+            continue
+        details.append({
+            'name': field_def.name,
+            'label': field_def.label,
+            'type': field_def.type,
+            'value': value,
+        })
+    return details
 
 
 def calculate_category_deposit(mission, provider=None) -> Decimal:

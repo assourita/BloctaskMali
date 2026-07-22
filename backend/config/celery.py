@@ -14,6 +14,10 @@ app.conf.beat_schedule = {
         'task': 'missions.expire_missions',
         'schedule': crontab(minute=0),
     },
+    'auto-validate-missions-hourly': {
+        'task': 'missions.auto_validate_missions',
+        'schedule': crontab(minute=15),
+    },
     'sync-blockchain-events': {
         'task': 'escrow.sync_blockchain_events',
         'schedule': crontab(minute='*/5'),

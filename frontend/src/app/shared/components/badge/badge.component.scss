@@ -1,4 +1,9 @@
-@import '../../../core/design-system';
+@use '../../../core/design-system/spacing' as spacing;
+@use '../../../core/design-system/radius' as radius;
+@use '../../../core/design-system/colors' as colors;
+@use '../../../core/design-system/typography' as typography;
+@use '../../../core/design-system/shadows' as shadows;
+@use '../../../core/design-system/component-radius' as componentRadius;
 
 .bt-badge {
   display: inline-flex;

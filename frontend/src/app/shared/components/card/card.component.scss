@@ -1,4 +1,9 @@
-@import '../../../core/design-system';
+@use '../../../core/design-system/spacing' as spacing;
+@use '../../../core/design-system/radius' as radius;
+@use '../../../core/design-system/colors' as colors;
+@use '../../../core/design-system/typography' as typography;
+@use '../../../core/design-system/shadows' as shadows;
+@use '../../../core/design-system/component-radius' as componentRadius;
 
 .bt-card {
   font-family: typography.$font-family-sans;
@@ -34,15 +39,15 @@
   }
 
   &--padding-sm {
-    padding: spacing.$4;
+    padding: spacing.$space-4;
   }
 
   &--padding-md {
-    padding: spacing.$6;
+    padding: spacing.$space-6;
   }
 
   &--padding-lg {
-    padding: spacing.$8;
+    padding: spacing.$space-8;
   }
 
   &--hoverable {
@@ -69,7 +74,7 @@
     }
 
     .mat-mdc-card-header {
-      padding: spacing.$6;
+      padding: spacing.$space-6;
       border-bottom: 1px solid colors.$border-primary;
     }
 

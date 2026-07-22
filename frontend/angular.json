@@ -39,7 +39,8 @@
             "allowedCommonJsDependencies": [
               "ethers",
               "web3",
-              "@walletconnect/ethereum-provider"
+              "@walletconnect/ethereum-provider",
+              "leaflet"
             ]
           },
           "configurations": {

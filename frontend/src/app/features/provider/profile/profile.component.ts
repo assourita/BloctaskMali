@@ -27,6 +27,7 @@ import {
   VEHICLE_TYPE_OPTIONS,
   SelectOption,
 } from '../../../core/constants/provider-profile.constants';
+import { colors, typography, spacing, shadows, radius } from '../../../core/design-system';
 
 interface MissionCategory {
   id: number;
@@ -67,26 +68,52 @@ interface ProviderProfile {
   template: `
     <div class="profile-container" *ngIf="user" [class.has-onboarding-bar]="showOnboarding">
 
-      <!-- Header -->
+      <!-- Header - Fiverr Style -->
       <div class="profile-header">
-        <div class="avatar-section">
-          <div class="avatar-wrap">
-            <img *ngIf="user.profile_picture" [src]="user.profile_picture" class="avatar-img" alt="avatar"/>
-            <div *ngIf="!user.profile_picture" class="avatar-initials">{{ initials }}</div>
-            <button mat-mini-fab class="avatar-edit-btn" (click)="fileInput.click()">
-              <mat-icon>camera_alt</mat-icon>
-            </button>
-            <input #fileInput type="file" accept="image/*" hidden (change)="onAvatarChange($event)"/>
+        <div class="header-bg"></div>
+        <div class="header-content">
+          <div class="avatar-section">
+            <div class="avatar-wrap">
+              <img *ngIf="user.profile_picture" [src]="user.profile_picture" class="avatar-img" alt="avatar"/>
+              <div *ngIf="!user.profile_picture" class="avatar-initials">{{ initials }}</div>
+              <button mat-mini-fab class="avatar-edit-btn" (click)="fileInput.click()">
+                <mat-icon>camera_alt</mat-icon>
+              </button>
+              <input #fileInput type="file" accept="image/*" hidden (change)="onAvatarChange($event)"/>
+            </div>
+            <div class="status-badge" *ngIf="providerProfile">
+              <mat-icon>verified</mat-icon>
+              <span>{{ levelLabel(providerProfile.level) }}</span>
+            </div>
           </div>
-        </div>
-        <div class="header-info">
-          <h1>{{ user.first_name }} {{ user.last_name }}</h1>
-          <span class="user-type-badge">PRESTATAIRE</span>
-          <span class="level-badge" *ngIf="providerProfile">{{ levelLabel(providerProfile.level) }}</span>
-          <div class="header-meta">
-            <span><mat-icon>email</mat-icon> {{ user.email }}</span>
-            <span><mat-icon>phone</mat-icon> {{ user.phone_number || 'Non renseigné' }}</span>
-            <span><mat-icon>location_on</mat-icon> {{ user.city || 'Ville' }}, {{ user.country || 'Mali' }}</span>
+          <div class="header-info">
+            <h1>{{ user.first_name }} {{ user.last_name }}</h1>
+            <div class="header-badges">
+              <span class="user-type-badge">PRESTATAIRE</span>
+              <span class="online-badge" *ngIf="providerProfile?.is_available">
+                <mat-icon>circle</mat-icon>
+                Disponible
+              </span>
+            </div>
+            <div class="header-meta">
+              <span><mat-icon>email</mat-icon> {{ user.email }}</span>
+              <span><mat-icon>phone</mat-icon> {{ user.phone_number || 'Non renseigné' }}</span>
+              <span><mat-icon>location_on</mat-icon> {{ user.city || 'Ville' }}, {{ user.country || 'Mali' }}</span>
+            </div>
+            <div class="header-stats" *ngIf="providerProfile">
+              <div class="stat-item">
+                <span class="stat-value">{{ providerProfile.reputation_score }}</span>
+                <span class="stat-label">Score</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value">{{ providerProfile.total_missions_completed }}</span>
+                <span class="stat-label">Missions</span>
+              </div>
+              <div class="stat-item">
+                <span class="stat-value">{{ providerProfile.total_earnings }} XOF</span>
+                <span class="stat-label">Gains</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -402,108 +429,695 @@ interface ProviderProfile {
     </div>
   `,
   styles: [`
-    .profile-container { padding: 24px; max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
-    .profile-container.has-onboarding-bar { padding-bottom: 100px; }
+    @use '../../../core/design-system/spacing' as spacing;
+    @use '../../../core/design-system/radius' as radius;
+    @use '../../../core/design-system/colors' as colors;
+    @use '../../../core/design-system/typography' as typography;
+    @use '../../../core/design-system/shadows' as shadows;
+    @use '../../../core/design-system/component-radius' as componentRadius;
 
-    .profile-header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%); color: #fff; border-radius: 16px; padding: 28px 32px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
-    .avatar-wrap { position: relative; width: 88px; height: 88px; }
-    .avatar-img { width: 88px; height: 88px; border-radius: 50%; object-fit: cover; border: 3px solid #6C5CE7; }
-    .avatar-initials { width: 88px; height: 88px; border-radius: 50%; background: linear-gradient(135deg, #6C5CE7, #00b894); display: flex; align-items: center; justify-content: center; font-size: 28px; font-weight: 700; }
-    .avatar-edit-btn { position: absolute; bottom: -4px; right: -4px; width: 28px; height: 28px; background: #6C5CE7 !important; mat-icon { font-size: 14px; width: 14px; height: 14px; } }
-
-    .header-info { flex: 1; h1 { margin: 0 0 6px; font-size: 22px; font-weight: 700; } }
-    .user-type-badge { background: rgba(108,92,231,0.25); border: 1px solid #6C5CE7; color: #a29bfe; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; letter-spacing: 1px; margin-right: 8px; }
-    .level-badge { background: rgba(0,184,148,0.2); border: 1px solid #00b894; color: #00b894; padding: 2px 10px; border-radius: 12px; font-size: 11px; font-weight: 700; }
-    .header-meta { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 10px; font-size: 13px; opacity: 0.85; span { display: flex; align-items: center; gap: 4px; mat-icon { font-size: 14px; width: 14px; height: 14px; } } }
-
-    .profile-tabs { background: #fff; border-radius: 16px; box-shadow: 0 2px 12px rgba(0,0,0,0.06); overflow: hidden; }
-  :host ::ng-deep .profile-tabs .mat-mdc-tab.mdc-tab--active .mdc-tab__text-label { color: #6C5CE7 !important; }
-  :host ::ng-deep .profile-tabs .mat-mdc-tab-indicator .mdc-tab-indicator__content--underline { border-color: #6C5CE7 !important; }
-    .tab-content { padding: 24px; }
-
-    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
-    .full-row { grid-column: 1 / -1; }
-    .field-wrap { display: flex; flex-direction: column; gap: 6px; }
-    .field-label { font-size: 13px; font-weight: 600; color: #374151; }
-    .req { color: #e17055; }
-    .field-input { width: 100%; box-sizing: border-box; padding: 10px 14px; border: 1.5px solid #d1d5db; border-radius: 8px; font-size: 14px; outline: none; font-family: inherit; }
-    .field-input:focus { border-color: #6C5CE7; box-shadow: 0 0 0 3px rgba(108,92,231,0.1); }
-    .field-wrap.field-missing .field-label { color: #dc2626; }
-    .field-wrap.field-missing .field-input { border-color: #dc2626; box-shadow: 0 0 0 3px rgba(220,38,38,0.12); }
-    .field-wrap.field-missing::after { content: 'À compléter'; display: block; font-size: 11px; color: #dc2626; margin-top: 4px; font-weight: 600; }
-    :host ::ng-deep .field-wrap.field-missing .mat-mdc-form-field .mdc-notched-outline__leading,
-    :host ::ng-deep .field-wrap.field-missing .mat-mdc-form-field .mdc-notched-outline__notch,
-    :host ::ng-deep .field-wrap.field-missing .mat-mdc-form-field .mdc-notched-outline__trailing { border-color: #dc2626 !important; }
-    .payment-method-alert {
-      display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-      background: #fef2f2; border: 1px solid #fecaca; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px;
-      mat-icon { color: #dc2626; }
-      strong { display: block; font-size: 14px; color: #991b1b; }
-      p { margin: 4px 0 0; font-size: 13px; color: #7f1d1d; }
+    .profile-container {
+      padding: spacing.$space-8;
+      max-width: 1000px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: spacing.$space-8;
+      font-family: typography.$font-family-sans;
     }
-    .field-textarea { resize: vertical; min-height: 90px; }
-    .field-hint { margin: 4px 0 0; font-size: 12px; color: #6b7280; }
-    .select-field { width: 100%; }
-    :host ::ng-deep .select-field .mat-mdc-form-field-subscript-wrapper { display: none; }
-    :host ::ng-deep .select-field .mat-mdc-text-field-wrapper { background: #fff; border-radius: 8px; }
-    .form-actions { display: flex; justify-content: flex-end; margin-top: 12px; }
-    .pwd-fields { display: flex; flex-direction: column; gap: 16px; max-width: 480px; margin-bottom: 16px; }
 
-    .section-title { display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 600; color: #1a1a2e; margin: 0 0 16px; mat-icon { color: #6C5CE7; } }
-    .section-divider { margin: 24px 0; }
+    .profile-container.has-onboarding-bar {
+      padding-bottom: 120px;
+    }
 
-    .availability-box { display: flex; align-items: center; justify-content: space-between; gap: 16px; background: #f8fafc; border-radius: 12px; padding: 16px; flex-wrap: wrap; }
-    .avail-title { margin: 0 0 4px; font-weight: 600; }
-    .avail-desc { margin: 0; font-size: 13px; color: #6b7280; }
+    /* Header - Fiverr Style */
+    .profile-header {
+      position: relative;
+      border-radius: radius.$size-2xl;
+      overflow: hidden;
+      box-shadow: shadows.$lg;
+    }
 
-    .deposit-grid { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-    .deposit-card { background: #f0faf4; border-radius: 12px; padding: 16px 20px; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 140px; mat-icon { color: #00b894; } &.locked { background: #fef3c7; mat-icon { color: #d97706; } } }
-    .dep-value { font-size: 20px; font-weight: 700; color: #1a1a2e; }
-    .dep-label { font-size: 12px; color: #6b7280; }
+    .header-bg {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 120px;
+      background: linear-gradient(135deg, colors.$primary-500 0%, colors.$secondary-500 100%);
+    }
 
-    .wallet-section, .kyc-section { background: #f8fafc; border-radius: 12px; padding: 16px; }
-    .wallet-connected { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; .connected-icon { color: #00b894; font-size: 32px; width: 32px; height: 32px; } .wallet-label { margin: 0 0 4px; font-weight: 600; } .wallet-full { font-size: 12px; color: #6b7280; word-break: break-all; } }
-    .wallet-disconnected { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; color: #6b7280; mat-icon { font-size: 40px; width: 40px; height: 40px; color: #d1d5db; } }
+    .header-content {
+      position: relative;
+      padding: spacing.$space-8;
+      display: flex;
+      align-items: flex-start;
+      gap: spacing.$space-6;
+      flex-wrap: wrap;
+    }
 
-    .client-space-box { display: flex; align-items: flex-start; gap: 16px; flex-wrap: wrap; background: #f8fafc; border-radius: 12px; padding: 16px; }
-    .ok-icon { color: #00b894; font-size: 36px; width: 36px; height: 36px; flex-shrink: 0; }
-    .title { font-weight: 600; margin: 0 0 8px; }
-    .desc { color: #666; margin: 0; line-height: 1.5; font-size: 13px; }
+    .avatar-section {
+      position: relative;
+      z-index: 1;
+    }
 
-    .kyc-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-weight: 600; font-size: 13px; margin-bottom: 8px; }
-    .kyc-badge-verified { background: #d1fae5; color: #065f46; } .kyc-badge-pending { background: #fef3c7; color: #92400e; } .kyc-badge-not_required, .kyc-badge-not_started { background: #f3f4f6; color: #6b7280; }
-    .kyc-desc { font-size: 13px; color: #6b7280; margin: 0; }
+    .avatar-wrap {
+      position: relative;
+      width: 6rem;
+      height: 6rem;
+    }
 
-    .gps-section { background: #f8fafc; border-radius: 12px; padding: 16px; }
-    .gps-desc { font-size: 13px; color: #6b7280; margin: 0 0 12px; }
-    .gps-toggle-btn { display: flex; align-items: center; gap: 10px; background: none; border: none; cursor: pointer; padding: 4px; }
-    .gps-toggle-track { position: relative; width: 48px; height: 26px; background: #d1d5db; border-radius: 13px; display: block; }
-    .gps-toggle-thumb { position: absolute; top: 3px; left: 3px; width: 20px; height: 20px; background: #fff; border-radius: 50%; box-shadow: 0 1px 4px rgba(0,0,0,0.2); transition: transform 0.25s; display: block; }
-    .gps-toggle-btn.active .gps-toggle-track { background: #00b894; }
-    .gps-toggle-btn.active .gps-toggle-thumb { transform: translateX(22px); }
+    .avatar-img {
+      width: 6rem;
+      height: 6rem;
+      border-radius: componentRadius.$full;
+      object-fit: cover;
+      border: 4px solid colors.$background-primary;
+      box-shadow: shadows.$md;
+    }
 
-    .activity-stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
-    .act-card { background: #f8fafc; border-radius: 12px; padding: 16px; display: flex; flex-direction: column; align-items: center; gap: 4px; mat-icon { font-size: 28px; width: 28px; height: 28px; } }
-    .act-value { font-size: 22px; font-weight: 700; color: #1a1a2e; }
-    .act-label { font-size: 12px; color: #6b7280; text-align: center; }
+    .avatar-initials {
+      width: 6rem;
+      height: 6rem;
+      border-radius: componentRadius.$full;
+      background: linear-gradient(135deg, colors.$primary-400, colors.$secondary-400);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: typography.$font-size-3xl;
+      font-weight: typography.$font-weight-extrabold;
+      color: colors.$text-inverse;
+      border: 4px solid colors.$background-primary;
+      box-shadow: shadows.$md;
+    }
 
-    .reputation-box { background: #f8fafc; border-radius: 12px; padding: 20px; max-width: 400px; }
-    .rep-score { margin-bottom: 8px; }
-    .rep-number { font-size: 36px; font-weight: 700; color: #6C5CE7; }
-    .rep-max { font-size: 16px; color: #9ca3af; }
-    .rep-level { font-size: 14px; color: #374151; margin: 12px 0; }
+    .avatar-edit-btn {
+      position: absolute;
+      bottom: spacing.$space-1;
+      right: spacing.$space-1;
+      width: 2rem;
+      height: 2rem;
+      background: colors.$primary-500 !important;
+      box-shadow: shadows.$base;
 
-    .account-info-grid { display: flex; flex-direction: column; }
-    .info-row { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f3f4f6; }
-    .info-key { font-size: 14px; color: #6b7280; }
-    .info-val { font-size: 14px; font-weight: 600; color: #1a1a2e; }
+      mat-icon {
+        font-size: 1rem;
+        width: 1rem;
+        height: 1rem;
+        color: colors.$text-inverse;
+      }
+    }
 
-    @media (max-width: 600px) {
-      .form-grid, .activity-stats { grid-template-columns: 1fr; }
-      .profile-header { flex-direction: column; text-align: center; }
+    .status-badge {
+      margin-top: spacing.$space-2;
+      display: flex;
+      align-items: center;
+      gap: spacing.$space-1;
+      padding: 0.375rem 0.875rem;
+      background: colors.$success-100;
+      border-radius: componentRadius.$full;
+      font-size: typography.$font-size-xs;
+      font-weight: typography.$font-weight-semibold;
+      color: colors.$success-600;
+
+      mat-icon {
+        font-size: 0.875rem;
+        width: 0.875rem;
+        height: 0.875rem;
+      }
+    }
+
+    .header-info {
+      flex: 1;
+      padding-top: 3rem;
+    }
+
+    .header-info h1 {
+      margin: 0 0 spacing.$space-2;
+      font-size: typography.$font-size-3xl;
+      font-weight: typography.$font-weight-extrabold;
+      color: colors.$text-primary;
+    }
+
+    .header-badges {
+      display: flex;
+      gap: spacing.$space-2;
+      margin-bottom: spacing.$space-3;
+    }
+
+    .user-type-badge {
+      background: colors.$primary-100;
+      border: 1px solid colors.$primary-300;
+      color: colors.$primary-600;
+      padding: 0.25rem 0.75rem;
+      border-radius: componentRadius.$full;
+      font-size: typography.$font-size-xs;
+      font-weight: typography.$font-weight-extrabold;
+      letter-spacing: 0.05em;
+    }
+
+    .online-badge {
+      display: flex;
+      align-items: center;
+      gap: spacing.$space-1;
+      padding: 0.25rem 0.75rem;
+      background: colors.$success-100;
+      color: colors.$success-600;
+      border-radius: componentRadius.$full;
+      font-size: typography.$font-size-xs;
+      font-weight: typography.$font-weight-semibold;
+
+      mat-icon {
+        font-size: 0.5rem;
+        width: 0.5rem;
+        height: 0.5rem;
+        color: colors.$success-500;
+      }
+    }
+
+    .header-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: spacing.$space-4;
+      margin-bottom: spacing.$space-4;
+      font-size: typography.$font-size-sm;
+      color: colors.$text-secondary;
+
+      span {
+        display: flex;
+        align-items: center;
+        gap: spacing.$space-1;
+
+        mat-icon {
+          font-size: 1rem;
+          width: 1rem;
+          height: 1rem;
+          color: colors.$text-tertiary;
+        }
+      }
+    }
+
+    .header-stats {
+      display: flex;
+      gap: spacing.$space-6;
+    }
+
+    .stat-item {
+      display: flex;
+      flex-direction: column;
+      gap: spacing.$space-1;
+    }
+
+    .stat-value {
+      font-size: typography.$font-size-xl;
+      font-weight: typography.$font-weight-extrabold;
+      color: colors.$text-primary;
+    }
+
+    .stat-label {
+      font-size: typography.$font-size-xs;
+      color: colors.$text-tertiary;
+      font-weight: typography.$font-weight-medium;
+    }
+
+    /* Tabs */
+    .profile-tabs {
+      background: colors.$background-primary;
+      border-radius: radius.$size-2xl;
+      box-shadow: shadows.$base;
+      overflow: hidden;
+    }
+
+    :host ::ng-deep .profile-tabs .mat-mdc-tab.mdc-tab--active .mdc-tab__text-label {
+      color: colors.$primary-600 !important;
+      font-weight: typography.$font-weight-semibold;
+    }
+
+    :host ::ng-deep .profile-tabs .mat-mdc-tab-indicator .mdc-tab-indicator__content--underline {
+      border-color: colors.$primary-600 !important;
+    }
+
+    .tab-content {
+      padding: spacing.$space-8;
+    }
+
+    /* Form Styles */
+    .form-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: spacing.$space-5;
+      margin-bottom: spacing.$space-5;
+    }
+
+    .full-row {
+      grid-column: 1 / -1;
+    }
+
+    .field-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: spacing.$space-2;
+    }
+
+    .field-label {
+      font-size: typography.$font-size-sm;
+      font-weight: typography.$font-weight-semibold;
+      color: colors.$text-secondary;
+    }
+
+    .req {
+      color: colors.$error-500;
+    }
+
+    .field-input {
+      width: 100%;
+      padding: 0.75rem 1rem;
+      border: 2px solid colors.$border-primary;
+      border-radius: radius.$lg;
+      font-size: typography.$font-size-sm;
+      outline: none;
+      font-family: typography.$font-family-sans;
+      transition: all 0.2s ease;
+
+      &:focus {
+        border-color: colors.$border-focus;
+        box-shadow: 0 0 0 3px rgba(colors.$primary-500, 0.1);
+      }
+    }
+
+    .field-wrap.field-missing .field-label {
+      color: colors.$error-600;
+    }
+
+    .field-wrap.field-missing .field-input {
+      border-color: colors.$error-500;
+      box-shadow: 0 0 0 3px rgba(colors.$error-500, 0.1);
+    }
+
+    .field-wrap.field-missing::after {
+      content: 'À compléter';
+      display: block;
+      font-size: typography.$font-size-xs;
+      color: colors.$error-600;
+      margin-top: spacing.$space-1;
+      font-weight: typography.$font-weight-semibold;
+    }
+
+    .payment-method-alert {
+      display: flex;
+      align-items: center;
+      gap: spacing.$space-3;
+      flex-wrap: wrap;
+      background: colors.$error-50;
+      border: 1px solid colors.$error-200;
+      border-radius: radius.$lg;
+      padding: spacing.$space-4;
+      margin-bottom: spacing.$space-5;
+
+      mat-icon {
+        color: colors.$error-600;
+      }
+
+      strong {
+        display: block;
+        font-size: typography.$font-size-sm;
+        color: colors.$error-700;
+      }
+
+      p {
+        margin: spacing.$space-1 0 0;
+        font-size: typography.$font-size-xs;
+        color: colors.$error-600;
+      }
+    }
+
+    .field-textarea {
+      resize: vertical;
+      min-height: 6rem;
+    }
+
+    .field-hint {
+      margin: spacing.$space-1 0 0;
+      font-size: typography.$font-size-xs;
+      color: colors.$text-tertiary;
+    }
+
+    .select-field {
+      width: 100%;
+    }
+
+    :host ::ng-deep .select-field .mat-mdc-form-field-subscript-wrapper {
+      display: none;
+    }
+
+    :host ::ng-deep .select-field .mat-mdc-text-field-wrapper {
+      background: colors.$background-primary;
+      border-radius: radius.$lg;
+    }
+
+    .form-actions {
+      display: flex;
+      justify-content: flex-end;
+      margin-top: spacing.$space-4;
+    }
+
+    .pwd-fields {
+      display: flex;
+      flex-direction: column;
+      gap: spacing.$space-4;
+      max-width: 30rem;
+      margin-bottom: spacing.$space-5;
+    }
+
+    /* Section Styles */
+    .section-title {
+      display: flex;
+      align-items: center;
+      gap: spacing.$space-2;
+      font-size: typography.$font-size-lg;
+      font-weight: typography.$font-weight-semibold;
+      color: colors.$text-primary;
+      margin: 0 0 spacing.$space-5;
+
+      mat-icon {
+        color: colors.$primary-600;
+      }
+    }
+
+    .section-divider {
+      margin: spacing.$space-8 0;
+    }
+
+    .availability-box {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: spacing.$space-4;
+      background: colors.$background-secondary;
+      border-radius: radius.$lg;
+      padding: spacing.$space-5;
+      flex-wrap: wrap;
+    }
+
+    .avail-title {
+      margin: 0 0 spacing.$space-1;
+      font-weight: typography.$font-weight-semibold;
+      color: colors.$text-primary;
+    }
+
+    .avail-desc {
+      margin: 0;
+      font-size: typography.$font-size-sm;
+      color: colors.$text-tertiary;
+    }
+
+    .deposit-grid {
+      display: flex;
+      align-items: center;
+      gap: spacing.$space-4;
+      flex-wrap: wrap;
+    }
+
+    .deposit-card {
+      background: colors.$success-50;
+      border-radius: radius.$lg;
+      padding: spacing.$space-5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: spacing.$space-1;
+      min-width: 140px;
+
+      mat-icon {
+        color: colors.$success-600;
+      }
+
+      &.locked {
+        background: colors.$warning-50;
+
+        mat-icon {
+          color: colors.$warning-600;
+        }
+      }
+    }
+
+    .dep-value {
+      font-size: typography.$font-size-xl;
+      font-weight: typography.$font-weight-extrabold;
+      color: colors.$text-primary;
+    }
+
+    .dep-label {
+      font-size: typography.$font-size-xs;
+      color: colors.$text-tertiary;
+    }
+
+    .wallet-section, .kyc-section {
+      background: colors.$background-secondary;
+      border-radius: radius.$lg;
+      padding: spacing.$space-5;
+    }
+
+    .wallet-connected {
+      display: flex;
+      align-items: center;
+      gap: spacing.$space-3;
+      flex-wrap: wrap;
+
+      .connected-icon {
+        color: colors.$success-600;
+        font-size: 2rem;
+        width: 2rem;
+        height: 2rem;
+      }
+
+      .wallet-label {
+        margin: 0 0 spacing.$space-1;
+        font-weight: typography.$font-weight-semibold;
+      }
+
+      .wallet-full {
+        font-size: typography.$font-size-xs;
+        color: colors.$text-tertiary;
+        word-break: break-all;
+      }
+    }
+
+    .wallet-disconnected {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: spacing.$space-2;
+      text-align: center;
+      color: colors.$text-tertiary;
+
+      mat-icon {
+        font-size: 2.5rem;
+        width: 2.5rem;
+        height: 2.5rem;
+        color: colors.$text-tertiary;
+      }
+    }
+
+    .client-space-box {
+      display: flex;
+      align-items: flex-start;
+      gap: spacing.$space-4;
+      flex-wrap: wrap;
+      background: colors.$background-secondary;
+      border-radius: radius.$lg;
+      padding: spacing.$space-5;
+    }
+
+    .ok-icon {
+      color: colors.$success-600;
+      font-size: 2.25rem;
+      width: 2.25rem;
+      height: 2.25rem;
+      flex-shrink: 0;
+    }
+
+    .title {
+      font-weight: typography.$font-weight-semibold;
+      margin: 0 0 spacing.$space-2;
+      color: colors.$text-primary;
+    }
+
+    .desc {
+      color: colors.$text-secondary;
+      margin: 0;
+      line-height: typography.$line-height-relaxed;
+      font-size: typography.$font-size-sm;
+    }
+
+    .gps-section {
+      background: colors.$background-secondary;
+      border-radius: radius.$lg;
+      padding: spacing.$space-5;
+    }
+
+    .gps-desc {
+      margin: 0 0 spacing.$space-4;
+      font-size: typography.$font-size-sm;
+      color: colors.$text-secondary;
+    }
+
+    .gps-toggle-btn {
+      display: flex;
+      align-items: center;
+      gap: spacing.$space-3;
+      padding: 0.75rem 1.5rem;
+      background: colors.$background-primary;
+      border: 2px solid colors.$border-primary;
+      border-radius: componentRadius.$full;
+      cursor: pointer;
+      transition: all 0.2s ease;
+
+      &:hover {
+        border-color: colors.$border-focus;
+      }
+
+      &.active {
+        background: colors.$success-500;
+        border-color: colors.$success-500;
+        color: colors.$text-inverse;
+      }
+    }
+
+    .activity-stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: spacing.$space-4;
+    }
+
+    .act-card {
+      background: colors.$background-secondary;
+      border-radius: radius.$lg;
+      padding: spacing.$space-5;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: spacing.$space-2;
+
+      mat-icon {
+        font-size: 1.5rem;
+        width: 1.5rem;
+        height: 1.5rem;
+      }
+    }
+
+    .act-value {
+      font-size: typography.$font-size-2xl;
+      font-weight: typography.$font-weight-extrabold;
+      color: colors.$text-primary;
+    }
+
+    .act-label {
+      font-size: typography.$font-size-xs;
+      color: colors.$text-tertiary;
+      font-weight: typography.$font-weight-medium;
+    }
+
+    .reputation-box {
+      background: colors.$background-secondary;
+      border-radius: radius.$lg;
+      padding: spacing.$space-6;
+      text-align: center;
+    }
+
+    .rep-score {
+      display: flex;
+      align-items: baseline;
+      justify-content: center;
+      gap: spacing.$space-1;
+      margin-bottom: spacing.$space-4;
+    }
+
+    .rep-number {
+      font-size: typography.$font-size-5xl;
+      font-weight: typography.$font-weight-extrabold;
+      color: colors.$primary-600;
+    }
+
+    .rep-max {
+      font-size: typography.$font-size-xl;
+      color: colors.$text-tertiary;
+    }
+
+    .rep-level {
+      margin: spacing.$space-4 0;
+      font-size: typography.$font-size-sm;
+      color: colors.$text-secondary;
+
+      strong {
+        color: colors.$text-primary;
+      }
+    }
+
+    .account-info-grid {
+      display: flex;
+      flex-direction: column;
+      gap: spacing.$space-4;
+    }
+
+    .info-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: spacing.$space-3 0;
+      border-bottom: 1px solid colors.$border-primary;
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+
+    .info-key {
+      font-size: typography.$font-size-sm;
+      color: colors.$text-tertiary;
+    }
+
+    .info-val {
+      font-size: typography.$font-size-sm;
+      font-weight: typography.$font-weight-medium;
+      color: colors.$text-primary;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .profile-container {
+        padding: spacing.$space-4;
+      }
+
+      .header-content {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+      }
+
+      .header-info {
+        padding-top: spacing.$space-4;
+      }
+
+      .header-meta {
+        justify-content: center;
+      }
+
+      .header-stats {
+        justify-content: center;
+      }
+
+      .form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .activity-stats {
+        grid-template-columns: repeat(2, 1fr);
+      }
     }
   `]
 })
+
 export class ProviderProfileComponent implements OnInit {
   private apiUrl = environment.apiUrl;
 

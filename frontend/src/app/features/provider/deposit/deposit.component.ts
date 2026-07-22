@@ -32,29 +32,42 @@ interface Deposit {
   ],
   template: `
     <div class="page-container">
+      <!-- Header - Revolut Style -->
       <div class="page-header">
-        <div>
-          <h1><mat-icon>security</mat-icon> Caution</h1>
+        <div class="header-content">
+          <h1><mat-icon>account_balance_wallet</mat-icon> Caution</h1>
           <p>Gérez votre dépôt de garantie prestataire</p>
         </div>
-        <button mat-stroked-button (click)="load()"><mat-icon>refresh</mat-icon> Actualiser</button>
+        <button mat-stroked-button class="refresh-btn" (click)="load()">
+          <mat-icon>refresh</mat-icon> Actualiser
+        </button>
       </div>
 
+      <!-- Balance Cards - Revolut Style -->
       <div class="balance-row" *ngIf="!loading">
         <div class="balance-card available">
-          <mat-icon>account_balance</mat-icon>
-          <span class="val">{{ profileBalance | number:'1.0-0' }} XOF</span>
-          <span class="lbl">Solde disponible</span>
+          <div class="card-icon">
+            <mat-icon>account_balance</mat-icon>
+          </div>
+          <div class="card-content">
+            <span class="val">{{ profileBalance | number:'1.0-0' }} XOF</span>
+            <span class="lbl">Solde disponible</span>
+          </div>
         </div>
         <div class="balance-card locked">
-          <mat-icon>lock</mat-icon>
-          <span class="val">{{ profileLocked | number:'1.0-0' }} XOF</span>
-          <span class="lbl">Caution bloquée</span>
+          <div class="card-icon">
+            <mat-icon>lock</mat-icon>
+          </div>
+          <div class="card-content">
+            <span class="val">{{ profileLocked | number:'1.0-0' }} XOF</span>
+            <span class="lbl">Caution bloquée</span>
+          </div>
         </div>
       </div>
 
       <div class="loading" *ngIf="loading"><mat-spinner diameter="36"></mat-spinner></div>
 
+      <!-- Fund Card -->
       <mat-card *ngIf="!loading" class="fund-card">
         <app-deposit-funding-panel
           title="Déposer une caution"
@@ -64,7 +77,8 @@ interface Deposit {
         />
       </mat-card>
 
-      <mat-card *ngIf="!loading">
+      <!-- History Card -->
+      <mat-card *ngIf="!loading" class="history-card">
         <mat-card-header>
           <mat-card-title>Historique des cautions</mat-card-title>
         </mat-card-header>
@@ -82,6 +96,7 @@ interface Deposit {
         </mat-card-content>
       </mat-card>
 
+      <!-- Info Card -->
       <mat-card class="info-card" *ngIf="!loading">
         <mat-card-content>
           <h3><mat-icon>info</mat-icon> À propos de la caution</h3>
@@ -91,34 +106,296 @@ interface Deposit {
     </div>
   `,
   styles: [`
-    .page-container { max-width: 800px; margin: 0 auto; }
-    .page-header { display: flex; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
-      h1 { margin: 0 0 4px; display: flex; align-items: center; gap: 8px; font-size: 22px; }
-      p { margin: 0; color: #6b7280; font-size: 14px; }
+    @use '../../../core/design-system/spacing' as spacing;
+    @use '../../../core/design-system/radius' as radius;
+    @use '../../../core/design-system/colors' as colors;
+    @use '../../../core/design-system/typography' as typography;
+    @use '../../../core/design-system/shadows' as shadows;
+    @use '../../../core/design-system/component-radius' as componentRadius;
+
+    .page-container {
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 2rem;
+      font-family: system-ui, -apple-system, sans-serif;
     }
-    .balance-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 24px; }
+
+    /* Header - Revolut Style */
+    .page-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+      flex-wrap: wrap;
+      gap: 1rem;
+    }
+
+    .header-content h1 {
+      margin: 0 0 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.875rem;
+      font-weight: 800;
+      color: #111827;
+
+      mat-icon {
+        font-size: 2rem;
+        width: 2rem;
+        height: 2rem;
+        color: #4f46e5;
+      }
+    }
+
+    .header-content p {
+      margin: 0;
+      color: #9ca3af;
+      font-size: 1rem;
+    }
+
+    .refresh-btn {
+      border: 2px solid #e5e7eb;
+      border-radius: 0.75rem;
+      padding: 0.75rem 1.5rem;
+      font-weight: 600;
+      font-size: 0.875rem;
+      transition: all 0.2s ease;
+
+      &:hover {
+        border-color: #6366f1;
+        background: #f9fafb;
+      }
+
+      mat-icon {
+        margin-right: 0.5rem;
+      }
+    }
+
+    /* Balance Cards - Revolut Style */
+    .balance-row {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 2rem;
+    }
+
     .balance-card {
-      border-radius: 16px; padding: 24px; display: flex; flex-direction: column; align-items: center; gap: 8px;
-      &.available { background: #f0faf4; mat-icon { color: #00b894; } }
-      &.locked { background: #fef3c7; mat-icon { color: #d97706; } }
-      .val { font-size: 28px; font-weight: 800; } .lbl { font-size: 13px; color: #6b7280; }
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: radius.$size-2xl;
+      padding: spacing.$space-6;
+      display: flex;
+      align-items: center;
+      gap: spacing.$space-4;
+      box-shadow: shadows.$base;
+      transition: all 0.2s ease;
+
+      &:hover {
+        box-shadow: shadows.$lg;
+        transform: translateY(-2px);
+      }
+
+      .card-icon {
+        width: 3.5rem;
+        height: 3.5rem;
+        border-radius: radius.$lg;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        mat-icon {
+          font-size: 1.75rem;
+          width: 1.75rem;
+          height: 1.75rem;
+        }
+      }
+
+      .card-content {
+        display: flex;
+        flex-direction: column;
+        gap: spacing.$space-1;
+      }
+
+      .val {
+        font-size: typography.$font-size-2xl;
+        font-weight: typography.$font-weight-extrabold;
+        color: colors.$text-primary;
+      }
+
+      .lbl {
+        font-size: typography.$font-size-sm;
+        color: colors.$text-tertiary;
+        font-weight: typography.$font-weight-medium;
+      }
+
+      &.available .card-icon {
+        background: linear-gradient(135deg, colors.$success-400 0%, colors.$success-600 100%);
+        color: colors.$text-inverse;
+      }
+
+      &.locked .card-icon {
+        background: linear-gradient(135deg, colors.$warning-400 0%, colors.$warning-600 100%);
+        color: colors.$text-primary;
+      }
     }
-    .loading { display: flex; justify-content: center; padding: 40px; }
-    .fund-card { margin-bottom: 16px; padding: 16px; }
-    mat-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-    .dep-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 0; border-bottom: 1px solid #f3f4f6; gap: 12px; }
-    .amount { font-weight: 700; font-size: 16px; display: block; }
-    .meta, .hash { font-size: 12px; color: #9ca3af; display: block; }
-    .st-active { background: #d1fae5 !important; color: #065f46 !important; }
-    .st-locked { background: #fef3c7 !important; color: #92400e !important; }
-    .st-released { background: #dbeafe !important; color: #1e40af !important; }
-    .st-forfeited { background: #fee2e2 !important; color: #991b1b !important; }
-    .empty { text-align: center; color: #9ca3af; padding: 24px; }
-    .info-card h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 8px; font-size: 15px; }
-    .info-card p { margin: 0; font-size: 14px; color: #6b7280; line-height: 1.5; }
-    @media (max-width: 600px) { .balance-row { grid-template-columns: 1fr; } }
+
+    .loading {
+      display: flex;
+      justify-content: center;
+      padding: spacing.$space-16;
+    }
+
+    /* Cards */
+    .fund-card, .history-card, .info-card {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: radius.$size-2xl;
+      box-shadow: shadows.$base;
+      margin-bottom: spacing.$space-6;
+
+      ::ng-deep {
+        .mat-mdc-card-header {
+          padding: spacing.$space-6;
+          border-bottom: 1px solid colors.$border-primary;
+        }
+
+        .mat-mdc-card-title {
+          font-size: typography.$font-size-lg;
+          font-weight: typography.$font-weight-semibold;
+          color: colors.$text-primary;
+        }
+
+        .mat-mdc-card-content {
+          padding: spacing.$space-6;
+        }
+      }
+    }
+
+    /* History Items */
+    .dep-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: spacing.$space-4 0;
+      border-bottom: 1px solid colors.$border-primary;
+
+      &:last-child {
+        border-bottom: none;
+      }
+    }
+
+    .dep-main {
+      display: flex;
+      flex-direction: column;
+      gap: spacing.$space-1;
+    }
+
+    .amount {
+      font-size: typography.$font-size-lg;
+      font-weight: typography.$font-weight-extrabold;
+      color: colors.$text-primary;
+    }
+
+    .meta {
+      font-size: typography.$font-size-sm;
+      color: colors.$text-tertiary;
+    }
+
+    .hash {
+      font-size: typography.$font-size-xs;
+      color: colors.$text-tertiary;
+      background: colors.$background-secondary;
+      padding: 0.125rem 0.5rem;
+      border-radius: radius.$md;
+    }
+
+    mat-chip {
+      font-size: typography.$font-size-xs;
+      font-weight: typography.$font-weight-semibold;
+      padding: 0.375rem 0.875rem;
+      border-radius: componentRadius.$full;
+    }
+
+    .st-available,
+    .st-active {
+      background: colors.$success-100;
+      color: colors.$success-600;
+    }
+
+    .st-locked {
+      background: colors.$warning-100;
+      color: colors.$warning-600;
+    }
+
+    .st-released {
+      background: colors.$info-100;
+      color: colors.$info-600;
+    }
+
+    .st-pending {
+      background: colors.$warning-100;
+      color: colors.$warning-600;
+    }
+
+    .st-forfeited {
+      background: colors.$error-50;
+      color: colors.$error-600;
+    }
+
+    .empty {
+      text-align: center;
+      padding: spacing.$space-8;
+      color: colors.$text-tertiary;
+      font-size: typography.$font-size-sm;
+      margin: 0;
+    }
+
+    /* Info Card */
+    .info-card h3 {
+      display: flex;
+      align-items: center;
+      gap: spacing.$space-2;
+      font-size: typography.$font-size-base;
+      font-weight: typography.$font-weight-semibold;
+      color: colors.$text-primary;
+      margin: 0 0 spacing.$space-3;
+
+      mat-icon {
+        color: colors.$info-600;
+      }
+    }
+
+    .info-card p {
+      margin: 0;
+      font-size: typography.$font-size-sm;
+      color: colors.$text-secondary;
+      line-height: typography.$line-height-relaxed;
+    }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+      .page-container {
+        padding: spacing.$space-4;
+      }
+
+      .page-header {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .balance-row {
+        grid-template-columns: 1fr;
+      }
+
+      .dep-item {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: spacing.$space-3;
+      }
+    }
   `]
 })
+
 export class ProviderDepositComponent implements OnInit {
   private apiUrl = environment.apiUrl;
   deposits: Deposit[] = [];

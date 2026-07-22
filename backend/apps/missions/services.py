@@ -104,7 +104,8 @@ def cancel_mission_with_refunds(
 ) -> dict:
     """
     Annule ou expire une mission en remboursant le client et, si applicable, la caution prestataire.
-    Ne pas utiliser si la mission est en cours ou soumise (litige requis).
+    Ne pas utiliser si la mission est en cours ou soumise (litige requis) —
+    sauf via provider_cancel_in_progress.
     """
     if mission.status in DISPUTE_REQUIRED_STATUSES:
         return {
@@ -119,26 +120,84 @@ def cancel_mission_with_refunds(
     if mission.status in (Mission.Status.COMPLETED, Mission.Status.CANCELLED, Mission.Status.EXPIRED):
         return {'ok': False, 'error': 'Cette mission ne peut plus être annulée'}
 
+    return _finalize_cancel_with_refunds(
+        mission,
+        changed_by=changed_by,
+        reason=reason,
+        new_status=new_status,
+        forfeit_deposit=False,
+    )
+
+
+def provider_cancel_in_progress(
+    mission,
+    *,
+    changed_by,
+    reason: str = '',
+) -> dict:
+    """
+    Annulation par le prestataire d'une mission en cours.
+    - Rembourse le client (fonds escrow)
+    - Confisque la caution prestataire (pénalité d'abandon)
+    """
+    if mission.status != Mission.Status.IN_PROGRESS:
+        return {
+            'ok': False,
+            'error': (
+                'Seul une mission en cours peut être annulée par le prestataire. '
+                'Après soumission des preuves, ouvrez un litige.'
+            ),
+        }
+    if not mission.provider_id or mission.provider_id != getattr(changed_by, 'id', None):
+        return {'ok': False, 'error': 'Seul le prestataire assigné peut annuler cette mission'}
+
+    return _finalize_cancel_with_refunds(
+        mission,
+        changed_by=changed_by,
+        reason=reason or 'Annulation par le prestataire — mission abandonnée en cours d\'exécution',
+        new_status=Mission.Status.CANCELLED,
+        forfeit_deposit=True,
+    )
+
+
+def _finalize_cancel_with_refunds(
+    mission,
+    *,
+    changed_by,
+    reason: str,
+    new_status: str,
+    forfeit_deposit: bool,
+) -> dict:
     from apps.escrow.services import escrow_service
 
     old_status = mission.status
     client_refund = None
     deposit_refund = False
+    deposit_forfeited = False
 
-    if mission.status in (Mission.Status.FUNDED, Mission.Status.ACCEPTED):
+    if mission.status in (
+        Mission.Status.FUNDED,
+        Mission.Status.ACCEPTED,
+        Mission.Status.IN_PROGRESS,
+    ):
         client_refund = escrow_service.refund_client(mission, reason=reason)
 
     if mission.provider and mission.deposit_paid:
-        deposit_refund = escrow_service.refund_provider_deposit(mission)
-        mission.deposit_paid = False
+        if forfeit_deposit:
+            # Caution non restituée (pénalité)
+            deposit_forfeited = True
+            mission.deposit_paid = False
+        else:
+            deposit_refund = escrow_service.refund_provider_deposit(mission)
+            mission.deposit_paid = False
 
-    if mission.provider and old_status == Mission.Status.ACCEPTED:
+    if mission.provider and old_status in (Mission.Status.ACCEPTED, Mission.Status.IN_PROGRESS):
         MissionApplication.objects.filter(
             mission=mission,
             provider=mission.provider,
             status=MissionApplication.Status.ACCEPTED,
         ).update(
-            status=MissionApplication.Status.REJECTED,
+            status=MissionApplication.Status.WITHDRAWN,
             responded_at=timezone.now(),
         )
 
@@ -146,12 +205,13 @@ def cancel_mission_with_refunds(
     mission.status = new_status
     mission.expiry_decision_pending = False
     mission.expiry_decision_due_at = None
+    mission.auto_validation_scheduled_at = None
     if new_status in (Mission.Status.CANCELLED, Mission.Status.EXPIRED):
         mission.provider = None
         mission.deposit_deadline = None
     mission.save(update_fields=[
         'status', 'deposit_paid', 'expiry_decision_pending', 'expiry_decision_due_at',
-        'provider', 'deposit_deadline', 'updated_at',
+        'provider', 'deposit_deadline', 'auto_validation_scheduled_at', 'updated_at',
     ])
 
     MissionStatusHistory.objects.create(
@@ -167,15 +227,20 @@ def cancel_mission_with_refunds(
         mission,
         'cancelled',
         mission.client,
-        'Mission annulée' if new_status == Mission.Status.CANCELLED else 'Mission expirée',
+        'Mission annulée',
         reason,
     )
     if provider:
+        deposit_msg = (
+            'Votre caution a été confisquée (abandon en cours).'
+            if deposit_forfeited
+            else 'Votre caution a été restituée.'
+        )
         create_notification(
             provider,
             'mission_cancelled',
             'Mission annulée',
-            f'La mission « {mission.title} » a été annulée. Votre caution a été restituée.',
+            f'La mission « {mission.title} » a été annulée. {deposit_msg}',
             mission=mission,
         )
 
@@ -183,8 +248,140 @@ def cancel_mission_with_refunds(
         'ok': True,
         'client_refund': client_refund,
         'deposit_refunded': deposit_refund,
+        'deposit_forfeited': deposit_forfeited,
         'status': new_status,
     }
+
+
+DEFAULT_AUTO_VALIDATION_HOURS = 48
+
+
+def schedule_auto_validation(mission) -> None:
+    """Planifie la validation auto après soumission des preuves."""
+    delay_h = mission.auto_validation_delay or DEFAULT_AUTO_VALIDATION_HOURS
+    if delay_h < DEFAULT_AUTO_VALIDATION_HOURS:
+        delay_h = DEFAULT_AUTO_VALIDATION_HOURS
+    mission.auto_validation_delay = delay_h
+    mission.auto_validation_scheduled_at = timezone.now() + timedelta(hours=delay_h)
+    mission.save(update_fields=['auto_validation_delay', 'auto_validation_scheduled_at', 'updated_at'])
+
+
+def complete_mission_and_payout(mission, *, changed_by=None, reason: str = '') -> dict:
+    """
+    Passe SUBMITTED → COMPLETED et libère le paiement prestataire.
+    Utilisé par validation client et auto-validation 48h.
+    """
+    if mission.status != Mission.Status.SUBMITTED:
+        return {'ok': False, 'error': 'La mission doit être en statut soumise'}
+
+    # Litige ouvert → pas d'auto-paiement
+    if mission.disputes.filter(status__in=['open', 'under_review', 'pending_evidence', 'arbitration']).exists():
+        return {'ok': False, 'error': 'Litige ouvert — validation bloquée', 'dispute_open': True}
+
+    old_status = mission.status
+    mission.status = Mission.Status.COMPLETED
+    mission.completed_at = timezone.now()
+    mission.auto_validation_scheduled_at = None
+    if mission.final_price is None:
+        mission.final_price = mission.budget
+    mission.save(update_fields=[
+        'status', 'completed_at', 'final_price', 'auto_validation_scheduled_at', 'updated_at',
+    ])
+
+    if mission.provider_id and hasattr(mission.provider, 'provider_profile'):
+        from django.db.models import Sum, F, Value, DecimalField
+        from django.db.models.functions import Coalesce
+        profile = mission.provider.provider_profile
+        completed = Mission.objects.filter(
+            provider=mission.provider, status=Mission.Status.COMPLETED,
+        )
+        profile.total_missions_completed = completed.count()
+        profile.total_earnings = completed.aggregate(
+            t=Sum(Coalesce(
+                F('final_price'), F('budget'), Value(0),
+                output_field=DecimalField(max_digits=15, decimal_places=2),
+            ))
+        )['t'] or 0
+        profile.save(update_fields=['total_missions_completed', 'total_earnings'])
+
+    MissionStatusHistory.objects.create(
+        mission=mission,
+        old_status=old_status,
+        new_status=Mission.Status.COMPLETED,
+        changed_by=changed_by or mission.client,
+        reason=reason or 'Mission validée',
+    )
+
+    from apps.payments.mobile_money import MobileMoneyService, MobileMoneyError
+    from apps.escrow.services import escrow_service
+
+    payment = getattr(mission, 'payment', None)
+    payout = None
+    payout_error = None
+    if payment:
+        try:
+            payout = MobileMoneyService.release_to_provider(payment)
+        except MobileMoneyError as exc:
+            payout_error = str(exc)
+
+    blockchain_release = escrow_service.release_payment_to_provider(mission)
+    if blockchain_release:
+        payout = {**(payout or {}), **blockchain_release}
+
+    # Restituer caution prestataire si encore bloquée
+    if mission.provider and mission.deposit_paid:
+        escrow_service.release_provider_deposit(mission)
+        mission.deposit_paid = False
+        mission.save(update_fields=['deposit_paid', 'updated_at'])
+
+    from apps.notifications.services import notify_mission_event, create_notification
+    if mission.provider:
+        notify_mission_event(
+            mission, 'completed', mission.provider,
+            'Mission validée',
+            reason or f'La mission « {mission.title} » a été validée — paiement en cours.',
+        )
+    create_notification(
+        mission.client,
+        'completed',
+        'Mission terminée',
+        reason or f'La mission « {mission.title} » est terminée.',
+        mission=mission,
+    )
+
+    return {
+        'ok': True,
+        'payout': payout,
+        'payout_error': payout_error,
+        'status': Mission.Status.COMPLETED,
+    }
+
+
+def process_auto_validations() -> dict:
+    """Valide automatiquement les missions soumises dont le délai client est dépassé."""
+    now = timezone.now()
+    due = Mission.objects.filter(
+        status=Mission.Status.SUBMITTED,
+        auto_validation_scheduled_at__lte=now,
+    ).select_related('client', 'provider', 'payment')
+
+    stats = {'validated': 0, 'skipped_dispute': 0, 'errors': 0}
+    for mission in due:
+        result = complete_mission_and_payout(
+            mission,
+            changed_by=mission.client,
+            reason=(
+                f'Validation automatique après {mission.auto_validation_delay or DEFAULT_AUTO_VALIDATION_HOURS}h '
+                f'sans action du client — paiement libéré au prestataire'
+            ),
+        )
+        if result.get('ok'):
+            stats['validated'] += 1
+        elif result.get('dispute_open'):
+            stats['skipped_dispute'] += 1
+        else:
+            stats['errors'] += 1
+    return stats
 
 
 def process_expired_missions() -> dict:

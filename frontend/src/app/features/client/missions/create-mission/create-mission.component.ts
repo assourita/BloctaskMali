@@ -25,6 +25,7 @@ import { MALI_COUNTRY, DEFAULT_PHONE_PREFIX } from '../../../../core/constants/a
 import { AuthService } from '../../../../core/services/auth.service';
 import { EnterpriseMissionsNavComponent } from '../../../enterprise/enterprise-missions-nav.component';
 import { CategorySchemaService, CategorySchema, FieldDefinition } from '../../../../core/services/category-schema.service';
+import { MissionService } from '../../../../core/services/mission.service';
 
 interface CategoryRules {
   slug: string;
@@ -354,9 +355,9 @@ interface CategoryConfig {
                 </p>
 
                 <!-- Render custom fields from category schema -->
-                <div *ngIf="categorySchema?.custom_fields && categorySchema.custom_fields.length > 0" class="custom-fields-section">
+                <div *ngIf="hasCustomFields()" class="custom-fields-section">
                   <h4>Champs spécifiques — {{ selectedCategory?.name }}</h4>
-                  <div *ngFor="let field of categorySchema.custom_fields" class="custom-field">
+                  <div *ngFor="let field of getCustomFields()" class="custom-field">
                     <mat-form-field appearance="fill" class="full-width" *ngIf="field.type === 'text' || field.type === 'textarea'">
                       <mat-label>{{ field.label }}{{ field.required ? ' *' : '' }}</mat-label>
                       <input *ngIf="field.type === 'text'" matInput [placeholder]="field.placeholder || ''"
@@ -397,6 +398,25 @@ interface CategoryConfig {
                       <mat-datepicker #datePicker></mat-datepicker>
                       <mat-hint *ngIf="field.help_text">{{ field.help_text }}</mat-hint>
                     </mat-form-field>
+
+                    <div class="custom-file" *ngIf="field.type === 'file'">
+                      <label>{{ field.label }}{{ field.required ? ' *' : '' }}</label>
+                      <p class="hint" *ngIf="field.help_text">{{ field.help_text }}</p>
+                      <input
+                        type="file"
+                        accept="image/*,application/pdf"
+                        [attr.multiple]="(field.validation?.max_files || 1) > 1 ? true : null"
+                        (change)="onCustomFilesSelected(field, $event)"
+                      >
+                      <div class="file-list" *ngIf="getCustomFiles(field.name).length">
+                        <span class="file-chip" *ngFor="let f of getCustomFiles(field.name); let i = index">
+                          {{ f.name }}
+                          <button type="button" mat-icon-button (click)="removeCustomFile(field.name, i)">
+                            <mat-icon>close</mat-icon>
+                          </button>
+                        </span>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1049,6 +1069,40 @@ interface CategoryConfig {
 
       &:last-child {
         margin-bottom: 0;
+      }
+    }
+
+    .custom-file {
+      margin-bottom: 8px;
+      label {
+        display: block;
+        font-size: 13px;
+        font-weight: 600;
+        color: #0c4a6e;
+        margin-bottom: 6px;
+      }
+      input[type='file'] {
+        display: block;
+        width: 100%;
+        font-size: 13px;
+      }
+      .file-list {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .file-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #e0f2fe;
+        border-radius: 999px;
+        padding: 4px 8px 4px 12px;
+        font-size: 12px;
+        color: #0c4a6e;
+        button { width: 28px; height: 28px; }
+        mat-icon { font-size: 16px; width: 16px; height: 16px; }
       }
     }
 
@@ -1804,51 +1858,9 @@ interface CategoryConfig {
 export class CreateMissionComponent implements OnInit {
   private apiUrl = environment.apiUrl;
 
-  constructor(
-    private fb: FormBuilder,
-    private http: HttpClient,
-    private router: Router,
-    private paymentService: PaymentService,
-    private web3Service: Web3Service,
-    private blockchainService: BlockchainService,
-    private authService: AuthService,
-    private snackBar: MatSnackBar,
-    private categorySchemaService: CategorySchemaService,
-  ) {}
-
-  get isEnterprise(): boolean {
-    return this.authService.getActiveRole() === 'enterprise';
-  }
-
-  get paymentBudget(): number {
-    return parseFloat(this.missionDetailsForm.value.budget) || 0;
-  }
-
-  get paymentPlatformFee(): number {
-    return this.paymentService.calculateFees(this.paymentBudget).platformFee;
-  }
-
-  get paymentProviderNet(): number {
-    return Math.max(0, this.paymentBudget - this.paymentPlatformFee);
-  }
-
-  private missionsBasePath(): string {
-    return this.isEnterprise ? '/enterprise/missions' : '/client/missions';
-  }
-
-  private missionDetailPath(id: string): string[] {
-    if (this.isEnterprise) return ['/enterprise/missions', id];
-    return [this.missionsBasePath(), id];
-  }
-
-  selectOperator(id: 'orange' | 'moov'): void {
-    this.selectedPaymentMethod = 'mobile_money';
-    this.paymentForm.patchValue({ payment_method: 'mobile_money', operator: id });
-    this.paymentForm.get('operator')?.markAsTouched();
-  }
-
   missionDetailsForm: FormGroup;
   locationsForm: FormGroup;
+  paymentForm: FormGroup;
 
   categories: Category[] = [];
   loadingCategories = false;
@@ -1916,7 +1928,6 @@ export class CreateMissionComponent implements OnInit {
   isSubmitting = false;
 
   // Payment properties
-  paymentForm: FormGroup;
   paymentMethods: PaymentMethod[] = [];
   mobileMoneyOperators: MobileMoneyOperator[] = [];
   selectedPaymentMethod: string = 'mobile_money';
@@ -1927,14 +1938,16 @@ export class CreateMissionComponent implements OnInit {
 
   constructor(
     private fb: FormBuilder,
-    private router: Router,
-    private snackBar: MatSnackBar,
     private http: HttpClient,
+    private router: Router,
     private paymentService: PaymentService,
     private web3Service: Web3Service,
     private blockchainService: BlockchainService,
-    private overlay: Overlay,
     private authService: AuthService,
+    private snackBar: MatSnackBar,
+    private categorySchemaService: CategorySchemaService,
+    private missionService: MissionService,
+    private overlay: Overlay,
   ) {
     this.scrollStrategy = this.overlay.scrollStrategies.reposition();
     this.missionDetailsForm = this.fb.group({
@@ -1944,7 +1957,7 @@ export class CreateMissionComponent implements OnInit {
       budget: ['', [Validators.required, Validators.min(5000)]],
       deadline: [null as Date | null, Validators.required],
       start_time: ['09:00', Validators.required],
-      end_time: ['']
+      end_time: [''],
     });
 
     this.locationsForm = this.fb.group({
@@ -1954,7 +1967,7 @@ export class CreateMissionComponent implements OnInit {
       delivery_address: ['', Validators.required],
       delivery_contact_name: [''],
       delivery_contact_phone: [''],
-      service_location: [''] // For home services
+      service_location: [''],
     });
 
     this.paymentForm = this.fb.group({
@@ -1964,6 +1977,37 @@ export class CreateMissionComponent implements OnInit {
       operator: ['orange', Validators.required],
       otp: ['1234', [Validators.required, Validators.minLength(4)]],
     });
+  }
+
+  get isEnterprise(): boolean {
+    return this.authService.getActiveRole() === 'enterprise';
+  }
+
+  get paymentBudget(): number {
+    return parseFloat(this.missionDetailsForm.value.budget) || 0;
+  }
+
+  get paymentPlatformFee(): number {
+    return this.paymentService.calculateFees(this.paymentBudget).platformFee;
+  }
+
+  get paymentProviderNet(): number {
+    return Math.max(0, this.paymentBudget - this.paymentPlatformFee);
+  }
+
+  private missionsBasePath(): string {
+    return this.isEnterprise ? '/enterprise/missions' : '/client/missions';
+  }
+
+  private missionDetailPath(id: string): string[] {
+    if (this.isEnterprise) return ['/enterprise/missions', id];
+    return [this.missionsBasePath(), id];
+  }
+
+  selectOperator(id: 'orange' | 'moov'): void {
+    this.selectedPaymentMethod = 'mobile_money';
+    this.paymentForm.patchValue({ payment_method: 'mobile_money', operator: id });
+    this.paymentForm.get('operator')?.markAsTouched();
   }
 
   ngOnInit(): void {
@@ -2002,6 +2046,75 @@ export class CreateMissionComponent implements OnInit {
       return false;
     }
     return this.estimatedDepositPreview > 0;
+  }
+
+  hasCustomFields(): boolean {
+    return !!(this.categorySchema?.custom_fields && this.categorySchema.custom_fields.length > 0);
+  }
+
+  getCustomFields(): FieldDefinition[] {
+    return this.categorySchema?.custom_fields || [];
+  }
+
+  getCustomFiles(fieldName: string): File[] {
+    const value = this.customData[fieldName];
+    return Array.isArray(value) ? value.filter((f): f is File => f instanceof File) : [];
+  }
+
+  onCustomFilesSelected(field: FieldDefinition, event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const picked = Array.from(input.files || []);
+    if (!picked.length) return;
+    const max = field.validation?.max_files || 8;
+    const existing = this.getCustomFiles(field.name);
+    this.customData[field.name] = [...existing, ...picked].slice(0, max);
+    input.value = '';
+  }
+
+  removeCustomFile(fieldName: string, index: number): void {
+    const files = this.getCustomFiles(fieldName);
+    files.splice(index, 1);
+    this.customData[fieldName] = [...files];
+  }
+
+  private buildSerializableCustomData(): Record<string, unknown> {
+    const out: Record<string, unknown> = {};
+    for (const field of this.getCustomFields()) {
+      if (field.type === 'file') continue;
+      const value = this.customData[field.name];
+      if (value === undefined || value === null || value === '') continue;
+      out[field.name] = value;
+    }
+    return out;
+  }
+
+  private validateCustomFields(): string | null {
+    for (const field of this.getCustomFields()) {
+      if (!field.required) continue;
+      if (field.type === 'file') {
+        if (!this.getCustomFiles(field.name).length) {
+          return `Ajoutez au moins une image pour « ${field.label} ».`;
+        }
+        continue;
+      }
+      const value = this.customData[field.name];
+      if (value === undefined || value === null || value === '') {
+        return `Le champ « ${field.label} » est obligatoire.`;
+      }
+    }
+    return null;
+  }
+
+  private async uploadCustomMedia(missionId: string): Promise<void> {
+    for (const field of this.getCustomFields()) {
+      if (field.type !== 'file') continue;
+      const files = this.getCustomFiles(field.name);
+      for (const file of files) {
+        await lastValueFrom(
+          this.missionService.uploadMissionMedia(missionId, file, field.name, field.label),
+        );
+      }
+    }
   }
 
   private applyApiRules(): void {
@@ -2250,6 +2363,12 @@ export class CreateMissionComponent implements OnInit {
       return;
     }
 
+    const customError = this.validateCustomFields();
+    if (customError) {
+      this.snackBar.open(customError, 'Fermer', { duration: 4500 });
+      return;
+    }
+
     this.isSubmitting = true;
 
     // Date calendrier + heure horloge
@@ -2324,14 +2443,24 @@ export class CreateMissionComponent implements OnInit {
       escrow_enabled: true,
       escrow_amount: fees.escrowAmount,
       platform_fee: fees.platformFee,
-      // Custom data from category schema
-      custom_data: this.customData
+      // Custom data from category schema (texte uniquement ; fichiers uploadés après création)
+      custom_data: this.buildSerializableCustomData()
     };
 
     console.log('Creating mission with payment data:', missionData);
 
     this.http.post<any>(`${this.apiUrl}/missions/`, missionData, { headers: this.h() }).subscribe({
-      next: (mission) => {
+      next: async (mission) => {
+        try {
+          await this.uploadCustomMedia(mission.id);
+        } catch (uploadErr: any) {
+          this.isSubmitting = false;
+          const msg = uploadErr?.error?.error || uploadErr?.error?.detail || 'Erreur upload des photos';
+          this.snackBar.open(msg, 'Fermer', { duration: 5000 });
+          this.router.navigate(this.missionDetailPath(mission.id));
+          return;
+        }
+
         const paymentId = mission.payment_id;
         if (!paymentId) {
           this.isSubmitting = false;
@@ -2356,7 +2485,11 @@ export class CreateMissionComponent implements OnInit {
       },
       error: (err) => {
         this.isSubmitting = false;
-        const msg = err.error?.detail || err.error?.error || err.error?.non_field_errors?.[0] || 'Erreur création mission';
+        const msg = err.error?.detail || err.error?.error || err.error?.non_field_errors?.[0]
+          || (typeof err.error?.custom_data === 'object'
+            ? Object.values(err.error.custom_data).flat().join(' ')
+            : null)
+          || 'Erreur création mission';
         this.snackBar.open(msg, 'Fermer', { duration: 5000 });
       }
     });

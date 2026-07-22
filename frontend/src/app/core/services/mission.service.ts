@@ -80,6 +80,8 @@ export interface Mission {
   requirement_labels?: string[];
   category_slug?: string;
   requirements?: Record<string, unknown>;
+  custom_details?: Array<{ name: string; label: string; type: string; value: unknown }>;
+  media?: MissionMediaItem[];
   status_history?: Array<{
     id: string;
     old_status: string;
@@ -91,10 +93,23 @@ export interface Mission {
   payment_status?: string;
 }
 
+export interface MissionMediaItem {
+  id: string;
+  field_name: string;
+  label: string;
+  kind: string;
+  url: string;
+  file_name: string;
+  file_size: number;
+  mime_type: string;
+  created_at: string;
+}
+
 export interface MissionStats {
   active_missions?: number;
   pending_missions?: number;
   completed_missions?: number;
+  completed_this_month?: number;
   total_spent?: number;
   spent_this_month?: number;
   total_earned?: number;
@@ -173,6 +188,23 @@ export class MissionService {
 
   getMission(id: string): Observable<Mission> {
     return this.http.get<Mission>(`${this.apiUrl}/${id}/`, { headers: this.headers() });
+  }
+
+  uploadMissionMedia(
+    missionId: string,
+    file: File,
+    fieldName: string,
+    label?: string,
+  ): Observable<MissionMediaItem> {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('field_name', fieldName);
+    if (label) formData.append('label', label);
+    return this.http.post<MissionMediaItem>(
+      `${this.apiUrl}/${missionId}/media/`,
+      formData,
+      { headers: this.headers() },
+    );
   }
 
   validateMission(id: string): Observable<unknown> {

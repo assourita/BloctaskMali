@@ -121,11 +121,26 @@ def recalculate_reputation(user, *, event_type='recalculation', mission=None, de
     score.save()
 
     if hasattr(user, 'provider_profile'):
+        from django.db.models import Sum, F, Value, DecimalField
+        from django.db.models.functions import Coalesce
+        from apps.missions.models import Mission as MissionModel
+
         profile = user.provider_profile
         profile.reputation_score = score.overall_score
         profile.level = score.level
         profile.total_missions_completed = score.successful_missions
-        profile.save(update_fields=['reputation_score', 'level', 'total_missions_completed'])
+        earned = MissionModel.objects.filter(
+            provider=user, status=MissionModel.Status.COMPLETED,
+        ).aggregate(
+            t=Sum(Coalesce(
+                F('final_price'), F('budget'), Value(0),
+                output_field=DecimalField(max_digits=15, decimal_places=2),
+            ))
+        )['t'] or 0
+        profile.total_earnings = earned
+        profile.save(update_fields=[
+            'reputation_score', 'level', 'total_missions_completed', 'total_earnings',
+        ])
 
     change = score.overall_score - old_overall
     if abs(change) >= 0.01 or event_type != 'recalculation':

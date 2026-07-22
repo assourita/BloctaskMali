@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useLocalSearchParams } from 'expo-router';
+import * as ImagePicker from 'expo-image-picker';
 import {
   addDisputeEvidence,
   DISPUTE_REASONS,
@@ -34,6 +35,7 @@ export default function DisputeDetailScreen() {
   const [evType, setEvType] = useState('photo');
   const [evTitle, setEvTitle] = useState('');
   const [evDesc, setEvDesc] = useState('');
+  const [evFile, setEvFile] = useState<{ uri: string; name: string; type: string } | null>(null);
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
@@ -51,6 +53,20 @@ export default function DisputeDetailScreen() {
     load();
   }, [load]);
 
+  const pickEvidenceFile = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      quality: 0.85,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    setEvFile({
+      uri: asset.uri,
+      name: asset.fileName || `preuve_${Date.now()}.jpg`,
+      type: asset.mimeType || 'image/jpeg',
+    });
+  };
+
   const submitEvidence = async () => {
     if (!id) return;
     if (!evTitle.trim()) {
@@ -63,9 +79,11 @@ export default function DisputeDetailScreen() {
         evidence_type: evType,
         title: evTitle.trim(),
         description: evDesc.trim(),
+        file: evFile || undefined,
       });
       setEvTitle('');
       setEvDesc('');
+      setEvFile(null);
       Alert.alert('OK', 'Preuve ajoutée.');
       await load();
     } catch (e) {
@@ -142,6 +160,10 @@ export default function DisputeDetailScreen() {
               style={{ minHeight: 70, textAlignVertical: 'top' }}
               value={evDesc}
               onChangeText={setEvDesc}
+            />
+            <PrimaryButton
+              label={evFile ? `Fichier : ${evFile.name}` : 'Joindre image / fichier'}
+              onPress={pickEvidenceFile}
             />
             <PrimaryButton label="Ajouter la preuve" onPress={submitEvidence} loading={saving} />
           </Card>

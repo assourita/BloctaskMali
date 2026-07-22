@@ -46,13 +46,17 @@ import { environment } from '../../../../environments/environment';
           <div class="earnings-info">
             <h2>Mes revenus</h2>
             <div class="balance">
-              <span class="amount">{{ totalEarnings }} {{ currency }}</span>
-              <span class="label">Gagnés ce mois</span>
+              <span class="amount">{{ totalEarnings }}</span>
+              <span class="label">Total gagné</span>
+            </div>
+            <div class="month-hint" *ngIf="earnedThisMonthLabel">
+              dont {{ earnedThisMonthLabel }} ce mois
+              <span *ngIf="completedThisMonth">({{ completedThisMonth }} mission{{ completedThisMonth > 1 ? 's' : '' }})</span>
             </div>
             <div class="stats-row">
               <div class="stat">
                 <span class="value">{{ completedMissions }}</span>
-                <span class="label">Missions</span>
+                <span class="label">Missions terminées</span>
               </div>
               <div class="stat">
                 <span class="value">{{ averageRating }}</span>
@@ -268,7 +272,7 @@ import { environment } from '../../../../environments/environment';
       }
 
       .balance {
-        margin-bottom: 24px;
+        margin-bottom: 12px;
 
         .amount {
           display: block;
@@ -281,6 +285,12 @@ import { environment } from '../../../../environments/environment';
           font-size: 14px;
           color: #9ca3af;
         }
+      }
+
+      .month-hint {
+        font-size: 13px;
+        color: #6b7280;
+        margin-bottom: 20px;
       }
 
       .stats-row {
@@ -598,8 +608,10 @@ export class ProviderDashboardComponent implements OnInit {
   currentUser$: Observable<User | null>;
   
   // Earnings
-  totalEarnings = '0 XOF';
-  currency = 'XOF';
+  totalEarnings = '0 FCFA';
+  earnedThisMonthLabel = '';
+  completedThisMonth = 0;
+  currency = '';
   completedMissions = 0;
   averageRating = 4.5;
   responseTime = 1.5;
@@ -662,8 +674,11 @@ export class ProviderDashboardComponent implements OnInit {
     this.missionService.getDashboardStats('provider').subscribe({
       next: (s) => {
         this.completedMissions = s.completed_missions || 0;
-        this.totalEarnings = formatXOF(s.earned_this_month || 0);
-        this.weeklyEarnings = Number(s.earned_this_month) || 0;
+        this.completedThisMonth = s.completed_this_month || 0;
+        this.totalEarnings = formatXOF(Number(s.total_earned) || 0);
+        const monthAmt = Number(s.earned_this_month) || 0;
+        this.earnedThisMonthLabel = monthAmt > 0 ? formatXOF(monthAmt) : '';
+        this.weeklyEarnings = monthAmt;
         this.reputationScore = s.reputation_score || 50;
         this.reputationLevel = (s.reputation_level || 'bronze').replace(/^./, c => c.toUpperCase());
       }

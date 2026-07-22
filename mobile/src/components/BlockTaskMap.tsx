@@ -21,20 +21,9 @@ interface BlockTaskMapProps {
   onUserPress?: (user: MapUser) => void;
 }
 
-function buildMapHtml(
-  center: { lat: number; lng: number },
-  users: MapUser[],
-  myLocation?: { lat: number; lng: number } | null,
+function buildLeafletHtml(
+  payload: string,
 ): string {
-  const markers = users.map((u) => ({
-    ...u,
-    color: TYPE_COLORS[u.user_type] || '#047857',
-    initials: (u.name || u.first_name || '?').slice(0, 2).toUpperCase(),
-    linked: !!u.mission_link,
-  }));
-
-  const payload = JSON.stringify({ center, markers, myLocation: myLocation || null });
-
   return `<!DOCTYPE html>
 <html>
 <head>
@@ -80,18 +69,20 @@ function buildMapHtml(
     data.markers.forEach((m) => {
       const cls = 'bt-pin' + (m.is_live ? ' live' : '') + (m.linked ? ' linked' : '');
       const html = '<div class="' + cls + '" style="background:' + m.color + '">' + m.initials + '</div>';
-      const icon = L.divIcon({ html, className: '', iconSize: [44, 44], iconAnchor: [22, 22] });
-      const marker = L.marker([m.latitude, m.longitude], { icon }).addTo(map);
+      const icon = L.divIcon({ html: html, className: '', iconSize: [44, 44], iconAnchor: [22, 22] });
+      const marker = L.marker([m.latitude, m.longitude], { icon: icon }).addTo(map);
       window.btMarkers[m.id] = marker;
       const typeLabel = m.user_type === 'enterprise' ? 'Entreprise' : m.user_type === 'provider' ? 'Prestataire' : 'Client';
       const prec = m.location_precision === 'exact' ? ' · position exacte' : ' · zone approximative';
       marker.bindPopup('<strong>' + m.name + '</strong><br/>' + typeLabel + (m.city ? ' · ' + m.city : '') + prec);
-      marker.on('click', () => {
-        window.ReactNativeWebView && window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'user', id: m.id }));
+      marker.on('click', function () {
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'user', id: m.id }));
+        }
       });
     });
 
-    window.focusMapUser = function(id, lat, lng) {
+    window.focusMapUser = function (id, lat, lng) {
       if (window.btMap) {
         window.btMap.setView([lat, lng], 16, { animate: true });
       }
@@ -104,14 +95,88 @@ function buildMapHtml(
 </html>`;
 }
 
+function buildGoogleHtml(payload: string, apiKey: string): string {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <style>html,body,#map{margin:0;height:100%;width:100%}</style>
+  <script src="https://maps.googleapis.com/maps/api/js?key=${apiKey}"></script>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    const data = ${payload};
+    const map = new google.maps.Map(document.getElementById('map'), {
+      center: { lat: data.center.lat, lng: data.center.lng },
+      zoom: 12,
+      mapTypeControl: false,
+      streetViewControl: false,
+    });
+    window.btMap = map;
+    window.btMarkers = {};
+    if (data.myLocation) {
+      new google.maps.Marker({
+        position: { lat: data.myLocation.lat, lng: data.myLocation.lng },
+        map: map,
+        title: 'Vous',
+      });
+    }
+    data.markers.forEach(function (m) {
+      const marker = new google.maps.Marker({
+        position: { lat: m.latitude, lng: m.longitude },
+        map: map,
+        title: m.name,
+      });
+      window.btMarkers[m.id] = marker;
+      marker.addListener('click', function () {
+        if (window.ReactNativeWebView) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({ type: 'user', id: m.id }));
+        }
+      });
+    });
+    window.focusMapUser = function (id, lat, lng) {
+      if (window.btMap) {
+        window.btMap.setCenter({ lat: lat, lng: lng });
+        window.btMap.setZoom(16);
+      }
+    };
+  </script>
+</body>
+</html>`;
+}
+
+function buildMapHtml(
+  center: { lat: number; lng: number },
+  users: MapUser[],
+  myLocation?: { lat: number; lng: number } | null,
+  googleMapsApiKey?: string,
+): string {
+  const markers = users.map((u) => ({
+    ...u,
+    color: TYPE_COLORS[u.user_type] || '#047857',
+    initials: (u.name || u.first_name || '?').slice(0, 2).toUpperCase(),
+    linked: !!u.mission_link,
+  }));
+
+  const payload = JSON.stringify({ center, markers, myLocation: myLocation || null });
+
+  if (googleMapsApiKey) {
+    return buildGoogleHtml(payload, googleMapsApiKey);
+  }
+  return buildLeafletHtml(payload);
+}
+
 export const BlockTaskMap = forwardRef<BlockTaskMapHandle, BlockTaskMapProps>(function BlockTaskMap(
   { center, users, myLocation, focusUserId, onUserPress },
   ref,
 ) {
   const webRef = useRef<WebView>(null);
+  const googleKey = process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY || '';
   const html = useMemo(
-    () => buildMapHtml(center, users, myLocation),
-    [center, users, myLocation],
+    () => buildMapHtml(center, users, myLocation, googleKey || undefined),
+    [center, users, myLocation, googleKey],
   );
 
   useImperativeHandle(ref, () => ({

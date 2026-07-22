@@ -10,7 +10,7 @@ import {
   View,
 } from 'react-native';
 import { router } from 'expo-router';
-import { createMissionWithPayment } from '../src/api/missions';
+import { createMissionWithPayment, uploadMissionMedia } from '../src/api/missions';
 import { confirmPayment } from '../src/api/payments';
 import {
   getCategories,
@@ -247,6 +247,16 @@ export default function CreateMissionScreen() {
           return 'Indiquez la valeur de la marchandise (min. 1 000 XOF).';
         }
       }
+      for (const field of categorySchema?.custom_fields || []) {
+        if (!field.required) continue;
+        const value = form.custom_data[field.name];
+        if (field.type === 'file') {
+          const files = Array.isArray(value) ? value : value ? [value] : [];
+          if (!files.length) return `Ajoutez au moins une image pour « ${field.label} ».`;
+        } else if (value === undefined || value === null || value === '') {
+          return `Le champ « ${field.label} » est obligatoire.`;
+        }
+      }
     }
     if (s === 3) {
       if (!form.phone.replace(/\s/g, '')) return 'Saisissez votre numéro Mobile Money.';
@@ -304,6 +314,34 @@ export default function CreateMissionScreen() {
 
     setLoading(true);
     try {
+      const serializableCustom: Record<string, unknown> = {};
+      const fileUploads: Array<{ fieldName: string; label: string; file: { uri: string; name: string; type: string } }> = [];
+      for (const field of categorySchema?.custom_fields || []) {
+        const value = form.custom_data[field.name];
+        if (field.type === 'file') {
+          const files = Array.isArray(value) ? value : value ? [value] : [];
+          for (const f of files) {
+            if (typeof f === 'string') {
+              fileUploads.push({
+                fieldName: field.name,
+                label: field.label,
+                file: { uri: f, name: `photo_${Date.now()}.jpg`, type: 'image/jpeg' },
+              });
+            } else if (f?.uri) {
+              fileUploads.push({
+                fieldName: field.name,
+                label: field.label,
+                file: { uri: f.uri, name: f.name || `photo_${Date.now()}.jpg`, type: f.type || 'image/jpeg' },
+              });
+            }
+          }
+          continue;
+        }
+        if (value !== undefined && value !== null && value !== '') {
+          serializableCustom[field.name] = value;
+        }
+      }
+
       const mission = await createMissionWithPayment({
         title: form.title.trim(),
         description: form.description.trim(),
@@ -325,8 +363,12 @@ export default function CreateMissionScreen() {
         phone_number: phoneDigits.startsWith('+') ? phoneDigits : `${DEFAULT_PHONE_PREFIX}${phoneDigits}`,
         escrow_amount: computed.escrowAmount,
         platform_fee: computed.platformFee,
-        custom_data: form.custom_data,
+        custom_data: serializableCustom,
       });
+
+      for (const upload of fileUploads) {
+        await uploadMissionMedia(mission.id, upload.file, upload.fieldName, upload.label);
+      }
 
       const goToMission = () => {
         router.replace('/(tabs)/missions');

@@ -1,4 +1,4 @@
-import { apiRequest } from './client';
+import { apiFormRequest, apiRequest } from './client';
 import type { Dispute } from '../types';
 
 function unwrap<T>(data: T[] | { results: T[] }): T[] {
@@ -54,10 +54,31 @@ export async function createDispute(payload: CreateDisputePayload): Promise<Disp
 
 export async function addDisputeEvidence(
   disputeId: string,
-  payload: { evidence_type: string; title: string; description?: string },
+  payload: {
+    evidence_type: string;
+    title: string;
+    description?: string;
+    file?: { uri: string; name: string; type: string };
+  },
 ): Promise<unknown> {
+  if (payload.file) {
+    const formData = new FormData();
+    formData.append('evidence_type', payload.evidence_type);
+    formData.append('title', payload.title);
+    if (payload.description) formData.append('description', payload.description);
+    formData.append('file', {
+      uri: payload.file.uri,
+      name: payload.file.name,
+      type: payload.file.type,
+    } as unknown as Blob);
+    return apiFormRequest(`/disputes/${disputeId}/add_evidence/`, formData);
+  }
   return apiRequest(`/disputes/${disputeId}/add_evidence/`, {
     method: 'POST',
-    body: JSON.stringify(payload),
+    body: JSON.stringify({
+      evidence_type: payload.evidence_type,
+      title: payload.title,
+      description: payload.description || '',
+    }),
   });
 }

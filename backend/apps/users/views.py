@@ -560,17 +560,37 @@ def get_user_stats(request):
         stats['completed_missions'] = missions.filter(status='completed').count()
 
     elif role == User.UserType.PROVIDER:
+        from django.db.models import Sum, F, Value, DecimalField, Q
+        from django.db.models.functions import Coalesce
+        from apps.missions.models import Mission
+
+        provider_missions = Mission.objects.filter(provider=user)
+        completed = provider_missions.filter(status=Mission.Status.COMPLETED)
+        earnings_expr = Coalesce(
+            F('final_price'),
+            F('budget'),
+            Value(0),
+            output_field=DecimalField(max_digits=15, decimal_places=2),
+        )
+        total_earned = completed.aggregate(t=Sum(earnings_expr))['t'] or 0
+
         if hasattr(user, 'provider_profile'):
             profile = user.provider_profile
-            stats['total_missions'] = profile.total_missions_completed
-            stats['active_missions'] = user.provider_missions.filter(
-                status__in=['accepted', 'in_progress', 'submitted']
-            ).count()
-            stats['total_earned'] = float(profile.total_earnings)
+            # Garde le profil synchronisé avec les missions réelles
+            profile.total_earnings = total_earned
+            profile.total_missions_completed = completed.count()
+            profile.save(update_fields=['total_earnings', 'total_missions_completed'])
             stats['reputation_score'] = profile.reputation_score
             stats['level'] = profile.level
             stats['deposit_balance'] = float(profile.deposit_balance)
             stats['deposit_locked'] = float(profile.deposit_locked)
+
+        stats['total_missions'] = provider_missions.count()
+        stats['active_missions'] = provider_missions.filter(
+            status__in=['accepted', 'in_progress', 'submitted']
+        ).count()
+        stats['completed_missions'] = completed.count()
+        stats['total_earned'] = float(total_earned)
     
     return Response(stats)
 

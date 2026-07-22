@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Image, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
@@ -528,13 +528,54 @@ export default function MissionDetailScreen() {
               <View style={[styles.routeRow, { marginTop: mission.pickup_address ? spacing.sm : 0 }]}>
                 <View style={[styles.dot, { backgroundColor: colors.primary }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.routeLabel}>Point de livraison</Text>
+                  <Text style={styles.routeLabel}>Point de livraison / intervention</Text>
                   <Text style={styles.routeAddr}>{mission.delivery_address}</Text>
                 </View>
               </View>
             ) : null}
           </Card>
         )}
+
+        {/* Détails catégorie — visibles avant de postuler */}
+        {mission.custom_details && mission.custom_details.length > 0 ? (
+          <Card>
+            <Text style={styles.section}>Détails de la mission</Text>
+            {mission.custom_details.map((d) => (
+              <View key={d.name} style={styles.detailRow}>
+                <Text style={styles.detailLabel}>{d.label}</Text>
+                <Text style={styles.detailValue}>
+                  {typeof d.value === 'boolean' ? (d.value ? 'Oui' : 'Non') : String(d.value ?? '—')}
+                </Text>
+              </View>
+            ))}
+          </Card>
+        ) : null}
+
+        {/* Photos client */}
+        {mission.media && mission.media.length > 0 ? (
+          <Card>
+            <Text style={styles.section}>Photos / documents du client</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.mediaRow}>
+              {mission.media.map((m) => (
+                <Pressable
+                  key={m.id}
+                  onPress={() => Linking.openURL(m.url)}
+                  style={styles.mediaItem}
+                >
+                  {m.mime_type?.startsWith('image/') || /\.(jpe?g|png|gif|webp)$/i.test(m.url) ? (
+                    <Image source={{ uri: m.url }} style={styles.mediaImage} />
+                  ) : (
+                    <View style={styles.mediaDoc}>
+                      <Text style={styles.mediaDocText}>📄</Text>
+                      <Text style={styles.mediaDocName} numberOfLines={2}>{m.file_name}</Text>
+                    </View>
+                  )}
+                  <Text style={styles.mediaCaption} numberOfLines={1}>{m.label || m.field_name}</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </Card>
+        ) : null}
 
         {mission.executing_employee && isEnterpriseReceived ? (
           <Card>
@@ -728,6 +769,29 @@ export default function MissionDetailScreen() {
         {isClient && canRate && (
           <PrimaryButton label="Noter le prestataire" onPress={openRating} />
         )}
+
+        {isProvider && mission.status === 'in_progress' && !isEnterpriseReceived ? (
+          <SecondaryButton
+            label="Abandonner la mission"
+            onPress={() =>
+              Alert.alert(
+                'Abandonner ?',
+                'Les fonds seront remboursés au client et votre caution sera confisquée.',
+                [
+                  { text: 'Non', style: 'cancel' },
+                  {
+                    text: 'Abandonner',
+                    style: 'destructive',
+                    onPress: () =>
+                      runAction('Mission annulée', () =>
+                        cancelMission(mission.id, 'Abandon de la mission par le prestataire'),
+                      ),
+                  },
+                ],
+              )
+            }
+          />
+        ) : null}
 
         {isClient &&
           !mission.expiry_decision_pending &&
@@ -923,6 +987,31 @@ const styles = StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 5, marginTop: 4 },
   routeLabel: { fontSize: 11, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase' },
   routeAddr: { fontSize: 14, color: colors.text, marginTop: 2 },
+  detailRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: spacing.sm,
+    paddingVertical: 8,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+  },
+  detailLabel: { flex: 1, fontSize: 13, color: colors.textMuted, fontWeight: '600' },
+  detailValue: { flex: 1.2, fontSize: 14, color: colors.text, textAlign: 'right' },
+  mediaRow: { gap: 10, paddingVertical: 4 },
+  mediaItem: { width: 140 },
+  mediaImage: { width: 140, height: 110, borderRadius: 10, backgroundColor: colors.border },
+  mediaDoc: {
+    width: 140,
+    height: 110,
+    borderRadius: 10,
+    backgroundColor: colors.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 8,
+  },
+  mediaDocText: { fontSize: 22 },
+  mediaDocName: { fontSize: 11, color: colors.textMuted, textAlign: 'center' },
+  mediaCaption: { fontSize: 11, color: colors.textMuted, marginTop: 4 },
   providerName: { fontSize: 15, fontWeight: '600', color: colors.text, marginBottom: spacing.sm },
   secRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: colors.border },
   secLabel: { color: colors.textMuted, fontSize: 14 },

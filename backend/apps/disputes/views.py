@@ -142,6 +142,52 @@ class DisputeViewSet(viewsets.ModelViewSet):
         dispute.resolved_at = timezone.now()
         dispute.save()
 
+        # Appliquer les mouvements de fonds selon la décision
+        from apps.escrow.services import escrow_service
+        from decimal import Decimal
+        mission = dispute.mission
+        financial = {}
+        try:
+            refund_amt = Decimal(str(dispute.client_refund_amount or 0))
+            pay_amt = Decimal(str(dispute.provider_payment_amount or 0))
+            if refund_amt > 0:
+                financial['client_refund'] = escrow_service.refund_client(
+                    mission,
+                    reason=f'Litige résolu — remboursement client ({dispute.decision})',
+                )
+            if pay_amt > 0:
+                financial['provider_payout'] = escrow_service.release_payment_to_provider(mission)
+            if mission.deposit_paid and mission.provider_id:
+                penalty = Decimal(str(dispute.deposit_penalty or 0))
+                if penalty > 0:
+                    financial['deposit_forfeited'] = True
+                    mission.deposit_paid = False
+                    mission.save(update_fields=['deposit_paid', 'updated_at'])
+                else:
+                    financial['deposit_refunded'] = escrow_service.refund_provider_deposit(mission)
+                    mission.deposit_paid = False
+                    mission.save(update_fields=['deposit_paid', 'updated_at'])
+            if mission.status == 'disputed':
+                from apps.missions.models import Mission, MissionStatusHistory
+                old = mission.status
+                if pay_amt > 0 and refund_amt <= 0:
+                    mission.status = Mission.Status.COMPLETED
+                    mission.completed_at = timezone.now()
+                    if mission.final_price is None:
+                        mission.final_price = pay_amt
+                else:
+                    mission.status = Mission.Status.CANCELLED
+                mission.save()
+                MissionStatusHistory.objects.create(
+                    mission=mission,
+                    old_status=old,
+                    new_status=mission.status,
+                    changed_by=request.user,
+                    reason=f'Litige résolu: {dispute.decision} — {dispute.decision_reason}',
+                )
+        except Exception as exc:
+            financial['error'] = str(exc)
+
         from apps.notifications.services import create_notification
         for party in (dispute.plaintiff, dispute.defendant):
             create_notification(
@@ -162,7 +208,62 @@ class DisputeViewSet(viewsets.ModelViewSet):
                 description='Litige résolu',
             )
 
-        return Response(DisputeListSerializer(dispute).data)
+        payload = DisputeListSerializer(dispute).data
+        payload['financial'] = financial
+        return Response(payload)
+
+    @action(detail=True, methods=['get'], url_path='mission-dossier')
+    def mission_dossier(self, request, pk=None):
+        """Dossier complet mission pour arbitrage admin (preuves, chat, GPS, médias)."""
+        if not is_admin(request.user):
+            return Response({'error': 'Accès non autorisé'}, status=403)
+
+        dispute = self.get_object()
+        mission = dispute.mission
+
+        from apps.proofs.models import MissionProof, GPSLocation
+        from apps.missions.serializers import MissionDetailSerializer, MissionMediaSerializer
+        from apps.chat.models import Message
+        from apps.chat.serializers import MessageSerializer
+
+        proofs = MissionProof.objects.filter(mission=mission).order_by('-created_at')
+        gps = GPSLocation.objects.filter(mission=mission).order_by('timestamp')[:500]
+        chat_messages = []
+        try:
+            conv = mission.conversation
+            chat_messages = Message.objects.filter(conversation=conv).select_related('sender').order_by('created_at')
+        except Exception:
+            pass
+
+        media = mission.media_files.all() if hasattr(mission, 'media_files') else []
+
+        return Response({
+            'dispute_id': str(dispute.id),
+            'mission': MissionDetailSerializer(mission, context={'request': request}).data,
+            'proofs': [
+                {
+                    'id': str(p.id),
+                    'proof_type': p.proof_type,
+                    'title': p.title,
+                    'file': request.build_absolute_uri(p.file.url) if p.file else None,
+                    'verification_status': p.verification_status,
+                    'created_at': p.created_at,
+                }
+                for p in proofs
+            ],
+            'media': MissionMediaSerializer(media, many=True, context={'request': request}).data,
+            'gps_trail': [
+                {
+                    'latitude': g.latitude,
+                    'longitude': g.longitude,
+                    'accuracy': getattr(g, 'accuracy', None),
+                    'recorded_at': g.timestamp,
+                }
+                for g in gps
+            ],
+            'chat_messages': MessageSerializer(chat_messages, many=True, context={'request': request}).data,
+            'evidence': DisputeEvidenceSerializer(dispute.evidence.all(), many=True, context={'request': request}).data,
+        })
 
     @action(detail=True, methods=['patch'])
     def change_status(self, request, pk=None):

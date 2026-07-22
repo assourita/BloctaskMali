@@ -258,6 +258,56 @@ class MissionViewSet(viewsets.ModelViewSet):
         mission = serializer.save()
         detail = MissionDetailSerializer(mission, context={'request': request}).data
         return Response(detail, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='media')
+    def upload_media(self, request, pk=None):
+        """Upload de photos/documents contextuels (client, à la création)."""
+        from .models import MissionMedia
+        from .serializers import MissionMediaSerializer
+        from .category_rules import get_category_rule
+
+        mission = self.get_object()
+        if mission.client_id != request.user.id:
+            return Response({'error': 'Seul le client peut ajouter des médias à cette mission.'}, status=403)
+
+        upload = request.FILES.get('file')
+        if not upload:
+            return Response({'error': 'Fichier requis (champ file).'}, status=400)
+
+        field_name = (request.data.get('field_name') or 'context_photos').strip()
+        label = (request.data.get('label') or '').strip()
+        kind = (request.data.get('kind') or MissionMedia.MediaKind.CONTEXT).strip()
+
+        rule = get_category_rule(mission.category)
+        field_def = next((f for f in rule.custom_fields if f.name == field_name), None)
+        if field_def:
+            label = label or field_def.label
+            if field_def.validation and field_def.validation.get('mime_types'):
+                allowed = field_def.validation['mime_types']
+                mime = getattr(upload, 'content_type', '') or ''
+                ok = any(
+                    (a.endswith('/*') and mime.startswith(a.replace('/*', '/')))
+                    or mime == a
+                    for a in allowed
+                )
+                if allowed and mime and not ok:
+                    return Response({'error': f'Type de fichier non autorisé ({mime}).'}, status=400)
+
+        media = MissionMedia.objects.create(
+            mission=mission,
+            uploaded_by=request.user,
+            field_name=field_name,
+            label=label or field_name,
+            kind=kind if kind in dict(MissionMedia.MediaKind.choices) else MissionMedia.MediaKind.CONTEXT,
+            file=upload,
+            file_name=getattr(upload, 'name', 'upload')[:255],
+            file_size=getattr(upload, 'size', 0) or 0,
+            mime_type=getattr(upload, 'content_type', '') or '',
+        )
+        return Response(
+            MissionMediaSerializer(media, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
     
     @action(detail=False, methods=['get'])
     def available(self, request):
@@ -910,6 +960,7 @@ class MissionViewSet(viewsets.ModelViewSet):
         
         from apps.proofs.models import MissionProof, ProofChecklist
         from apps.notifications.services import notify_mission_event
+        from .services import schedule_auto_validation, DEFAULT_AUTO_VALIDATION_HOURS
 
         proof_count = MissionProof.objects.filter(mission=mission).count()
         if proof_count == 0 and not request.data.get('force'):
@@ -920,7 +971,7 @@ class MissionViewSet(viewsets.ModelViewSet):
 
         old_status = mission.status
         mission.status = Mission.Status.SUBMITTED
-        mission.save()
+        mission.save(update_fields=['status', 'updated_at'])
 
         checklist, _ = ProofChecklist.objects.get_or_create(mission=mission)
         if checklist.completion_percentage >= 100:
@@ -936,64 +987,47 @@ class MissionViewSet(viewsets.ModelViewSet):
             reason='Preuves soumises par le prestataire'
         )
 
+        schedule_auto_validation(mission)
+
         notify_mission_event(
             mission, 'proof_submitted', mission.client,
             'Preuves soumises',
-            f'Le prestataire a soumis les preuves pour « {mission.title} »'
+            (
+                f'Le prestataire a soumis les preuves pour « {mission.title} ». '
+                f'Validez sous {mission.auto_validation_delay or DEFAULT_AUTO_VALIDATION_HOURS}h '
+                f'sinon le paiement sera libéré automatiquement.'
+            ),
         )
         
-        return Response({'status': 'Preuves soumises', 'proof_count': proof_count})
+        return Response({
+            'status': 'Preuves soumises',
+            'proof_count': proof_count,
+            'auto_validation_scheduled_at': mission.auto_validation_scheduled_at,
+            'auto_validation_delay_hours': mission.auto_validation_delay or DEFAULT_AUTO_VALIDATION_HOURS,
+        })
     
     @action(detail=True, methods=['post'])
     def validate(self, request, pk=None):
         """Valider la mission (client)"""
         mission = self.get_object()
         
-        if mission.status != Mission.Status.SUBMITTED:
-            return Response(
-                {'error': 'La mission doit avoir des preuves soumises pour être validée'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-        
-        mission.status = Mission.Status.COMPLETED
-        mission.completed_at = timezone.now()
-        mission.save()
-        
-        MissionStatusHistory.objects.create(
-            mission=mission,
-            old_status=Mission.Status.SUBMITTED,
-            new_status=Mission.Status.COMPLETED,
+        if mission.client_id != request.user.id:
+            return Response({'error': 'Seul le client peut valider cette mission'}, status=403)
+
+        from .services import complete_mission_and_payout
+        result = complete_mission_and_payout(
+            mission,
             changed_by=request.user,
-            reason='Mission validée par le client'
+            reason='Mission validée par le client',
         )
+        if not result.get('ok'):
+            return Response({'error': result.get('error', 'Validation impossible')}, status=400)
 
-        from apps.payments.mobile_money import MobileMoneyService, MobileMoneyError
-        from apps.escrow.services import escrow_service
-
-        payment = getattr(mission, 'payment', None)
-        payout = None
-        if payment:
-            try:
-                payout = MobileMoneyService.release_to_provider(payment)
-            except MobileMoneyError as exc:
-                return Response(
-                    {'error': str(exc), 'status': 'Mission validée, paiement prestataire en attente'},
-                    status=status.HTTP_200_OK
-                )
-
-        blockchain_release = escrow_service.release_payment_to_provider(mission)
-        if blockchain_release:
-            payout = {**(payout or {}), **blockchain_release}
-        
-        from apps.notifications.services import notify_mission_event
-        if mission.provider:
-            notify_mission_event(
-                mission, 'completed', mission.provider,
-                'Mission validée',
-                f'Le client a validé la mission « {mission.title} »'
-            )
-        
-        return Response({'status': 'Mission validée et terminée', 'payout': payout})
+        payload = {'status': 'Mission validée et terminée', 'payout': result.get('payout')}
+        if result.get('payout_error'):
+            payload['status'] = 'Mission validée, paiement prestataire en attente'
+            payload['error'] = result['payout_error']
+        return Response(payload)
     
     @action(detail=True, methods=['post'])
     def complete(self, request, pk=None):
@@ -1010,11 +1044,32 @@ class MissionViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def cancel(self, request, pk=None):
-        """Annuler une mission et rembourser les fonds si applicable."""
+        """Annuler une mission (client) ou abandonner en cours (prestataire)."""
         mission = self.get_object()
+        reason = (request.data.get('reason') or '').strip()
+
+        # Prestataire : annulation uniquement si mission en cours
+        if mission.provider_id == request.user.id and mission.client_id != request.user.id:
+            from .services import provider_cancel_in_progress
+            result = provider_cancel_in_progress(
+                mission,
+                changed_by=request.user,
+                reason=reason or 'Abandon de la mission par le prestataire',
+            )
+            if not result.get('ok'):
+                return Response({'error': result.get('error')}, status=400)
+            return Response({
+                'status': 'Mission annulée',
+                'client_refunded': bool(result.get('client_refund')),
+                'deposit_forfeited': result.get('deposit_forfeited', False),
+                'message': (
+                    'Fonds remboursés au client. Votre caution a été confisquée '
+                    'suite à l\'abandon en cours d\'exécution.'
+                ),
+            })
 
         if mission.client != request.user:
-            return Response({'error': 'Seul le client peut annuler cette mission'}, status=403)
+            return Response({'error': 'Seul le client ou le prestataire assigné peut annuler'}, status=403)
 
         from .services import cancel_mission_with_refunds, DISPUTE_REQUIRED_STATUSES
 
@@ -1359,12 +1414,18 @@ class MissionViewSet(viewsets.ModelViewSet):
                 average_mission_value=Avg('budget')
             )
         elif role == 'provider':
+            from django.db.models import F, Value, DecimalField
+            from django.db.models.functions import Coalesce
+            earnings = Coalesce(
+                F('final_price'), F('budget'), Value(0),
+                output_field=DecimalField(max_digits=15, decimal_places=2),
+            )
             stats = Mission.objects.filter(provider=user).aggregate(
                 total_missions=Count('id'),
                 in_progress_missions=Count('id', filter=Q(status=Mission.Status.IN_PROGRESS)),
                 completed_missions=Count('id', filter=Q(status=Mission.Status.COMPLETED)),
-                total_earned=Sum('final_price', filter=Q(status=Mission.Status.COMPLETED)),
-                average_mission_value=Avg('final_price')
+                total_earned=Sum(earnings, filter=Q(status=Mission.Status.COMPLETED)),
+                average_mission_value=Avg(earnings, filter=Q(status=Mission.Status.COMPLETED)),
             )
         else:
             stats = {}

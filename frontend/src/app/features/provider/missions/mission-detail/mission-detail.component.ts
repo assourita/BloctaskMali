@@ -116,25 +116,65 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
               </mat-card-header>
               <mat-card-content>
                 <div class="route">
-                  <div class="route-point pickup">
+                  <div class="route-point pickup" *ngIf="mission.pickup_address">
                     <div class="route-icon"><mat-icon>trip_origin</mat-icon></div>
                     <div>
                       <strong>Point de retrait</strong>
-                      <p>{{ mission.pickup_address || '—' }}</p>
+                      <p>{{ mission.pickup_address }}</p>
                     </div>
                   </div>
-                  <div class="route-connector"></div>
-                  <div class="route-point delivery">
+                  <div class="route-connector" *ngIf="mission.pickup_address && mission.delivery_address"></div>
+                  <div class="route-point delivery" *ngIf="mission.delivery_address">
                     <div class="route-icon"><mat-icon>place</mat-icon></div>
                     <div>
-                      <strong>Point de livraison</strong>
-                      <p>{{ mission.delivery_address || '—' }}</p>
+                      <strong>{{ mission.pickup_address ? 'Point de livraison' : 'Lieu d\'intervention' }}</strong>
+                      <p>{{ mission.delivery_address }}</p>
                     </div>
                   </div>
                 </div>
                 <button mat-stroked-button class="map-btn" *ngIf="hasCoordinates()" (click)="openInMaps()">
                   <mat-icon>map</mat-icon> Ouvrir dans Google Maps
                 </button>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- Détails catégorie (pour décider de postuler) -->
+            <mat-card class="section-card" *ngIf="mission.custom_details?.length">
+              <mat-card-header>
+                <mat-card-title><mat-icon>info</mat-icon> Détails de la mission</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="detail-grid">
+                  <div class="detail-row" *ngFor="let d of mission.custom_details">
+                    <span class="detail-label">{{ d.label }}</span>
+                    <span class="detail-value">{{ formatDetailValue(d) }}</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <!-- Photos fournies par le client -->
+            <mat-card class="section-card" *ngIf="mission.media?.length">
+              <mat-card-header>
+                <mat-card-title><mat-icon>photo_library</mat-icon> Photos / documents du client</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="media-grid">
+                  <a
+                    class="media-item"
+                    *ngFor="let m of mission.media"
+                    [href]="m.url"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img *ngIf="isImageMedia(m)" [src]="m.url" [alt]="m.label || m.file_name">
+                    <div class="media-doc" *ngIf="!isImageMedia(m)">
+                      <mat-icon>description</mat-icon>
+                      <span>{{ m.file_name }}</span>
+                    </div>
+                    <span class="media-caption">{{ m.label || m.field_name }}</span>
+                  </a>
+                </div>
               </mat-card-content>
             </mat-card>
 
@@ -219,7 +259,7 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
                 <mat-card-title><mat-icon>chat</mat-icon> Messagerie</mat-card-title>
               </mat-card-header>
               <mat-card-content class="chat-wrap">
-                <app-chat [missionId]="missionId" [showSidebar]="false"></app-chat>
+                <app-chat [missionId]="missionId" [showSidebar]="false" [embedded]="true"></app-chat>
               </mat-card-content>
             </mat-card>
 
@@ -331,11 +371,15 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
                 <button mat-raised-button color="primary" class="full-width" *ngIf="mission.status === 'in_progress'" [routerLink]="trackingLink" [queryParams]="{ missionId: missionId }">
                   <mat-icon>gps_fixed</mat-icon> Activer le suivi GPS
                 </button>
+                <button mat-stroked-button color="warn" class="full-width" *ngIf="mission.status === 'in_progress'"
+                  (click)="providerCancelMission()" [disabled]="actionLoading">
+                  <mat-icon>cancel</mat-icon> Abandonner la mission
+                </button>
 
                 <!-- Submitted -->
                 <div class="info-banner" *ngIf="mission.status === 'submitted'">
                   <mat-icon>hourglass_empty</mat-icon>
-                  En attente de validation par le client
+                  En attente de validation client (paiement auto sous 48h si aucune action)
                 </div>
 
                 <!-- Completed -->
@@ -526,6 +570,31 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
     .delivery .route-icon { background: #d1fae5; color: #059669; }
     .route-point strong { font-size: 13px; color: #374151; }
     .route-point p { margin: 4px 0 0; font-size: 14px; color: #6b7280; }
+
+    .detail-grid { display: flex; flex-direction: column; gap: 10px; }
+    .detail-row {
+      display: grid; grid-template-columns: minmax(120px, 40%) 1fr; gap: 12px;
+      padding: 8px 0; border-bottom: 1px solid #f3f4f6;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { font-size: 13px; color: #6b7280; font-weight: 500; }
+    .detail-value { font-size: 14px; color: #111827; white-space: pre-wrap; }
+
+    .media-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;
+    }
+    .media-item {
+      display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: inherit;
+    }
+    .media-item img {
+      width: 100%; height: 120px; object-fit: cover; border-radius: 10px; background: #f3f4f6;
+    }
+    .media-doc {
+      height: 120px; border-radius: 10px; background: #f3f4f6; display: flex;
+      flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px; text-align: center; font-size: 12px; color: #4b5563;
+    }
+    .media-caption { font-size: 12px; color: #6b7280; }
     .route-connector { width: 2px; height: 24px; background: #e5e7eb; margin: 4px 0 4px 17px; }
     .map-btn { margin-top: 12px; }
 
@@ -578,7 +647,7 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
     .meta-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #6b7280; padding: 6px 0; }
     .meta-row mat-icon { font-size: 16px; width: 16px; height: 16px; color: #9ca3af; }
 
-    .chat-wrap { padding: 0; min-height: 320px; }
+    .chat-wrap { padding: 0; min-height: 320px; max-height: 520px; overflow: hidden; border-radius: 0 0 12px 12px; }
 
     .success-banner { display: flex; align-items: center; gap: 8px; padding: 12px; background: #ecfdf5; border-radius: 8px; color: #065f46; font-size: 14px; margin-bottom: 8px; }
     .deposit-alert { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
@@ -846,6 +915,18 @@ export class ProviderMissionDetailComponent implements OnInit {
     return !!(this.mission?.requirements as Record<string, boolean>)?.[key];
   }
 
+  formatDetailValue(d: { type: string; value: unknown }): string {
+    const v = d.value;
+    if (typeof v === 'boolean') return v ? 'Oui' : 'Non';
+    if (v == null) return '—';
+    return String(v);
+  }
+
+  isImageMedia(m: { mime_type?: string; url?: string }): boolean {
+    if (m.mime_type?.startsWith('image/')) return true;
+    return /\.(jpe?g|png|gif|webp|bmp)$/i.test(m.url || '');
+  }
+
   showGpsTracking(): boolean {
     return ['in_progress', 'submitted'].includes(this.mission?.status || '')
       && !!this.mission?.requires_gps_tracking;
@@ -952,6 +1033,33 @@ export class ProviderMissionDetailComponent implements OnInit {
       error: (e) => {
         this.actionLoading = false;
         this.snackBar.open(e.error?.error || 'Erreur', 'Fermer', { duration: 4000 });
+      },
+    });
+  }
+
+  providerCancelMission(): void {
+    const ok = confirm(
+      'Abandonner cette mission en cours ?\n\n'
+      + 'Les fonds seront remboursés au client et votre caution sera confisquée.',
+    );
+    if (!ok) return;
+    this.actionLoading = true;
+    this.missionService.cancelMission(
+      this.missionId,
+      'Abandon de la mission par le prestataire',
+    ).subscribe({
+      next: (res: any) => {
+        this.actionLoading = false;
+        this.snackBar.open(
+          res?.message || 'Mission annulée — caution confisquée, client remboursé',
+          'Fermer',
+          { duration: 5000 },
+        );
+        this.router.navigate([this.availableMissionsLink]);
+      },
+      error: (e) => {
+        this.actionLoading = false;
+        this.snackBar.open(e.error?.error || 'Annulation impossible', 'Fermer', { duration: 5000 });
       },
     });
   }

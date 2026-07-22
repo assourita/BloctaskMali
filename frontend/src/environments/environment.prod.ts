@@ -35,4 +35,6 @@ export const environment = {
 
   /** Client OAuth Web Google — Console Google Cloud */
   googleClientId: '',
+  enableGoogleSignIn: true,
+  googleMapsApiKey: '',
 };

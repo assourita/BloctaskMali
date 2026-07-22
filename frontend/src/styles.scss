@@ -2,6 +2,9 @@
 
 @include mat.core();
 
+/* Import responsive utilities */
+@import './styles/responsive';
+
 $blocktask-primary: mat.define-palette(mat.$green-palette, 600);
 $blocktask-accent: mat.define-palette(mat.$teal-palette, A200);
 $blocktask-warn: mat.define-palette(mat.$red-palette);
@@ -19,29 +22,47 @@ $blocktask-theme: mat.define-light-theme((
 /* Global Styles for BlockTask */
 
 :root {
-  /* Primary Colors */
-  --primary-50: #eff6ff;
-  --primary-100: #dbeafe;
-  --primary-200: #bfdbfe;
-  --primary-300: #93c5fd;
-  --primary-400: #60a5fa;
-  --primary-500: #3b82f6;
-  --primary-600: #2563eb;
-  --primary-700: #1d4ed8;
-  --primary-800: #1e40af;
-  --primary-900: #1e3a8a;
+  /*
+   * BlockTask identity
+   * Garden Grid → esthétique générale (vert naturel, surfaces claires)
+   * Linear → dashboards (densité, bordures subtiles)
+   * Stripe → finance / escrow (clair, confiance)
+   * Airbnb → cartes missions (photo, hiérarchie)
+   * Uber → suivi temps réel (carte, statut)
+   */
+  --bt-brand: #16a34a;
+  --bt-brand-soft: #dcfce7;
+  --bt-accent: #0f766e;
+  --bt-finance: #635bff;
+  --bt-ink: #111827;
+  --bt-muted: #6b7280;
+  --bt-surface: #ffffff;
+  --bt-surface-muted: #f8fafc;
+  --bt-border: #e5e7eb;
 
-  /* Secondary Colors */
-  --secondary-500: #f59e0b;
-  --secondary-600: #d97706;
+  /* Primary — Garden Grid green */
+  --primary-50: #f0fdf4;
+  --primary-100: #dcfce7;
+  --primary-200: #bbf7d0;
+  --primary-300: #86efac;
+  --primary-400: #4ade80;
+  --primary-500: #22c55e;
+  --primary-600: #16a34a;
+  --primary-700: #15803d;
+  --primary-800: #166534;
+  --primary-900: #14532d;
+
+  /* Secondary — teal accent (suivi / Uber-like status) */
+  --secondary-500: #0d9488;
+  --secondary-600: #0f766e;
 
   /* Status Colors */
-  --success-500: #10b981;
+  --success-500: #22c55e;
   --warning-500: #f59e0b;
   --error-500: #ef4444;
   --info-500: #3b82f6;
 
-  /* Neutral Colors */
+  /* Neutral Colors — Linear-inspired */
   --gray-50: #f9fafb;
   --gray-100: #f3f4f6;
   --gray-200: #e5e7eb;
@@ -74,7 +95,7 @@ $blocktask-theme: mat.define-light-theme((
   --radius-2xl: 1rem;
   --radius-full: 9999px;
 
-  /* Shadows */
+  /* Shadows — Stripe soft depth */
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
@@ -532,10 +553,488 @@ a:hover {
   mat-icon { font-size: 36px; width: 36px; height: 36px; color: #ddd; }
 }
 
-/* Responsive */
-@media (max-width: 768px) {
+/* ========================================
+   RESPONSIVE DESIGN - BlockTask
+   ======================================== */
+
+/* Mobile First Approach - Mobile (< 768px) */
+@media (max-width: 767px) {
   html {
     font-size: 14px;
+  }
+
+  body {
+    font-size: 0.875rem;
+  }
+
+  /* Typography */
+  h1 { font-size: 1.5rem; }
+  h2 { font-size: 1.25rem; }
+  h3 { font-size: 1.125rem; }
+  h4 { font-size: 1rem; }
+  h5 { font-size: 0.875rem; }
+  h6 { font-size: 0.75rem; }
+
+  /* Container */
+  .container {
+    padding: 0 var(--space-3);
+  }
+
+  /* Cards */
+  .card {
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .card-header {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .card-body {
+    padding: var(--space-4);
+  }
+
+  .card-footer {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  /* Buttons */
+  .btn {
+    padding: var(--space-3) var(--space-4);
+    font-size: 0.875rem;
+    min-height: 44px; /* Touch target minimum */
+  }
+
+  .btn-lg {
+    padding: var(--space-4) var(--space-6);
+    font-size: 1rem;
+    min-height: 48px;
+  }
+
+  .btn-sm {
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.75rem;
+    min-height: 36px;
+  }
+
+  /* Forms */
+  .form-control {
+    padding: var(--space-3);
+    font-size: 1rem;
+    min-height: 44px;
+  }
+
+  .form-label {
+    font-size: 0.875rem;
+    margin-bottom: var(--space-1);
+  }
+
+  .form-group {
+    margin-bottom: var(--space-3);
+  }
+
+  /* Badges */
+  .badge {
+    padding: var(--space-1) var(--space-2);
+    font-size: 0.625rem;
+  }
+
+  /* Layout utilities */
+  .flex-col-mobile {
+    flex-direction: column;
+  }
+
+  .hidden-mobile {
+    display: none !important;
+  }
+
+  .block-mobile {
+    display: block !important;
+  }
+
+  /* Spacing adjustments */
+  .gap-2-mobile {
+    gap: var(--space-2);
+  }
+
+  .gap-4-mobile {
+    gap: var(--space-4);
+  }
+
+  /* Wallet button */
+  .wallet-connect-btn {
+    padding: var(--space-3) var(--space-4);
+    font-size: 0.875rem;
+    min-height: 44px;
+  }
+
+  /* User dropdown mobile */
+  .user-dropdown-menu.mat-mdc-menu-panel {
+    min-width: 240px !important;
+    max-width: 90vw !important;
+  }
+
+  /* Notification dropdown mobile */
+  .notif-dropdown.mat-mdc-menu-panel {
+    min-width: 280px !important;
+    max-width: 90vw !important;
+  }
+
+  /* Datepicker mobile */
+  .mat-datepicker-content {
+    min-width: 280px !important;
+  }
+
+  .mat-calendar {
+    width: 280px !important;
+  }
+
+  .mat-calendar-body-cell {
+    width: 35px !important;
+    height: 35px !important;
+  }
+
+  .mat-calendar-body-cell-content {
+    width: 31px !important;
+    height: 31px !important;
+    line-height: 31px !important;
+    font-size: 13px !important;
+  }
+}
+
+/* Tablet (768px - 1023px) */
+@media (min-width: 768px) and (max-width: 1023px) {
+  html {
+    font-size: 15px;
+  }
+
+  /* Typography */
+  h1 { font-size: 1.75rem; }
+  h2 { font-size: 1.375rem; }
+  h3 { font-size: 1.1875rem; }
+  h4 { font-size: 1.0625rem; }
+  h5 { font-size: 0.9375rem; }
+  h6 { font-size: 0.8125rem; }
+
+  /* Container */
+  .container {
+    padding: 0 var(--space-4);
+  }
+
+  /* Cards */
+  .card-header {
+    padding: var(--space-4) var(--space-5);
+  }
+
+  .card-body {
+    padding: var(--space-5);
+  }
+
+  .card-footer {
+    padding: var(--space-4) var(--space-5);
+  }
+
+  /* Buttons */
+  .btn {
+    padding: var(--space-2) var(--space-5);
+    font-size: 0.875rem;
+  }
+
+  .btn-lg {
+    padding: var(--space-3) var(--space-6);
+    font-size: 1rem;
+  }
+
+  /* Forms */
+  .form-control {
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.875rem;
+  }
+
+  /* Layout utilities */
+  .hidden-tablet {
+    display: none !important;
+  }
+
+  .block-tablet {
+    display: block !important;
+  }
+
+  /* Dropdowns tablet */
+  .user-dropdown-menu.mat-mdc-menu-panel {
+    min-width: 260px !important;
+  }
+
+  .notif-dropdown.mat-mdc-menu-panel {
+    min-width: 320px !important;
+  }
+
+  /* Datepicker tablet */
+  .mat-datepicker-content {
+    min-width: 300px !important;
+  }
+
+  .mat-calendar {
+    width: 300px !important;
+  }
+}
+
+/* Desktop (1024px - 1439px) */
+@media (min-width: 1024px) and (max-width: 1439px) {
+  html {
+    font-size: 16px;
+  }
+
+  /* Container */
+  .container {
+    padding: 0 var(--space-6);
+  }
+
+  /* Cards */
+  .card-header {
+    padding: var(--space-5) var(--space-6);
+  }
+
+  .card-body {
+    padding: var(--space-6);
+  }
+
+  .card-footer {
+    padding: var(--space-5) var(--space-6);
+  }
+
+  /* Buttons */
+  .btn {
+    padding: var(--space-2) var(--space-6);
+    font-size: 0.875rem;
+  }
+
+  .btn-lg {
+    padding: var(--space-3) var(--space-8);
+    font-size: 1rem;
+  }
+
+  /* Forms */
+  .form-control {
+    padding: var(--space-2) var(--space-4);
+    font-size: 0.875rem;
+  }
+
+  /* Layout utilities */
+  .hidden-desktop {
+    display: none !important;
+  }
+
+  .block-desktop {
+    display: block !important;
+  }
+
+  /* Dropdowns desktop */
+  .user-dropdown-menu.mat-mdc-menu-panel {
+    min-width: 270px !important;
+  }
+
+  .notif-dropdown.mat-mdc-menu-panel {
+    min-width: 300px !important;
+  }
+}
+
+/* Large Desktop (1440px+) */
+@media (min-width: 1440px) {
+  html {
+    font-size: 16px;
+  }
+
+  /* Container */
+  .container {
+    max-width: 1440px;
+    padding: 0 var(--space-8);
+  }
+
+  /* Typography */
+  h1 { font-size: 2rem; }
+  h2 { font-size: 1.625rem; }
+  h3 { font-size: 1.375rem; }
+  h4 { font-size: 1.1875rem; }
+  h5 { font-size: 1.0625rem; }
+  h6 { font-size: 0.9375rem; }
+
+  /* Cards */
+  .card-header {
+    padding: var(--space-6) var(--space-8);
+  }
+
+  .card-body {
+    padding: var(--space-8);
+  }
+
+  .card-footer {
+    padding: var(--space-6) var(--space-8);
+  }
+
+  /* Buttons */
+  .btn {
+    padding: var(--space-3) var(--space-6);
+    font-size: 0.9375rem;
+  }
+
+  .btn-lg {
+    padding: var(--space-4) var(--space-8);
+    font-size: 1.0625rem;
+  }
+
+  /* Forms */
+  .form-control {
+    padding: var(--space-3) var(--space-4);
+    font-size: 0.9375rem;
+  }
+
+  /* Layout utilities */
+  .hidden-large {
+    display: none !important;
+  }
+
+  .block-large {
+    display: block !important;
+  }
+
+  /* Dropdowns large desktop */
+  .user-dropdown-menu.mat-mdc-menu-panel {
+    min-width: 300px !important;
+  }
+
+  .notif-dropdown.mat-mdc-menu-panel {
+    min-width: 350px !important;
+  }
+}
+
+/* ========================================
+   SPECIAL BREAKPOINTS
+   ======================================== */
+
+/* Small mobile (320px - 374px) */
+@media (max-width: 374px) {
+  .container {
+    padding: 0 var(--space-2);
+  }
+
+  .card-body {
+    padding: var(--space-3);
+  }
+
+  .btn {
+    padding: var(--space-2) var(--space-3);
+    font-size: 0.75rem;
+  }
+
+  .form-control {
+    padding: var(--space-2);
+    font-size: 0.875rem;
+  }
+
+  /* User dropdown very small */
+  .user-dropdown-menu.mat-mdc-menu-panel {
+    min-width: 200px !important;
+    max-width: 85vw !important;
+  }
+
+  .user-dropdown-menu .menu-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 13px;
+  }
+
+  .user-dropdown-menu .menu-name {
+    font-size: 13px;
+  }
+
+  .user-dropdown-menu .menu-email {
+    max-width: 140px;
+  }
+}
+
+/* Landscape mobile (375px - 812px) */
+@media (max-height: 500px) and (orientation: landscape) {
+  .card-body {
+    padding: var(--space-3) var(--space-4);
+  }
+
+  .form-group {
+    margin-bottom: var(--space-2);
+  }
+
+  .btn {
+    padding: var(--space-2) var(--space-4);
+    min-height: 40px;
+  }
+
+  .form-control {
+    padding: var(--space-2);
+    min-height: 40px;
+  }
+}
+
+/* High DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .card {
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  }
+
+  .btn {
+    border: 0.5px solid transparent;
+  }
+
+  .form-control {
+    border-width: 0.5px;
+  }
+}
+
+/* Dark mode support preparation */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --gray-50: #111827;
+    --gray-100: #1f2937;
+    --gray-200: #374151;
+    --gray-300: #4b5563;
+    --gray-400: #6b7280;
+    --gray-500: #9ca3af;
+    --gray-600: #d1d5db;
+    --gray-700: #e5e7eb;
+    --gray-800: #f3f4f6;
+    --gray-900: #f9fafb;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Print styles */
+@media print {
+  .btn,
+  .user-dropdown-menu,
+  .notif-dropdown,
+  .sidebar-overlay {
+    display: none !important;
+  }
+
+  .card {
+    box-shadow: none;
+    border: 1px solid #e5e7eb;
+  }
+
+  body {
+    font-size: 12pt;
+    line-height: 1.4;
+    color: #000;
+    background: #fff;
   }
 }
 

@@ -33,6 +33,13 @@ export const environment = {
     appId: ''
   },
 
-  /** Client OAuth Web Google — Console Google Cloud */
+  /** Client OAuth Web Google — Console Google Cloud.
+   * Ajoutez http://localhost:4200 dans « Origines JavaScript autorisées »
+   * sinon le bouton Google échoue (GSI_LOGGER origin not allowed). */
   googleClientId: '1059308452820-13u2j1q4ltb969nmvtubpf6nr9acvaos.apps.googleusercontent.com',
+  /** false = pas de bouton GSI (évite l’erreur « origin not allowed » en local). Remettre true après avoir ajouté http://localhost:4200 dans Google Cloud Console. */
+  enableGoogleSignIn: false,
+
+  /** Clé Google Maps JavaScript / Directions (Console Google Cloud). */
+  googleMapsApiKey: '',
 };

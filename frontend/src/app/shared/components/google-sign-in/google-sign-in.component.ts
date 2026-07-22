@@ -45,7 +45,7 @@ export class GoogleSignInButtonComponent implements AfterViewInit {
   @Input() text: 'signin_with' | 'signup_with' = 'signin_with';
 
   clientId = environment.googleClientId || '';
-  enabled = !!environment.googleClientId;
+  enabled = !!(environment.googleClientId && environment.enableGoogleSignIn !== false);
 
   ngAfterViewInit(): void {
     if (!this.clientId) return;

@@ -34,6 +34,12 @@ class EmployeeAssignmentSerializer(serializers.ModelSerializer):
 
     assignment_status = serializers.SerializerMethodField()
 
+    def get_employee_name(self, obj):
+        """Retourne le nom complet de l'employé."""
+        if obj.employee:
+            return f"{obj.employee.first_name} {obj.employee.last_name}"
+        return None
+    
     def get_assignment_status(self, obj):
         if obj.completed_at:
             return 'completed'
@@ -84,6 +90,60 @@ class EmployeeAvailabilitySerializer(serializers.ModelSerializer):
 
 
 class EmployeeAssignmentCreateSerializer(serializers.ModelSerializer):
+    employee_validation = serializers.SerializerMethodField()
+    
     class Meta:
         model = EmployeeAssignment
-        fields = ['mission', 'employee', 'assignment_type', 'notes']
+        fields = ['mission', 'employee', 'assignment_type', 'notes', 'employee_validation']
+        read_only_fields = ['employee_validation']
+    
+    def get_employee_validation(self, obj):
+        """Retourne les informations de validation de l'employé."""
+        if not obj.employee:
+            return None
+        
+        from apps.users.employee_validation import EmployeeValidator
+        validator = EmployeeValidator()
+        result = validator.validate_employee(obj.employee)
+        
+        return {
+            'is_valid': result.is_valid,
+            'can_assign_mission': result.can_assign_mission,
+            'validation_score': result.validation_score,
+            'critical_issues': len([i for i in result.issues if i.severity == 'critical']),
+            'warning_issues': len([i for i in result.issues if i.severity == 'warning']),
+            'issues_summary': [
+                {
+                    'type': issue.type.value,
+                    'severity': issue.severity,
+                    'message': issue.message,
+                    'suggested_action': issue.suggested_action,
+                    'can_auto_fix': issue.can_auto_fix
+                }
+                for issue in result.issues[:5]  # Limiter à 5 problèmes pour la lisibilité
+            ]
+        }
+    
+    def validate(self, attrs):
+        """Validation personnalisée avant création d'assignation."""
+        employee = attrs.get('employee')
+        mission = attrs.get('mission')
+        
+        if employee and mission:
+            from apps.users.employee_validation import validate_employee_for_assignment
+            validation_result = validate_employee_for_assignment(
+                str(employee.id), 
+                str(mission.id)
+            )
+            
+            if not validation_result['can_assign']:
+                critical_issues = [i for i in validation_result['issues'] if i['severity'] == 'critical']
+                if critical_issues:
+                    error_messages = [issue['message'] for issue in critical_issues]
+                    raise serializers.ValidationError({
+                        'employee': f'Impossible d\'assigner cet employé: {"; ".join(error_messages)}',
+                        'validation_issues': validation_result['issues'],
+                        'suggested_actions': [issue['suggested_action'] for issue in critical_issues]
+                    })
+        
+        return attrs

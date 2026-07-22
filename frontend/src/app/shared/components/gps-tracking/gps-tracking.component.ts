@@ -6,6 +6,7 @@ import { environment } from '../../../../environments/environment';
 import { AuthService } from '../../../core/services/auth.service';
 import { Subscription, interval } from 'rxjs';
 import * as L from 'leaflet';
+import { loadGoogleMaps } from '../../../core/utils/google-maps-loader';
 
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
@@ -322,6 +323,15 @@ export class GpsTrackingComponent implements OnInit, OnDestroy, OnChanges, After
   private map?: L.Map;
   private markersLayer?: L.LayerGroup;
   private pathLine?: L.Polyline;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private googleMap?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private googleMarkers: any[] = [];
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private googlePath?: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private googleDirections?: any;
+  private useGoogleMaps = false;
   private refreshSub?: Subscription;
   private watchId?: number;
   private ws?: WebSocket;
@@ -398,6 +408,15 @@ export class GpsTrackingComponent implements OnInit, OnDestroy, OnChanges, After
     this.stopSharing();
     this.ws?.close();
     this.map?.remove();
+    this.clearGoogleOverlays();
+  }
+
+  private clearGoogleOverlays(): void {
+    this.googleMarkers.forEach((m) => m.setMap(null));
+    this.googleMarkers = [];
+    this.googlePath?.setMap(null);
+    this.googlePath = undefined;
+    this.googleDirections?.setMap(null);
   }
 
   private connectWebSocket(): void {
@@ -454,27 +473,49 @@ export class GpsTrackingComponent implements OnInit, OnDestroy, OnChanges, After
   }
 
   initMap(): void {
-    if (!this.mapContainer?.nativeElement || this.map) {
-      if (this.map) {
-        this.map.invalidateSize();
-      }
+    if (!this.mapContainer?.nativeElement || this.map || this.googleMap) {
+      if (this.map) this.map.invalidateSize();
       return;
     }
 
+    const apiKey = environment.googleMapsApiKey;
+    if (apiKey) {
+      loadGoogleMaps(apiKey).then((maps) => {
+        this.useGoogleMaps = true;
+        this.googleMap = new maps.Map(this.mapContainer.nativeElement, {
+          center: { lat: 12.6392, lng: -8.0029 },
+          zoom: 12,
+          mapTypeControl: false,
+          streetViewControl: false,
+          fullscreenControl: false,
+        });
+        this.googleDirections = new maps.DirectionsRenderer({
+          map: this.googleMap,
+          suppressMarkers: true,
+          polylineOptions: { strokeColor: '#6C5CE7', strokeWeight: 5 },
+        });
+        this.mapLoaded = true;
+        this.mapError = false;
+        if (this.trackingData) this.updateMap();
+      }).catch(() => this.initLeafletMap());
+      return;
+    }
+
+    this.initLeafletMap();
+  }
+
+  private initLeafletMap(): void {
     try {
+      this.useGoogleMaps = false;
       this.map = L.map(this.mapContainer.nativeElement, { zoomControl: false }).setView(BAMAKO_CENTER, 12);
       L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 19,
         attribution: '&copy; OpenStreetMap',
       }).addTo(this.map);
       this.markersLayer = L.layerGroup().addTo(this.map);
-
       this.mapLoaded = true;
       this.mapError = false;
-
-      if (this.trackingData) {
-        this.updateMap();
-      }
+      if (this.trackingData) this.updateMap();
     } catch {
       this.mapError = true;
     }
@@ -505,7 +546,14 @@ export class GpsTrackingComponent implements OnInit, OnDestroy, OnChanges, After
   }
 
   private updateMap(): void {
-    if (!this.map || !this.markersLayer || !this.trackingData) return;
+    if (!this.trackingData) return;
+
+    if (this.useGoogleMaps && this.googleMap) {
+      this.updateGoogleMap();
+      return;
+    }
+
+    if (!this.map || !this.markersLayer) return;
 
     const { pickup, delivery, currentPosition, path } = this.trackingData;
     this.markersLayer.clearLayers();
@@ -533,6 +581,68 @@ export class GpsTrackingComponent implements OnInit, OnDestroy, OnChanges, After
         path.map(p => [p.latitude, p.longitude] as L.LatLngExpression),
         { color: '#6C5CE7', weight: 4, opacity: 0.9 },
       ).addTo(this.map);
+    }
+
+    this.centerOnRoute();
+  }
+
+  private updateGoogleMap(): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const g = (window as any).google;
+    if (!this.googleMap || !this.trackingData || !g?.maps) return;
+    const maps = g.maps;
+    const { pickup, delivery, currentPosition, path } = this.trackingData;
+    this.clearGoogleOverlays();
+
+    const addMarker = (lat: number, lng: number, title: string, color: string) => {
+      const m = new maps.Marker({
+        position: { lat, lng },
+        map: this.googleMap,
+        title,
+        icon: {
+          path: maps.SymbolPath.CIRCLE,
+          scale: 9,
+          fillColor: color,
+          fillOpacity: 1,
+          strokeColor: '#fff',
+          strokeWeight: 2,
+        },
+      });
+      this.googleMarkers.push(m);
+    };
+
+    addMarker(pickup.latitude, pickup.longitude, 'Départ', '#3b82f6');
+    addMarker(delivery.latitude, delivery.longitude, 'Arrivée', '#10b981');
+    if (currentPosition) {
+      addMarker(currentPosition.latitude, currentPosition.longitude, 'Position actuelle', '#ef4444');
+    }
+
+    if (path && path.length > 1) {
+      this.googlePath = new maps.Polyline({
+        path: path.map((p) => ({ lat: p.latitude, lng: p.longitude })),
+        geodesic: true,
+        strokeColor: '#6C5CE7',
+        strokeOpacity: 0.9,
+        strokeWeight: 4,
+        map: this.googleMap,
+      });
+    }
+
+    if (pickup.latitude && delivery.latitude && this.googleDirections) {
+      const svc = new maps.DirectionsService();
+      svc.route(
+        {
+          origin: { lat: pickup.latitude, lng: pickup.longitude },
+          destination: { lat: delivery.latitude, lng: delivery.longitude },
+          travelMode: maps.TravelMode.DRIVING,
+        },
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (result: any, status: string) => {
+          if (status === 'OK' && result) {
+            this.googleDirections!.setDirections(result);
+          }
+        },
+      );
     }
 
     this.centerOnRoute();
@@ -630,22 +740,49 @@ export class GpsTrackingComponent implements OnInit, OnDestroy, OnChanges, After
   }
 
   zoomIn(): void {
+    if (this.googleMap) {
+      this.googleMap.setZoom((this.googleMap.getZoom() || 12) + 1);
+      return;
+    }
     this.map?.zoomIn();
   }
 
   zoomOut(): void {
+    if (this.googleMap) {
+      this.googleMap.setZoom((this.googleMap.getZoom() || 12) - 1);
+      return;
+    }
     this.map?.zoomOut();
   }
 
   centerOnProvider(): void {
-    if (this.map && this.currentPosition) {
-      this.map.setView([this.currentPosition.latitude, this.currentPosition.longitude], 16);
+    if (!this.currentPosition) return;
+    if (this.googleMap) {
+      this.googleMap.setCenter({
+        lat: this.currentPosition.latitude,
+        lng: this.currentPosition.longitude,
+      });
+      this.googleMap.setZoom(16);
+      return;
     }
+    this.map?.setView([this.currentPosition.latitude, this.currentPosition.longitude], 16);
   }
 
   centerOnRoute(): void {
-    if (!this.map || !this.trackingData) return;
-
+    if (!this.trackingData) return;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const g = (window as any).google;
+    if (this.googleMap && g?.maps) {
+      const bounds = new g.maps.LatLngBounds();
+      bounds.extend({ lat: this.trackingData.pickup.latitude, lng: this.trackingData.pickup.longitude });
+      bounds.extend({ lat: this.trackingData.delivery.latitude, lng: this.trackingData.delivery.longitude });
+      if (this.currentPosition) {
+        bounds.extend({ lat: this.currentPosition.latitude, lng: this.currentPosition.longitude });
+      }
+      this.googleMap.fitBounds(bounds, 40);
+      return;
+    }
+    if (!this.map) return;
     const points: L.LatLngExpression[] = [
       [this.trackingData.pickup.latitude, this.trackingData.pickup.longitude],
       [this.trackingData.delivery.latitude, this.trackingData.delivery.longitude],

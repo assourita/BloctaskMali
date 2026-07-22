@@ -133,11 +133,21 @@ export class ProviderEarningsComponent implements OnInit {
 
   load(): void {
     this.loading = true;
-    this.http.get<any>(`${this.apiUrl}/users/stats/`, { headers: this.h() }).subscribe({
+    // Même source que le dashboard analytics : missions réelles (final_price || budget)
+    this.http.get<any>(`${this.apiUrl}/analytics/dashboard/?role=provider`, { headers: this.h() }).subscribe({
       next: (s) => {
-        this.stats.total_earned = s.total_earned || 0;
+        this.stats.total_earned = Number(s.total_earned) || 0;
         this.stats.completed_missions = s.completed_missions || 0;
         this.stats.active_missions = s.active_missions || 0;
+      },
+      error: () => {
+        this.http.get<any>(`${this.apiUrl}/users/stats/`, { headers: this.h() }).subscribe({
+          next: (s) => {
+            this.stats.total_earned = s.total_earned || 0;
+            this.stats.completed_missions = s.completed_missions || 0;
+            this.stats.active_missions = s.active_missions || 0;
+          },
+        });
       },
     });
     this.paymentService.getPayments().subscribe({
@@ -148,7 +158,7 @@ export class ProviderEarningsComponent implements OnInit {
       error: () => { this.loading = false; },
     });
     this.http.get<WalletTx[]>(`${this.apiUrl}/users/wallet/transactions/`, { headers: this.h() }).subscribe({
-      next: (t) => { this.walletTxs = (Array.isArray(t) ? t : (t as any)?.results ?? []) as WalletTx[]; },
+      next: (r) => { this.walletTxs = Array.isArray(r) ? r : (r as any)?.results ?? []; },
     });
   }
 }

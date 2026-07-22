@@ -28,13 +28,15 @@ class ConversationViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         user = self.request.user
         qs = Conversation.objects.filter(
-            Q(client=user) | Q(provider=user),
-        ).select_related('mission', 'client', 'provider').prefetch_related('messages')
+            Q(client=user) | Q(provider=user) | Q(extra_participants__user=user),
+        ).distinct().select_related('mission', 'client', 'provider').prefetch_related(
+            'messages', 'extra_participants__user',
+        )
 
         mission_id = self.request.query_params.get('mission_id')
         if mission_id:
             mission = Mission.objects.filter(id=mission_id).first()
-            if mission and can_read_chat(user, mission):
+            if mission and (can_read_chat(user, mission) or user_is_participant(user, mission)):
                 get_or_create_conversation(mission)
             qs = qs.filter(mission_id=mission_id)
 

@@ -61,7 +61,7 @@ interface Conversation {
     MatChipsModule, MatProgressSpinnerModule
   ],
   template: `
-    <div class="chat-container" [class.sidebar-open]="showSidebar">
+    <div class="chat-container" [class.sidebar-open]="showSidebar" [class.embedded]="embedded">
       <!-- Sidebar - Liste des conversations -->
       <div class="conversations-sidebar" *ngIf="showSidebar">
         <div class="sidebar-header">
@@ -197,6 +197,13 @@ interface Conversation {
   styles: [`
     .chat-container {
       display: flex; height: calc(100vh - 64px); background: #f5f5f5;
+      min-width: 0; overflow: hidden;
+
+      &.embedded {
+        height: 420px;
+        max-height: min(60vh, 520px);
+        border-radius: 0 0 12px 12px;
+      }
       
       .conversations-sidebar {
         width: 320px; background: #fff; border-right: 1px solid #e0e0e0;
@@ -258,10 +265,17 @@ interface Conversation {
           &.placeholder { color: #999; }
           
           .user-info {
-            flex: 1; display: flex; align-items: center; gap: 12px;
-            .avatar.small { width: 40px; height: 40px; font-size: 14px; }
-            h4 { margin: 0 0 2px; font-size: 16px; }
-            .mission-title { font-size: 12px; color: #666; }
+            flex: 1; display: flex; align-items: center; gap: 12px; min-width: 0;
+            .avatar.small {
+              width: 40px; height: 40px; font-size: 14px;
+              border-radius: 50%; overflow: hidden; flex-shrink: 0;
+              background: linear-gradient(135deg, #16a34a, #0d9488);
+              display: flex; align-items: center; justify-content: center;
+              color: #fff; font-weight: 600;
+              img { width: 100%; height: 100%; object-fit: cover; display: block; }
+            }
+            h4 { margin: 0 0 2px; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            .mission-title { font-size: 12px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
           }
         }
         
@@ -290,8 +304,8 @@ interface Conversation {
                 .bubble {
                   background: #fff; padding: 12px 16px; border-radius: 18px;
                   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
-                  &.image { padding: 4px; }
-                  img { max-width: 100%; border-radius: 14px; cursor: pointer; }
+                  &.image { padding: 4px; overflow: hidden; }
+                  img { max-width: 100%; max-height: 240px; object-fit: contain; border-radius: 14px; cursor: pointer; display: block; }
                   p { margin: 0; line-height: 1.5; }
                   
                   .location-message {
@@ -361,6 +375,8 @@ export class ChatComponent implements OnInit, OnDestroy {
   @Input() missionId?: string;
   @Input() conversationId?: string;
   @Input() showSidebar = true;
+  /** Mode carte (mission detail) : hauteur limitée, pas plein viewport */
+  @Input() embedded = false;
   @ViewChild('messagesContainer') messagesContainer!: ElementRef;
   
   private apiUrl = environment.apiUrl;

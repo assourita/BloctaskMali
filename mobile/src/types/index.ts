@@ -101,6 +101,21 @@ export interface Mission {
     last_name: string;
     email?: string;
   } | null;
+  requirements?: Record<string, unknown>;
+  custom_details?: Array<{ name: string; label: string; type: string; value: unknown }>;
+  media?: MissionMediaItem[];
+}
+
+export interface MissionMediaItem {
+  id: string;
+  field_name: string;
+  label: string;
+  kind: string;
+  url: string;
+  file_name: string;
+  file_size?: number;
+  mime_type?: string;
+  created_at?: string;
 }
 
 export interface MissionStats {

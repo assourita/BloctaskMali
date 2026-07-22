@@ -18,6 +18,17 @@ def expire_missions_task():
         raise
 
 
+@shared_task(name='missions.auto_validate_missions')
+def auto_validate_missions_task():
+    """Valide automatiquement les missions soumises sans action client (48h)."""
+    try:
+        call_command('auto_validate_missions')
+        return {'ok': True}
+    except Exception as exc:
+        logger.exception('auto_validate_missions failed: %s', exc)
+        raise
+
+
 @shared_task(name='escrow.sync_blockchain_events')
 def sync_blockchain_events_task(from_block: int = 0):
     """Synchronise les événements EscrowContract depuis Sepolia."""

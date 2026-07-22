@@ -125,7 +125,7 @@ flowchart LR
 | Plateforme | Stack | État |
 |------------|-------|------|
 | **Web** | Angular 17 + Material | MVP fonctionnel |
-| **Mobile** | Expo 52 + TypeScript | MVP fonctionnel (client & prestataire) |
+| **Mobile** | Expo 52 + TypeScript | MVP fonctionnel (client, prestataire, entreprise) ; APK en cours de génération |
 | **API** | Django 4.2 + DRF + Channels | MVP fonctionnel |
 | **Contrats** | Solidity + Sepolia | Déployés (testnet) |
 
@@ -257,8 +257,8 @@ Un blueprint `render.yaml` est fourni pour déployer automatiquement :
 2. Sur [render.com](https://render.com), clique **New Blueprint** → connecte le repo.
 3. Renseigne les variables d'environnement manquantes dans le dashboard :
    - `DJANGO_SECRET_KEY` (clé longue et aléatoire)
-   - `API_URL` / `WS_URL` : URLs du backend Render (`https://blocktask-backend.onrender.com/api` et `wss://.../ws`)
-   - `FRONTEND_URL` / `CORS_ALLOWED_ORIGINS` : URL du frontend Render (`https://blocktask-frontend.onrender.com`)
+   - `API_URL` / `WS_URL` : URLs du backend Render (`https://bloctaskmali.onrender.com/api` et `wss://bloctaskmali.onrender.com/ws`)
+   - `FRONTEND_URL` / `CORS_ALLOWED_ORIGINS` : URL du frontend Render (`https://blocktask-frontend.onrender.com`, `https://bloctaskmali.onrender.com`)
    - `ETHEREUM_RPC_URL` + adresses des contrats Sepolia
    - `GOOGLE_CLIENT_ID` (optionnel)
    - `MOBILE_MONEY_SANDBOX=true` pour la démo sans vrai débit
@@ -306,6 +306,7 @@ python update_contracts.py
 - [ ] Tests E2E Cypress (web)
 - [ ] Audit sécurité smart contracts
 - [ ] Extension marchés UEMOA (Sénégal, Côte d'Ivoire…) — config préparée dans `africa_config.py`
+- [ ] Génération APK mobile installable (Android Studio / Gradle) — en cours
 
 ### Réalisé (MVP)
 

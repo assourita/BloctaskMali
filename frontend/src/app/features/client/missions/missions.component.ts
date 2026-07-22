@@ -44,30 +44,59 @@ interface Mission {
   ],
   template: `
     <div class="missions-container">
-      <!-- Header -->
+      <!-- Header - Airbnb Style -->
       <div class="missions-header">
-        <div class="header-left">
-          <h1>Mes missions créées</h1>
-          <p class="subtitle">Uniquement les missions que vous avez publiées</p>
+        <div class="header-content">
+          <h1>Mes missions</h1>
+          <p class="subtitle">Gérez et suivez toutes vos missions publiées</p>
         </div>
-        <button mat-raised-button color="primary" routerLink="create">
+        <button mat-raised-button class="create-btn" routerLink="create">
           <mat-icon>add</mat-icon>
-          Nouvelle Mission
+          Créer une mission
         </button>
       </div>
 
-      <!-- Stats Cards -->
+      <!-- Stats Cards - Upwork Style -->
       <div class="stats-grid">
-        <div class="stat-card" *ngFor="let stat of stats">
-          <mat-icon [style.color]="stat.color">{{ stat.icon }}</mat-icon>
+        <div class="stat-card stat-card--active">
+          <div class="stat-icon">
+            <mat-icon>pending_actions</mat-icon>
+          </div>
           <div class="stat-info">
-            <span class="stat-value">{{ stat.value }}</span>
-            <span class="stat-label">{{ stat.label }}</span>
+            <span class="stat-value">{{ getStatValue('active') }}</span>
+            <span class="stat-label">En cours</span>
+          </div>
+        </div>
+        <div class="stat-card stat-card--pending">
+          <div class="stat-icon">
+            <mat-icon>schedule</mat-icon>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ getStatValue('pending') }}</span>
+            <span class="stat-label">En attente</span>
+          </div>
+        </div>
+        <div class="stat-card stat-card--completed">
+          <div class="stat-icon">
+            <mat-icon>check_circle</mat-icon>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ getStatValue('completed') }}</span>
+            <span class="stat-label">Terminées</span>
+          </div>
+        </div>
+        <div class="stat-card stat-card--total">
+          <div class="stat-icon">
+            <mat-icon>analytics</mat-icon>
+          </div>
+          <div class="stat-info">
+            <span class="stat-value">{{ getStatValue('total') }}</span>
+            <span class="stat-label">Total</span>
           </div>
         </div>
       </div>
 
-      <!-- Filters -->
+      <!-- Filters - Airbnb Style -->
       <div class="filters-bar">
         <div class="filter-chips">
           <button 
@@ -117,11 +146,11 @@ interface Mission {
             <span>{{ getStatusLabel(mission.status) }}</span>
           </div>
 
-          <div class="expiry-strip" *ngIf="needsExpiryAttention(mission)" (click)="$event.stopPropagation()">
+          <div class="expiry-strip" *ngIf="needsExpiryAttention(mission)" (click)="stopPropagation($event)">
             <mat-icon>warning</mat-icon>
             <span>{{ getExpiryStripMessage(mission) }}</span>
             <button mat-stroked-button color="warn" type="button" (click)="viewMission(mission, $event)">
-              {{ mission.status === 'expired' ? 'Voir' : 'Décider' }}
+              {{ getExpiryButtonText(mission) }}
             </button>
           </div>
 
@@ -129,35 +158,35 @@ interface Mission {
             <!-- Left: Main Info -->
             <div class="mission-main">
               <div class="mission-header-row">
-                <h3 class="mission-title">{{ mission.title || 'Sans titre' }}</h3>
+                <h3 class="mission-title">{{ getMissionTitle(mission) }}</h3>
               </div>
               
-              <p class="mission-description" *ngIf="mission.description">
-                {{ mission.description | slice:0:120 }}{{ mission.description.length > 120 ? '...' : '' }}
+              <p class="mission-description" *ngIf="hasDescription(mission)">
+                {{ getDescriptionTruncated(mission) }}
               </p>
               
               <!-- Category Tag -->
-              <div class="mission-tags" *ngIf="mission.category_name">
+              <div class="mission-tags" *ngIf="getMissionCategory(mission)">
                 <span class="tag category">
                   <mat-icon>folder</mat-icon>
-                  {{ mission.category_name }}
+                  {{ getMissionCategory(mission) }}
                 </span>
               </div>
               
               <!-- Location Route -->
-              <div class="mission-route" *ngIf="mission.pickup_address || mission.delivery_address">
-                <div class="route-item" *ngIf="mission.pickup_address">
+              <div class="mission-route" *ngIf="hasAnyAddress(mission)">
+                <div class="route-item" *ngIf="hasPickupAddress(mission)">
                   <div class="route-dot pickup"></div>
                   <mat-icon class="route-icon">location_on</mat-icon>
                   <span class="route-label">Départ:</span>
-                  <span class="route-address">{{ mission.pickup_address | slice:0:35 }}{{ mission.pickup_address.length > 35 ? '...' : '' }}</span>
+                  <span class="route-address">{{ getPickupAddressTruncated(mission) }}</span>
                 </div>
-                <div class="route-connector" *ngIf="mission.pickup_address && mission.delivery_address"></div>
-                <div class="route-item" *ngIf="mission.delivery_address">
+                <div class="route-connector" *ngIf="hasBothAddresses(mission)"></div>
+                <div class="route-item" *ngIf="hasDeliveryAddress(mission)">
                   <div class="route-dot delivery"></div>
                   <mat-icon class="route-icon">flag</mat-icon>
                   <span class="route-label">Arrivée:</span>
-                  <span class="route-address">{{ mission.delivery_address | slice:0:35 }}{{ mission.delivery_address.length > 35 ? '...' : '' }}</span>
+                  <span class="route-address">{{ getDeliveryAddressTruncated(mission) }}</span>
                 </div>
               </div>
             </div>
@@ -166,19 +195,19 @@ interface Mission {
             <div class="mission-meta">
               <div class="meta-box budget-box">
                 <mat-icon>payments</mat-icon>
-                <div class="meta-value">{{ (mission.budget || 0) | number:'1.0-0' }}</div>
-                <div class="meta-unit">{{ mission.currency || 'XOF' }}</div>
+                <div class="meta-value">{{ getMissionBudget(mission) | number:'1.0-0' }}</div>
+                <div class="meta-unit">{{ getMissionCurrency(mission) }}</div>
               </div>
               
-              <div class="meta-row" *ngIf="mission.deadline" [class.overdue]="isDeadlineOverdue(mission)">
+              <div class="meta-row" *ngIf="hasDeadline(mission)" [class.overdue]="isDeadlineOverdue(mission)">
                 <mat-icon>event</mat-icon>
                 <span>{{ mission.deadline | date:'dd MMM yyyy HH:mm' }}</span>
                 <span class="overdue-tag" *ngIf="isDeadlineOverdue(mission)">Dépassée</span>
               </div>
               
-              <div class="meta-row candidates" *ngIf="mission.applications_count || mission.application_count">
-                <mat-icon aria-hidden="false" [matBadge]="mission.applications_count || mission.application_count" matBadgeColor="accent" matBadgeSize="small">person</mat-icon>
-                <span>{{ mission.applications_count || mission.application_count }} candidat{{ (mission.applications_count || mission.application_count || 0) > 1 ? 's' : '' }}</span>
+              <div class="meta-row candidates" *ngIf="hasApplications(mission)">
+                <mat-icon aria-hidden="false" [matBadge]="getApplicationsCount(mission)" matBadgeColor="accent" matBadgeSize="small">person</mat-icon>
+                <span>{{ getApplicationsCount(mission) }} candidat{{ getApplicationsLabel(mission) }}</span>
               </div>
             </div>
           </div>
@@ -186,18 +215,18 @@ interface Mission {
           <!-- Footer -->
           <div class="mission-footer">
             <div class="provider-section">
-              <div class="provider-info" *ngIf="mission.provider">
+              <div class="provider-info" *ngIf="hasProvider(mission)">
                 <img 
-                  [src]="mission.provider.profile_picture || 'assets/default-avatar.png'" 
-                  [alt]="mission.provider.first_name || 'Prestataire'"
+                  [src]="getProviderPicture(mission)" 
+                  [alt]="getProviderAlt(mission)"
                   class="provider-avatar"
                 />
                 <div class="provider-details">
-                  <span class="provider-name">{{ mission.provider.first_name || '' }} {{ mission.provider.last_name || '' }}</span>
+                  <span class="provider-name">{{ getProviderName(mission) }}</span>
                   <span class="provider-label">Prestataire assigné</span>
                 </div>
               </div>
-              <div class="provider-info pending" *ngIf="!mission.provider">
+              <div class="provider-info pending" *ngIf="hasNoProvider(mission)">
                 <div class="provider-avatar-placeholder">
                   <mat-icon>hourglass_empty</mat-icon>
                 </div>
@@ -213,7 +242,7 @@ interface Mission {
                 <mat-icon>visibility</mat-icon>
                 Voir
               </button>
-              <button mat-icon-button type="button" [matMenuTriggerFor]="menu" (click)="$event.stopPropagation()">
+              <button mat-icon-button type="button" [matMenuTriggerFor]="menu" (click)="stopPropagation($event)">
                 <mat-icon>more_vert</mat-icon>
               </button>
             </div>
@@ -227,7 +256,7 @@ interface Mission {
                 <mat-icon>cancel</mat-icon>
                 <span>Annuler</span>
               </button>
-              <button mat-menu-item *ngIf="mission.status === 'submitted'" (click)="validateMission(mission, $event)">
+              <button mat-menu-item *ngIf="isMissionSubmitted(mission)" (click)="validateMission(mission, $event)">
                 <mat-icon>check_circle</mat-icon>
                 <span>Valider</span>
               </button>
@@ -236,7 +265,7 @@ interface Mission {
         </mat-card>
 
         <!-- Empty State -->
-        <div class="empty-state" *ngIf="filteredMissions.length === 0">
+        <div class="empty-state" *ngIf="isFilteredMissionsEmpty()">
           <mat-icon>assignment</mat-icon>
           <h3>Aucune mission</h3>
           <p>Vous n'avez pas encore créé de mission. Commencez dès maintenant !</p>
@@ -249,156 +278,625 @@ interface Mission {
     </div>
   `,
   styles: [`
-    .missions-container { padding: 24px; max-width: 1200px; margin: 0 auto; }
+    .missions-container {
+      padding: 2rem;
+      max-width: 1400px;
+      margin: 0 auto;
+      font-family: system-ui, -apple-system, sans-serif;
+    }
 
+    /* Header - Airbnb Style */
     .missions-header {
-      display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;
-      h1 { margin: 0; font-size: 28px; font-weight: 700; color: #1a1a2e; }
-      .subtitle { margin: 4px 0 0; color: #6b7280; font-size: 14px; }
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+
+      .header-content {
+        h1 {
+          margin: 0;
+          font-size: 2.25rem;
+          font-weight: 800;
+          color: #111827;
+        }
+
+        .subtitle {
+          margin: 0.5rem 0 0;
+          color: #9ca3af;
+          font-size: 1rem;
+        }
+      }
+
+      .create-btn {
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+        color: #ffffff;
+        border: none;
+        border-radius: 0.75rem;
+        padding: 0.875rem 1.75rem;
+        font-weight: 600;
+        font-size: 0.875rem;
+        box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.3);
+        transition: all 0.2s ease;
+
+        &:hover {
+          box-shadow: 0 6px 8px -1px rgba(99, 102, 241, 0.4);
+          transform: translateY(-1px);
+        }
+
+        mat-icon {
+          margin-right: 0.5rem;
+        }
+      }
     }
 
+    /* Stats Cards - Upwork Style */
     .stats-grid {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1.5rem;
+      margin-bottom: 2rem;
     }
+
     .stat-card {
-      background: #fff; border-radius: 12px; padding: 20px; display: flex; align-items: center; gap: 16px;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-      mat-icon { font-size: 32px; width: 32px; height: 32px; }
-      .stat-info { display: flex; flex-direction: column; }
-      .stat-value { font-size: 24px; font-weight: 700; color: #1a1a2e; }
-      .stat-label { font-size: 13px; color: #6b7280; }
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 1rem;
+      padding: 1.5rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+
+      &:hover {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+      }
+
+      .stat-icon {
+        width: 3rem;
+        height: 3rem;
+        border-radius: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        mat-icon {
+          font-size: 1.5rem;
+          width: 1.5rem;
+          height: 1.5rem;
+          color: white;
+        }
+      }
+
+      .stat-info {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+      }
+
+      .stat-value {
+        font-size: 1.875rem;
+        font-weight: 800;
+        color: #111827;
+      }
+
+      .stat-label {
+        font-size: 0.875rem;
+        color: #9ca3af;
+        font-weight: 500;
+      }
+
+      &--active .stat-icon {
+        background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
+      }
+
+      &--pending .stat-icon {
+        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+      }
+
+      &--completed .stat-icon {
+        background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+      }
+
+      &--total .stat-icon {
+        background: linear-gradient(135deg, #a78bfa 0%, #8b5cf6 100%);
+      }
     }
 
-    .filters-bar { margin-bottom: 20px; }
-    .filter-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+    /* Filters - Airbnb Style */
+    .filters-bar {
+      margin-bottom: 2rem;
+    }
+
+    .filter-chips {
+      display: flex;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+    }
+
     .filter-chip {
-      padding: 8px 16px; border-radius: 20px; border: 1px solid #e5e7eb; background: #fff;
-      font-size: 13px; font-weight: 500; color: #6b7280; cursor: pointer; transition: all 0.2s;
-      display: flex; align-items: center; gap: 6px;
-      &:hover { border-color: #6C5CE7; color: #6C5CE7; }
-      &.active { background: #6C5CE7; color: #fff; border-color: #6C5CE7; }
-      .count { background: rgba(0,0,0,0.1); padding: 2px 6px; border-radius: 10px; font-size: 11px; }
+      background: #f9fafb;
+      border: 2px solid #e5e7eb;
+      border-radius: 9999px;
+      padding: 0.625rem 1.25rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: #6b7280;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+
+      &:hover {
+        border-color: #6366f1;
+        background: #f3f4f6;
+      }
+
+      &.active {
+        background: #6366f1;
+        border-color: #6366f1;
+        color: #ffffff;
+        box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.3);
+      }
+
+      .count {
+        background: rgba(255, 255, 255, 0.2);
+        padding: 0.125rem 0.5rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
     }
 
-    .missions-list { display: flex; flex-direction: column; gap: 16px; }
-    .mission-card {
-      position: relative; padding: 24px; cursor: pointer; transition: all 0.3s ease;
-      border-radius: 16px; background: #fff;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-      &:hover { box-shadow: 0 8px 30px rgba(108,92,231,0.15); transform: translateY(-3px); }
+    /* Missions List - Airbnb Style */
+    .missions-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
     }
+
+    .mission-card {
+      background: #ffffff;
+      border: 1px solid #e5e7eb;
+      border-radius: 1rem;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      transition: all 0.2s ease;
+      cursor: pointer;
+
+      &:hover {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+        border-color: #6366f1;
+      }
+
+      ::ng-deep {
+        .mat-mdc-card-content {
+          padding: 0;
+        }
+      }
+    }
+
     .mission-status-badge {
-      position: absolute; top: 20px; right: 20px;
-      display: flex; align-items: center; gap: 6px;
-      padding: 6px 12px; border-radius: 20px; font-size: 11px; font-weight: 600; text-transform: uppercase;
-      mat-icon { font-size: 14px; width: 14px; height: 14px; }
-      &.status-draft { background: #f3f4f6; color: #6b7280; }
-      &.status-pending { background: #fef3c7; color: #92400e; }
-      &.status-funded { background: #dbeafe; color: #1e40af; }
-      &.status-accepted { background: #ede9fe; color: #6C5CE7; }
-      &.status-in_progress { background: #d1fae5; color: #065f46; }
-      &.status-submitted { background: #cffafe; color: #155e75; }
-      &.status-completed { background: #d1fae5; color: #065f46; }
-      &.status-cancelled { background: #fee2e2; color: #991b1b; }
-      &.status-expired { background: #f3f4f6; color: #6b7280; }
-      &.status-disputed { background: #fee2e2; color: #991b1b; }
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.375rem 0.875rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      z-index: 1;
+
+      mat-icon {
+        font-size: 1rem;
+        width: 1rem;
+        height: 1rem;
+      }
+
+      &.status-published {
+        background: #e0f2fe;
+        color: #0284c7;
+      }
+
+      &.status-in_progress {
+        background: #e0e7ff;
+        color: #4f46e5;
+      }
+
+      &.status-completed {
+        background: #dcfce7;
+        color: #16a34a;
+      }
+
+      &.status-cancelled {
+        background: #fee2e2;
+        color: #dc2626;
+      }
+
+      &.status-submitted {
+        background: #fef3c7;
+        color: #d97706;
+      }
     }
 
     .expiry-strip {
-      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-      margin-top: 8px; padding: 10px 14px; border-radius: 10px;
-      background: #fffbeb; border: 1px solid #f59e0b; color: #92400e; font-size: 13px; font-weight: 600;
-      mat-icon { color: #d97706; font-size: 20px; width: 20px; height: 20px; }
-      span { flex: 1; min-width: 160px; }
-    }
-    .meta-row.overdue { color: #d97706; font-weight: 600; }
-    .overdue-tag {
-      margin-left: auto; font-size: 10px; font-weight: 700; text-transform: uppercase;
-      background: #fef3c7; color: #92400e; padding: 2px 8px; border-radius: 999px;
+      background: #fffbeb;
+      border-left: 4px solid #f59e0b;
+      padding: 0.75rem 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+
+      mat-icon {
+        color: #d97706;
+        font-size: 1.25rem;
+        width: 1.25rem;
+        height: 1.25rem;
+      }
+
+      span {
+        flex: 1;
+        font-size: 0.875rem;
+        color: #b45309;
+        font-weight: 500;
+      }
+
+      button {
+        margin-left: 0.5rem;
+      }
     }
 
-    .mission-content { display: flex; gap: 32px; margin-top: 12px; }
-    .mission-main { flex: 1; }
-    .mission-header-row { display: flex; align-items: center; gap: 12px; margin-bottom: 8px; }
-    .mission-title { margin: 0; font-size: 20px; font-weight: 700; color: #1a1a2e; }
-    .mission-description { margin: 0 0 16px; color: #6b7280; font-size: 14px; line-height: 1.6; }
+    .mission-content {
+      padding: 1.5rem;
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 1.5rem;
+    }
 
-    .mission-tags { display: flex; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .mission-main {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .mission-header-row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+    }
+
+    .mission-title {
+      margin: 0;
+      font-size: 1.125rem;
+      font-weight: 600;
+      color: #111827;
+    }
+
+    .mission-description {
+      margin: 0;
+      font-size: 0.875rem;
+      color: #6b7280;
+      line-height: 1.625;
+    }
+
+    .mission-tags {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+    }
+
     .tag {
-      display: flex; align-items: center; gap: 4px;
-      padding: 4px 10px; border-radius: 16px; font-size: 12px; font-weight: 500;
-      &.category { background: #ede9fe; color: #6C5CE7; }
-      mat-icon { font-size: 14px; width: 14px; height: 14px; }
+      display: inline-flex;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.25rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.75rem;
+      font-weight: 500;
+
+      mat-icon {
+        font-size: 0.875rem;
+        width: 0.875rem;
+        height: 0.875rem;
+      }
+
+      &.category {
+        background: #e0e7ff;
+        color: #4f46e5;
+      }
     }
 
     .mission-route {
-      background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-      border-radius: 12px; padding: 16px; border: 1px solid #e2e8f0;
-      .route-item { display: flex; align-items: center; gap: 10px; font-size: 13px; }
-      .route-connector { width: 2px; height: 24px; background: #cbd5e1; margin-left: 15px; }
-      .route-dot { width: 10px; height: 10px; border-radius: 50%; }
-      .route-dot.pickup { background: #6C5CE7; }
-      .route-dot.delivery { background: #00b894; }
-      .route-icon { font-size: 18px; width: 18px; height: 18px; color: #64748b; }
-      .route-label { font-weight: 600; color: #475569; min-width: 50px; }
-      .route-address { color: #334155; flex: 1; }
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
     }
 
-    .mission-meta { 
-      display: flex; flex-direction: column; gap: 12px; min-width: 160px;
-      align-items: flex-end; text-align: right;
-    }
-    .meta-box {
-      display: flex; flex-direction: column; align-items: center;
-      padding: 16px 20px; border-radius: 12px; background: linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%);
-      mat-icon { font-size: 24px; width: 24px; height: 24px; color: #6C5CE7; margin-bottom: 4px; }
-      .meta-value { font-size: 22px; font-weight: 700; color: #1a1a2e; }
-      .meta-unit { font-size: 12px; color: #6C5CE7; font-weight: 600; }
-    }
-    .meta-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #64748b;
-      mat-icon { font-size: 16px; width: 16px; height: 16px; color: #94a3b8; }
-    }
-    .meta-row.candidates { color: #6C5CE7; font-weight: 500; }
+    .route-item {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
 
-    .mission-footer {
-      display: flex; justify-content: space-between; align-items: center; margin-top: 20px; padding-top: 20px; border-top: 1px solid #f1f5f9;
-    }
-    .provider-section { flex: 1; }
-    .provider-info {
-      display: flex; align-items: center; gap: 12px;
-      &.pending { 
-        color: #f59e0b; 
-        .provider-avatar-placeholder { 
-          width: 40px; height: 40px; border-radius: 50%; background: #fef3c7;
-          display: flex; align-items: center; justify-content: center;
-          mat-icon { font-size: 20px; width: 20px; height: 20px; }
+      .route-dot {
+        width: 0.5rem;
+        height: 0.5rem;
+        border-radius: 9999px;
+
+        &.pickup {
+          background: #22c55e;
+        }
+
+        &.delivery {
+          background: #ef4444;
         }
       }
-      .provider-avatar { width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 2px solid #ede9fe; }
-      .provider-details { display: flex; flex-direction: column; }
-      .provider-name { font-weight: 600; color: #1a1a2e; font-size: 14px; }
-      .provider-label { font-size: 12px; color: #94a3b8; }
-      .provider-status { font-weight: 600; color: #f59e0b; font-size: 14px; }
-    }
-    .mission-actions { display: flex; gap: 8px; align-items: center; }
 
+      .route-icon {
+        font-size: 1rem;
+        width: 1rem;
+        height: 1rem;
+        color: #9ca3af;
+      }
+
+      .route-label {
+        font-size: 0.75rem;
+        color: #9ca3af;
+        font-weight: 500;
+        min-width: 3.5rem;
+      }
+
+      .route-address {
+        font-size: 0.875rem;
+        color: #6b7280;
+      }
+    }
+
+    .route-connector {
+      height: 1rem;
+      width: 2px;
+      background: #e5e7eb;
+      margin-left: 0.25rem;
+    }
+
+    .mission-meta {
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+      min-width: 140px;
+    }
+
+    .meta-box {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 0.25rem;
+      padding: 0.75rem;
+      background: #f9fafb;
+      border-radius: 0.75rem;
+
+      mat-icon {
+        font-size: 1.25rem;
+        width: 1.25rem;
+        height: 1.25rem;
+        color: #4f46e5;
+      }
+
+      .meta-value {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #111827;
+      }
+
+      .meta-unit {
+        font-size: 0.75rem;
+        color: #9ca3af;
+        font-weight: 500;
+      }
+    }
+
+    .meta-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.875rem;
+      color: #6b7280;
+
+      mat-icon {
+        font-size: 1rem;
+        width: 1rem;
+        height: 1rem;
+        color: #9ca3af;
+      }
+
+      &.overdue {
+        color: #dc2626;
+      }
+
+      .overdue-tag {
+        background: #fee2e2;
+        color: #dc2626;
+        padding: 0.125rem 0.5rem;
+        border-radius: 9999px;
+        font-size: 0.75rem;
+        font-weight: 600;
+      }
+
+      &.candidates {
+        color: #0ea5e9;
+      }
+    }
+
+    .mission-footer {
+      padding: 1rem 1.5rem;
+      border-top: 1px solid #e5e7eb;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: #f9fafb;
+    }
+
+    .provider-section {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .provider-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+
+      .provider-avatar {
+        width: 2.5rem;
+        height: 2.5rem;
+        border-radius: 9999px;
+        object-fit: cover;
+      }
+
+      .provider-details {
+        display: flex;
+        flex-direction: column;
+        gap: 0.25rem;
+
+        .provider-name {
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: #111827;
+        }
+
+        .provider-label {
+          font-size: 0.75rem;
+          color: #9ca3af;
+        }
+      }
+
+      &.pending {
+        .provider-avatar-placeholder {
+          width: 2.5rem;
+          height: 2.5rem;
+          border-radius: 9999px;
+          background: #fef3c7;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          mat-icon {
+            font-size: 1.25rem;
+            width: 1.25rem;
+            height: 1.25rem;
+            color: #d97706;
+          }
+        }
+
+        .provider-status {
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: #d97706;
+        }
+      }
+    }
+
+    .mission-actions {
+      display: flex;
+      gap: 0.5rem;
+
+      button {
+        mat-icon {
+          font-size: 1.25rem;
+          width: 1.25rem;
+          height: 1.25rem;
+        }
+      }
+    }
+
+    /* Empty State */
     .empty-state {
-      text-align: center; padding: 60px 20px; background: #fff; border-radius: 16px;
-      mat-icon { font-size: 64px; width: 64px; height: 64px; color: #d1d5db; margin-bottom: 16px; }
-      h3 { margin: 0 0 8px; font-size: 20px; font-weight: 600; color: #1a1a2e; }
-      p { margin: 0 0 24px; color: #6b7280; font-size: 14px; }
+      text-align: center;
+      padding: 4rem 2rem;
+      background: #ffffff;
+      border-radius: 1rem;
+      border: 2px dashed #e5e7eb;
+
+      mat-icon {
+        font-size: 4rem;
+        width: 4rem;
+        height: 4rem;
+        color: #9ca3af;
+        margin-bottom: 1rem;
+      }
+
+      h3 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        color: #111827;
+        margin: 0 0 0.5rem;
+      }
+
+      p {
+        font-size: 1rem;
+        color: #6b7280;
+        margin: 0 0 1.5rem;
+      }
+
+      button {
+        background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%);
+        color: #ffffff;
+        border: none;
+        border-radius: 0.75rem;
+        padding: 0.875rem 1.75rem;
+        font-weight: 600;
+      }
+    }
+
+    /* Responsive */
+    @media (max-width: 1024px) {
+      .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .mission-content {
+        grid-template-columns: 1fr;
+      }
+
+      .mission-meta {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
     }
 
     @media (max-width: 768px) {
-      .stats-grid { grid-template-columns: repeat(2, 1fr); }
-      .mission-content { flex-direction: column; gap: 20px; }
-      .mission-meta { align-items: flex-start; text-align: left; flex-direction: row; flex-wrap: wrap; }
-      .missions-header { flex-direction: column; align-items: flex-start; gap: 16px; }
-      .meta-box { padding: 12px 16px; }
-      .mission-card { padding: 20px; }
+      .missions-container {
+        padding: 1rem;
+      }
+
+      .missions-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 1rem;
+
+        .create-btn {
+          width: 100%;
+        }
+      }
+
+      .stats-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .mission-footer {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+      }
     }
   `]
 })
+
 export class ClientMissionsComponent implements OnInit {
   private apiUrl = environment.apiUrl;
   missions: Mission[] = [];
@@ -406,10 +904,10 @@ export class ClientMissionsComponent implements OnInit {
   activeFilter = 'all';
 
   stats = [
-    { icon: 'assignment', label: 'Total', value: 0, color: '#6C5CE7', filter: 'all' },
-    { icon: 'pending_actions', label: 'En cours', value: 0, color: '#3b82f6', filter: 'active' },
-    { icon: 'schedule', label: 'En attente', value: 0, color: '#f59e0b', filter: 'pending' },
-    { icon: 'check_circle', label: 'Terminées', value: 0, color: '#00b894', filter: 'completed' }
+    { key: 'total', icon: 'assignment', label: 'Total', value: 0, color: '#6C5CE7', filter: 'all' },
+    { key: 'active', icon: 'pending_actions', label: 'En cours', value: 0, color: '#3b82f6', filter: 'active' },
+    { key: 'pending', icon: 'schedule', label: 'En attente', value: 0, color: '#f59e0b', filter: 'pending' },
+    { key: 'completed', icon: 'check_circle', label: 'Terminées', value: 0, color: '#00b894', filter: 'completed' }
   ];
 
   constructor(
@@ -566,5 +1064,129 @@ export class ClientMissionsComponent implements OnInit {
       },
       error: () => this.snackBar.open('Erreur validation', 'Fermer', { duration: 3000 })
     });
+  }
+
+  stopPropagation(event: Event): void {
+    event.stopPropagation();
+  }
+
+  // Helper methods for template bindings
+  getProviderPicture(mission: Mission): string {
+    return mission.provider?.profile_picture || 'assets/default-avatar.png';
+  }
+
+  getProviderAlt(mission: Mission): string {
+    return mission.provider?.first_name || 'Prestataire';
+  }
+
+  getProviderName(mission: Mission): string {
+    return `${mission.provider?.first_name || ''} ${mission.provider?.last_name || ''}`;
+  }
+
+  getApplicationsCount(mission: Mission): number {
+    return mission.applications_count || mission.application_count || 0;
+  }
+
+  getApplicationsLabel(mission: Mission): string {
+    const count = this.getApplicationsCount(mission);
+    return count > 1 ? 's' : '';
+  }
+
+  // Helper methods for template bindings to avoid || operator
+  getMissionTitle(mission: Mission): string {
+    return mission.title ? mission.title : 'Sans titre';
+  }
+
+  getMissionCategory(mission: Mission): string {
+    return mission.category_name ? mission.category_name : '';
+  }
+
+  getMissionCurrency(mission: Mission): string {
+    return mission.currency ? mission.currency : 'XOF';
+  }
+
+  hasApplications(mission: Mission): boolean {
+    return (mission.applications_count || 0) > 0 || (mission.application_count || 0) > 0;
+  }
+
+  hasPickupAddress(mission: Mission): boolean {
+    return mission.pickup_address ? true : false;
+  }
+
+  hasDeliveryAddress(mission: Mission): boolean {
+    return mission.delivery_address ? true : false;
+  }
+
+  hasDeadline(mission: Mission): boolean {
+    return mission.deadline ? true : false;
+  }
+
+  hasDescription(mission: Mission): boolean {
+    return mission.description ? true : false;
+  }
+
+  getDescriptionTruncated(mission: Mission): string {
+    if (!mission.description) return '';
+    return mission.description.length > 120 ? mission.description.slice(0, 120) + '...' : mission.description;
+  }
+
+  getPickupAddress(mission: Mission): string {
+    return mission.pickup_address ? mission.pickup_address : '';
+  }
+
+  getDeliveryAddress(mission: Mission): string {
+    return mission.delivery_address ? mission.delivery_address : '';
+  }
+
+  isMissionExpired(mission: Mission): boolean {
+    return mission.status === 'expired';
+  }
+
+  getExpiryButtonText(mission: Mission): string {
+    return mission.status === 'expired' ? 'Voir' : 'Décider';
+  }
+
+  getMissionBudget(mission: Mission): number {
+    return mission.budget ? mission.budget : 0;
+  }
+
+  getPickupAddressTruncated(mission: Mission): string {
+    if (!mission.pickup_address) return '';
+    return mission.pickup_address.length > 35 ? mission.pickup_address.slice(0, 35) + '...' : mission.pickup_address;
+  }
+
+  getDeliveryAddressTruncated(mission: Mission): string {
+    if (!mission.delivery_address) return '';
+    return mission.delivery_address.length > 35 ? mission.delivery_address.slice(0, 35) + '...' : mission.delivery_address;
+  }
+
+  hasBothAddresses(mission: Mission): boolean {
+    return mission.pickup_address && mission.delivery_address ? true : false;
+  }
+
+  hasProvider(mission: Mission): boolean {
+    return mission.provider ? true : false;
+  }
+
+  hasNoProvider(mission: Mission): boolean {
+    return mission.provider ? false : true;
+  }
+
+  isMissionSubmitted(mission: Mission): boolean {
+    return mission.status === 'submitted';
+  }
+
+  isFilteredMissionsEmpty(): boolean {
+    return this.filteredMissions.length === 0;
+  }
+
+  // Helper methods for stats
+  getStatValue(key: string): number {
+    const stat = this.stats.find(s => s.key === key);
+    return stat ? stat.value : 0;
+  }
+
+  hasAnyAddress(mission: Mission): boolean {
+    return this.hasPickupAddress(mission) || this.hasDeliveryAddress(mission);
   }
 }

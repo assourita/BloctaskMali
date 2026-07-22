@@ -1,9 +1,9 @@
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.db.models import Count, Sum, Avg, Q
+from django.db.models import Count, Sum, Avg, Q, F, Value, DecimalField
+from django.db.models.functions import Coalesce, TruncDate
 from decimal import Decimal
-from django.db.models.functions import TruncDate
 from django.utils import timezone
 from django.contrib.auth import get_user_model
 from django.conf import settings
@@ -21,6 +21,25 @@ User = get_user_model()
 ESCROW_ACTIVE_MISSION_STATUSES = [
     'funded', 'accepted', 'in_progress', 'submitted', 'disputed',
 ]
+
+# Montant gagné = final_price si défini, sinon budget (évite les NULL ignorés par Sum)
+MISSION_EARNINGS = Coalesce(
+    F('final_price'),
+    F('budget'),
+    Value(0),
+    output_field=DecimalField(max_digits=15, decimal_places=2),
+)
+
+
+def _sum_provider_earnings(missions_qs, *, month_start=None):
+    """Somme des gains sur missions terminées (final_price ou budget)."""
+    completed = missions_qs.filter(status='completed')
+    if month_start is not None:
+        completed = completed.filter(
+            Q(completed_at__gte=month_start)
+            | Q(completed_at__isnull=True, updated_at__gte=month_start)
+        )
+    return completed.aggregate(t=Sum(MISSION_EARNINGS))['t'] or 0
 
 
 def _admin_finances(now, month_start):
@@ -155,18 +174,19 @@ def dashboard_stats(request):
     if role == 'provider':
         missions = Mission.objects.filter(provider=user)
         rep = ReputationScore.objects.filter(user=user).first()
+        completed = missions.filter(status='completed')
         return Response({
             'scope': 'provider',
             'active_missions': missions.filter(
                 status__in=['accepted', 'in_progress', 'submitted']
             ).count(),
-            'completed_missions': missions.filter(status='completed').count(),
-            'total_earned': missions.filter(status='completed').aggregate(
-                t=Sum('final_price')
-            )['t'] or 0,
-            'earned_this_month': missions.filter(
-                status='completed', updated_at__gte=month_start
-            ).aggregate(t=Sum('final_price'))['t'] or 0,
+            'completed_missions': completed.count(),
+            'completed_this_month': completed.filter(
+                Q(completed_at__gte=month_start)
+                | Q(completed_at__isnull=True, updated_at__gte=month_start)
+            ).count(),
+            'total_earned': _sum_provider_earnings(missions),
+            'earned_this_month': _sum_provider_earnings(missions, month_start=month_start),
             'reputation_score': rep.overall_score if rep else 50,
             'reputation_level': rep.level if rep else 'bronze',
         })
