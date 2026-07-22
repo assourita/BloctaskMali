@@ -56,7 +56,7 @@ _SEPOLIA_RPC_FALLBACKS = (
 
 class BlockchainService:
     """Service pour interagir avec la blockchain Ethereum"""
-
+    
     def __init__(self):
         self.web3 = None
         self.escrow_contract = None
@@ -65,14 +65,25 @@ class BlockchainService:
         self.last_rpc_url = ''
         self.last_error = ''
         self._connect()
+    
+    def _normalize_rpc_url(self, url: str) -> str:
+        u = (url or '').strip()
+        if not u:
+            return ''
+        # Corrige les URLs protocol-relative mal saisies sur Render (//host...)
+        if u.startswith('//'):
+            u = 'https:' + u
+        elif u.startswith('ethereum-') or u.startswith('rpc.') or u.startswith('sepolia.'):
+            u = 'https://' + u
+        return u
 
     def _rpc_candidates(self) -> list:
         blockchain_cfg = getattr(settings, 'BLOCKCHAIN_CONFIG', {})
-        primary = (
+        primary = self._normalize_rpc_url(
             blockchain_cfg.get('ETHEREUM_RPC_URL')
             or getattr(settings, 'ETHEREUM_RPC_URL', '')
             or ''
-        ).strip()
+        )
         urls = []
         if primary and 'YOUR_KEY' not in primary:
             urls.append(primary)
@@ -127,14 +138,14 @@ class BlockchainService:
         self.litigation_contract = None
         self.last_error = ' | '.join(errors)[:500] or 'Impossible de se connecter à la blockchain'
         logger.error(self.last_error)
-        return False
-
+                return False
+            
     def ensure_connected(self) -> bool:
         """Reconnecte si besoin (cold start Render / RPC momentanément down)."""
         if self.is_connected():
             return True
         return self._connect()
-
+    
     def _load_contracts(self):
         """Charge les smart contracts depuis les ABIs compilés"""
         blockchain_cfg = getattr(settings, 'BLOCKCHAIN_CONFIG', {})
@@ -167,7 +178,7 @@ class BlockchainService:
                 abi=_load_abi('LitigationContract')
             )
             logger.info(f"LitigationContract chargé: {litigation_address}")
-
+    
     def is_connected(self) -> bool:
         """Vérifie si la connexion est active (appel RPC léger)."""
         if self.web3 is None:
@@ -383,7 +394,7 @@ class BlockchainService:
 
 class EscrowService:
     """Service métier pour la gestion des escrows"""
-
+    
     def __init__(self, blockchain=None):
         # Utilise le singleton partagé si fourni (évite 2 connexions RPC)
         self.blockchain = blockchain
@@ -415,7 +426,7 @@ class EscrowService:
         except Exception as e:
             logger.error(f"Erreur création escrow: {e}")
             return None
-
+    
     def confirm_escrow_deposit(
         self,
         mission,
@@ -792,14 +803,14 @@ class EscrowService:
         """Caution dynamique en FCFA (marché Mali)."""
         try:
             reputation_score = provider.provider_profile.reputation_score
-
+            
             if reputation_score >= 90:
                 return Decimal('2000')
             if reputation_score >= 50:
                 reduction = (reputation_score - 50) * Decimal('60')
                 return max(Decimal('2000'), Decimal('5000') - reduction)
             return Decimal('5000')
-
+                
         except Exception as e:
             logger.error(f"Erreur calcul caution: {e}")
             return Decimal('5000')

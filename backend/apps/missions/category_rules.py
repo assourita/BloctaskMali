@@ -895,7 +895,7 @@ def estimate_deposit_preview(budget: float, merchandise_value: float | None, cat
     }
 
 def display_category_name(category) -> str:
-    """Nom affiché propre (corrige les accents corrompus type M??nage)."""
+    """Return a clean category label (fixes corrupted accents like M??nage)."""
     if not category:
         return ''
     name = (getattr(category, 'name', None) or '').strip()
