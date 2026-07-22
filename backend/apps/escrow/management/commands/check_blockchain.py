@@ -10,12 +10,14 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         cfg = getattr(settings, 'BLOCKCHAIN_CONFIG', {})
-        connected = blockchain_service.is_connected()
+        connected = blockchain_service.ensure_connected()
         chain_id = cfg.get('CHAIN_ID')
 
         self.stdout.write(self.style.HTTP_INFO('=== BlockTask — Statut blockchain ==='))
-        self.stdout.write(f'RPC           : {cfg.get("ETHEREUM_RPC_URL", "")[:60]}...')
+        self.stdout.write(f'RPC           : {(blockchain_service.last_rpc_url or cfg.get("ETHEREUM_RPC_URL", ""))[:80]}')
         self.stdout.write(f'Connecté      : {"OUI" if connected else "NON"}')
+        if blockchain_service.last_error:
+            self.stdout.write(self.style.WARNING(f'Erreur        : {blockchain_service.last_error}'))
         self.stdout.write(f'Chain ID      : {chain_id}')
         self.stdout.write(f'Escrow        : {cfg.get("ESCROW_CONTRACT_ADDRESS") or "(non configuré)"}')
         self.stdout.write(f'Réputation    : {cfg.get("REPUTATION_CONTRACT_ADDRESS") or "(non configuré)"}')

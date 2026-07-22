@@ -99,7 +99,7 @@ def blockchain_status(request):
     """État de la connexion blockchain et adresses des contrats (Sepolia). Public pour le diagnostic."""
     from django.conf import settings
     cfg = getattr(settings, 'BLOCKCHAIN_CONFIG', {})
-    connected = blockchain_service.is_connected()
+    connected = blockchain_service.ensure_connected()
     chain_id = cfg.get('CHAIN_ID')
     escrow_address = cfg.get('ESCROW_CONTRACT_ADDRESS', '') or ''
     reputation_address = cfg.get('REPUTATION_CONTRACT_ADDRESS', '') or ''
@@ -133,11 +133,26 @@ def blockchain_status(request):
         'Hardhat Local' if chain_id == 31337 else f'Chain {chain_id}'
     )
 
+    addresses_ok = all([escrow_address, reputation_address, litigation_address])
+    if not connected:
+        setup_hint = (
+            'RPC Sepolia inaccessible depuis Render. '
+            'Vérifiez ETHEREUM_RPC_URL ou utilisez un RPC Infura/Alchemy avec clé.'
+        )
+    elif not addresses_ok:
+        setup_hint = 'Renseignez ESCROW/REPUTATION/LITIGATION_CONTRACT_ADDRESS sur Render.'
+    elif not relayer_address and not getattr(settings, 'BLOCKCHAIN_RELAYER_PRIVATE_KEY', ''):
+        setup_hint = 'Ajoutez BLOCKCHAIN_RELAYER_PRIVATE_KEY (wallet avec SepoliaETH).'
+    else:
+        setup_hint = None
+
     return Response({
         'connected': connected,
         'chain_id': chain_id,
         'network_name': network_name,
         'latest_block': latest_block,
+        'rpc_url': getattr(blockchain_service, 'last_rpc_url', '') or cfg.get('ETHEREUM_RPC_URL', ''),
+        'last_error': getattr(blockchain_service, 'last_error', '') or None,
         'escrow_address': escrow_address,
         'reputation_address': reputation_address,
         'litigation_address': litigation_address,
@@ -148,11 +163,8 @@ def blockchain_status(request):
         'explorer_base_url': (
             'https://sepolia.etherscan.io' if chain_id == 11155111 else ''
         ),
-        'deployment_ready': connected and all([escrow_address, reputation_address, litigation_address]),
-        'setup_hint': (
-            None if escrow_service.is_blockchain_enabled()
-            else 'Déployez via: cd smart-contracts && npm run deploy:sepolia:full'
-        ),
+        'deployment_ready': connected and addresses_ok,
+        'setup_hint': setup_hint,
     })
 
 

@@ -46,48 +46,95 @@ def _load_abi(contract_name: str) -> list:
         return []
 
 
+# Fallbacks si le RPC principal (Render / rate-limit) échoue
+_SEPOLIA_RPC_FALLBACKS = (
+    'https://ethereum-sepolia-rpc.publicnode.com',
+    'https://1rpc.io/sepolia',
+    'https://sepolia.drpc.org',
+)
+
+
 class BlockchainService:
     """Service pour interagir avec la blockchain Ethereum"""
-    
+
     def __init__(self):
         self.web3 = None
         self.escrow_contract = None
         self.reputation_contract = None
         self.litigation_contract = None
+        self.last_rpc_url = ''
+        self.last_error = ''
         self._connect()
-    
+
+    def _rpc_candidates(self) -> list:
+        blockchain_cfg = getattr(settings, 'BLOCKCHAIN_CONFIG', {})
+        primary = (
+            blockchain_cfg.get('ETHEREUM_RPC_URL')
+            or getattr(settings, 'ETHEREUM_RPC_URL', '')
+            or ''
+        ).strip()
+        urls = []
+        if primary and 'YOUR_KEY' not in primary:
+            urls.append(primary)
+        for u in _SEPOLIA_RPC_FALLBACKS:
+            if u not in urls:
+                urls.append(u)
+        return urls
+
+    def _try_provider(self, provider_url: str):
+        """Tente un RPC ; retourne (web3, chain_id) ou lève."""
+        w3 = Web3(Web3.HTTPProvider(provider_url, request_kwargs={'timeout': 25}))
+        if geth_poa_middleware is not None:
+            try:
+                w3.middleware_onion.inject(geth_poa_middleware, layer=0)
+            except Exception:
+                # déjà injecté / non nécessaire sur Sepolia
+                pass
+        # is_connected() seul est parfois flaky — on force un appel RPC
+        if not w3.is_connected():
+            raise ConnectionError(f'RPC non joignable: {provider_url}')
+        chain_id = w3.eth.chain_id
+        return w3, chain_id
+
     def _connect(self):
-        """Établit la connexion à la blockchain"""
+        """Établit la connexion à la blockchain (avec fallbacks RPC)."""
         if not WEB3_AVAILABLE or Web3 is None:
+            self.last_error = 'web3 non installé'
             logger.warning('web3 indisponible — connexion blockchain ignorée')
             return False
-        try:
-            # Connexion au provider (Infura, Alchemy, ou local)
-            blockchain_cfg = getattr(settings, 'BLOCKCHAIN_CONFIG', {})
-            provider_url = blockchain_cfg.get(
-                'ETHEREUM_RPC_URL',
-                getattr(settings, 'ETHEREUM_RPC_URL', 'https://sepolia.infura.io/v3/YOUR_KEY'),
-            )
-            self.web3 = Web3(Web3.HTTPProvider(provider_url))
 
-            if geth_poa_middleware is not None:
-                self.web3.middleware_onion.inject(geth_poa_middleware, layer=0)
-            
-            # Vérifier la connexion
-            if not self.web3.is_connected():
-                logger.error("Impossible de se connecter à la blockchain")
-                return False
-            
-            # Charger les contrats
-            self._load_contracts()
-            
-            logger.info(f"Connecté à la blockchain - Chain ID: {self.web3.eth.chain_id}")
+        errors = []
+        for provider_url in self._rpc_candidates():
+            try:
+                w3, chain_id = self._try_provider(provider_url)
+                self.web3 = w3
+                self.last_rpc_url = provider_url
+                self.last_error = ''
+                self._load_contracts()
+                logger.info(
+                    'Connecté à la blockchain - Chain ID: %s via %s',
+                    chain_id,
+                    provider_url,
+                )
+                return True
+            except Exception as e:
+                errors.append(f'{provider_url}: {e}')
+                logger.warning('RPC échoué (%s): %s', provider_url, e)
+
+        self.web3 = None
+        self.escrow_contract = None
+        self.reputation_contract = None
+        self.litigation_contract = None
+        self.last_error = ' | '.join(errors)[:500] or 'Impossible de se connecter à la blockchain'
+        logger.error(self.last_error)
+        return False
+
+    def ensure_connected(self) -> bool:
+        """Reconnecte si besoin (cold start Render / RPC momentanément down)."""
+        if self.is_connected():
             return True
-            
-        except Exception as e:
-            logger.error(f"Erreur connexion blockchain: {e}")
-            return False
-    
+        return self._connect()
+
     def _load_contracts(self):
         """Charge les smart contracts depuis les ABIs compilés"""
         blockchain_cfg = getattr(settings, 'BLOCKCHAIN_CONFIG', {})
@@ -95,6 +142,10 @@ class BlockchainService:
         escrow_address = blockchain_cfg.get('ESCROW_CONTRACT_ADDRESS', '')
         reputation_address = blockchain_cfg.get('REPUTATION_CONTRACT_ADDRESS', '')
         litigation_address = blockchain_cfg.get('LITIGATION_CONTRACT_ADDRESS', '')
+
+        self.escrow_contract = None
+        self.reputation_contract = None
+        self.litigation_contract = None
 
         if escrow_address:
             self.escrow_contract = self.web3.eth.contract(
@@ -116,10 +167,16 @@ class BlockchainService:
                 abi=_load_abi('LitigationContract')
             )
             logger.info(f"LitigationContract chargé: {litigation_address}")
-    
+
     def is_connected(self) -> bool:
-        """Vérifie si la connexion est active"""
-        return self.web3 is not None and self.web3.is_connected()
+        """Vérifie si la connexion est active (appel RPC léger)."""
+        if self.web3 is None:
+            return False
+        try:
+            _ = self.web3.eth.chain_id
+            return True
+        except Exception:
+            return False
     
     def get_balance(self, address: str) -> Decimal:
         """Récupère le solde d'une adresse"""
@@ -326,14 +383,18 @@ class BlockchainService:
 
 class EscrowService:
     """Service métier pour la gestion des escrows"""
-    
-    def __init__(self):
-        self.blockchain = BlockchainService()
+
+    def __init__(self, blockchain=None):
+        # Utilise le singleton partagé si fourni (évite 2 connexions RPC)
+        self.blockchain = blockchain
 
     def is_blockchain_enabled(self) -> bool:
-        return WEB3_AVAILABLE and bool(
-            getattr(settings, 'BLOCKCHAIN_CONFIG', {}).get('ESCROW_CONTRACT_ADDRESS')
-        ) and self.blockchain.is_connected()
+        bc = self.blockchain or blockchain_service
+        if not WEB3_AVAILABLE:
+            return False
+        if not getattr(settings, 'BLOCKCHAIN_CONFIG', {}).get('ESCROW_CONTRACT_ADDRESS'):
+            return False
+        return bc.ensure_connected()
     
     def create_escrow_for_mission(self, mission) -> Optional[EscrowTransaction]:
         """Crée un enregistrement escrow DB (blockchain enregistrée séparément)."""
@@ -746,4 +807,4 @@ class EscrowService:
 
 # Instance singleton
 blockchain_service = BlockchainService()
-escrow_service = EscrowService()
+escrow_service = EscrowService(blockchain_service)
