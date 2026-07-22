@@ -365,6 +365,9 @@ import { TwoFactorSettingsComponent } from '../../../shared/components/two-facto
   styles: [`
     .profile-container { padding: 24px; max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 20px; }
     .profile-container.has-onboarding-bar { padding-bottom: 100px; }
+    @media (max-width: 600px) {
+      .profile-container.has-onboarding-bar { padding-bottom: 160px; }
+    }
 
     .profile-header { background: linear-gradient(135deg, #1a1a2e 0%, #16213e 60%, #0f3460 100%); color: #fff; border-radius: 16px; padding: 28px 32px; display: flex; align-items: center; gap: 24px; flex-wrap: wrap; }
     .avatar-section { flex-shrink: 0; }

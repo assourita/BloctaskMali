@@ -167,6 +167,25 @@ import { DEFAULT_PHONE_PREFIX } from '../../../core/constants/africa.constants';
       font-size: 13px; color: #92400e; background: #fef3c7; padding: 8px 12px; border-radius: 8px;
     }
     .section-actions, .submit-row { margin-top: 12px; }
+    .submit-row {
+      position: sticky;
+      bottom: 72px;
+      z-index: 5;
+      padding: 12px 0 8px;
+      background: linear-gradient(180deg, rgba(255,255,255,0) 0%, #fff 28%);
+    }
+    @media (max-width: 600px) {
+      .kyc-form { padding-bottom: 96px; }
+      .submit-row {
+        bottom: 64px;
+        margin-left: -4px;
+        margin-right: -4px;
+        padding: 12px 4px 16px;
+      }
+      .submit-row button {
+        width: 100%;
+      }
+    }
     .upload-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
     @media (max-width: 900px) { .upload-grid { grid-template-columns: 1fr; } }
     .upload-card {

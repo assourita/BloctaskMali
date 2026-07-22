@@ -449,6 +449,9 @@ interface ProviderProfile {
     .profile-container.has-onboarding-bar {
       padding-bottom: 120px;
     }
+    @media (max-width: 600px) {
+      .profile-container.has-onboarding-bar { padding-bottom: 160px; }
+    }
 
     /* Header - Fiverr Style */
     .profile-header {

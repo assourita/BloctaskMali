@@ -15,11 +15,17 @@ import { profileFieldLabel } from '../../../core/constants/profile-fields.consta
         <mat-icon class="bar-icon">warning_amber</mat-icon>
         <div class="bar-text">
           <strong>{{ barTitle }}</strong>
-          <p>
+          <p class="bar-msg-desktop">
             {{ barMessage }}
             <span *ngIf="missingLabels.length && kycAccessStatus === 'incomplete'">
               Manquant : <em>{{ missingLabels.join(', ') }}</em>
             </span>
+          </p>
+          <p class="bar-msg-mobile" *ngIf="missingLabels.length && kycAccessStatus === 'incomplete'">
+            {{ missingLabels.length }} champ(s) manquant(s) — complétez puis soumettez le KYC.
+          </p>
+          <p class="bar-msg-mobile" *ngIf="!(missingLabels.length && kycAccessStatus === 'incomplete')">
+            {{ shortBarMessage }}
           </p>
         </div>
         <button mat-stroked-button type="button" class="scroll-btn" (click)="scrollToForm()">
@@ -69,14 +75,30 @@ import { profileFieldLabel } from '../../../core/constants/profile-fields.consta
       p { margin: 0; font-size: 13px; opacity: 0.92; line-height: 1.4; }
       em { font-style: normal; font-weight: 600; color: #fde68a; }
     }
+    .bar-msg-mobile { display: none; }
     .scroll-btn {
       color: #fff !important;
       border-color: rgba(255, 255, 255, 0.6) !important;
       flex-shrink: 0;
     }
     @media (max-width: 600px) {
-      .bar-content { padding: 12px 16px; }
-      .scroll-btn { width: 100%; }
+      .bar-content {
+        padding: 10px 14px;
+        flex-wrap: nowrap;
+        gap: 10px;
+      }
+      .bar-text { min-width: 0; }
+      .bar-text strong { font-size: 13px; }
+      .bar-msg-desktop { display: none; }
+      .bar-msg-mobile { display: block; font-size: 12px; }
+      .bar-icon { font-size: 22px; width: 22px; height: 22px; }
+      .scroll-btn {
+        width: auto;
+        flex-shrink: 0;
+        padding: 0 12px;
+        min-height: 36px;
+        font-size: 13px;
+      }
     }
   `],
 })
@@ -101,11 +123,17 @@ export class ProfileOnboardingBarComponent {
     return 'Complétez votre vérification d\'identité et les champs du profil pour débloquer la plateforme.';
   }
 
+  get shortBarMessage(): string {
+    if (this.kycAccessStatus === 'pending_review') return 'En attente de validation admin.';
+    if (this.kycAccessStatus === 'rejected') return 'Corrigez votre dossier KYC.';
+    return 'Complétez identité + profil pour débloquer.';
+  }
+
   scrollToForm(): void {
     const missing = this.missingFields[0];
     const selector = missing
-      ? `[data-profile-field="${missing}"], .profile-tabs, .tab-content`
-      : '.profile-tabs, .tab-content, .profile-container';
+      ? `[data-profile-field="${missing}"], .kyc-form .submit-row, .profile-tabs, .tab-content`
+      : '.kyc-form .submit-row, .profile-tabs, .tab-content, .profile-container';
     document.querySelector(selector)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
   }
 }

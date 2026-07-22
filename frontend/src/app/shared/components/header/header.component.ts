@@ -373,14 +373,18 @@ import { MatTooltipModule } from '@angular/material/tooltip';
         font-size: 1.1rem;
       }
 
+      /* fixed + top:100% = hors écran (100vh) — forcer sous le header */
       .dropdown-panel.notif-panel,
       .dropdown-panel.profile-panel {
         position: fixed;
+        top: 60px;
         right: 8px;
         left: 8px;
         width: auto;
         max-width: none;
         max-height: min(70vh, 420px);
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
       }
 
       .actions-section {
@@ -406,8 +410,13 @@ export class HeaderComponent implements OnInit {
     return ['/', this.currentSpace$, 'dashboard'];
   }
 
-  @HostListener('document:click')
-  onDocumentClick(): void {
+  @HostListener('document:click', ['$event'])
+  onDocumentClick(event: Event): void {
+    const target = event.target as HTMLElement | null;
+    // Ne pas fermer si le clic est dans un dropdown (avatar / notifs)
+    if (target?.closest?.('.dropdown-wrap')) {
+      return;
+    }
     this.profileOpen = false;
     this.notifOpen = false;
   }
