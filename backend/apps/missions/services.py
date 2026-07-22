@@ -357,15 +357,28 @@ def complete_mission_and_payout(mission, *, changed_by=None, reason: str = '') -
     }
 
 
-def process_auto_validations() -> dict:
-    """Valide automatiquement les missions soumises dont le délai client est dépassé."""
-    now = timezone.now()
-    due = Mission.objects.filter(
-        status=Mission.Status.SUBMITTED,
-        auto_validation_scheduled_at__lte=now,
-    ).select_related('client', 'provider', 'payment')
+def process_auto_validations(*, force_overdue: bool = True) -> dict:
+    """Valide automatiquement les missions soumises dont le délai client est dépassé.
 
-    stats = {'validated': 0, 'skipped_dispute': 0, 'errors': 0}
+    Inclut aussi les anciennes missions SUBMITTED sans auto_validation_scheduled_at
+    si updated_at dépasse le délai (48h par défaut).
+    """
+    from django.db.models import Q
+
+    now = timezone.now()
+    cutoff = now - timedelta(hours=DEFAULT_AUTO_VALIDATION_HOURS)
+    qs = Mission.objects.filter(status=Mission.Status.SUBMITTED).select_related(
+        'client', 'provider', 'payment',
+    )
+    if force_overdue:
+        due = qs.filter(
+            Q(auto_validation_scheduled_at__lte=now)
+            | Q(auto_validation_scheduled_at__isnull=True, updated_at__lte=cutoff)
+        )
+    else:
+        due = qs.filter(auto_validation_scheduled_at__lte=now)
+
+    stats = {'validated': 0, 'skipped_dispute': 0, 'errors': 0, 'candidates': due.count()}
     for mission in due:
         result = complete_mission_and_payout(
             mission,

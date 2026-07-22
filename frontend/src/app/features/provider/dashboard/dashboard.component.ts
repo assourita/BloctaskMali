@@ -36,7 +36,7 @@ import { environment } from '../../../../environments/environment';
     <div class="dashboard-container">
       <!-- Welcome Section -->
       <div class="welcome-section">
-        <h1>Bonjour {{ (currentUser$ | async)?.first_name || 'Prestataire' }} ! 👋</h1>
+        <h1>Bonjour {{ (currentUser$ | async)?.first_name || 'Prestataire' }} !</h1>
         <p>Prêt à trouver de nouvelles missions sur BlockTask ?</p>
       </div>
       
@@ -142,7 +142,7 @@ import { environment } from '../../../../environments/environment';
             <img [src]="currentMission.client.avatar || ''" alt="Client" class="avatar">
             <div class="client-details">
               <span class="name">{{ currentMission.client.name }}</span>
-              <span class="rating">⭐ {{ currentMission.client.rating }}</span>
+              <span class="rating"><mat-icon class="inline-star">star</mat-icon> {{ currentMission.client.rating }}</span>
             </div>
           </div>
 

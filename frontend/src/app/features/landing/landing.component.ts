@@ -159,7 +159,7 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
                   <div class="avatar">KM</div>
                   <div class="info">
                     <span class="name">Koumadi M.</span>
-                    <span class="rating">⭐ 4.8</span>
+                    <span class="rating"><mat-icon class="inline-star">star</mat-icon> 4.8</span>
                   </div>
                 </div>
                 <div class="escrow-badge">
@@ -266,7 +266,7 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
                   <mat-icon class="verified-icon" *ngIf="tasker.identity_verified" title="Identité vérifiée">verified</mat-icon>
                 </h4>
                 <div class="tasker-rating">
-                  <span class="stars">⭐ {{ getProviderRating(tasker) }}</span>
+                  <span class="stars"><mat-icon class="inline-star">star</mat-icon> {{ getProviderRating(tasker) }}</span>
                   <span class="reviews" *ngIf="tasker.review_count">({{ tasker.review_count }} avis)</span>
                 </div>
                 <p class="tasker-skills">{{ getProviderSkills(tasker) }}</p>
@@ -1862,6 +1862,33 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
         display: none;
       }
 
+      .gg-hero {
+        padding: 5.5rem 1rem 2.5rem;
+      }
+
+      .hero-container {
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+      }
+
+      .hero-visual {
+        order: -1;
+        max-width: 100%;
+      }
+
+      .hero-title {
+        font-size: clamp(1.75rem, 8vw, 2.25rem);
+      }
+
+      .hero-subtitle {
+        font-size: 0.95rem;
+      }
+
+      .hero-stats {
+        flex-wrap: wrap;
+        gap: 0.75rem;
+      }
+
       .missions-grid,
       .taskers-grid,
       .enterprises-grid,
@@ -1879,6 +1906,12 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
         flex-direction: column;
         align-items: center;
         gap: 0.75rem;
+      }
+
+      .inline-star {
+        font-size: 14px !important;
+        width: 14px !important;
+        height: 14px !important;
       }
     }
   `]

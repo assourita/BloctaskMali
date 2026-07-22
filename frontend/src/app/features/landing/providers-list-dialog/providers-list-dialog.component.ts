@@ -61,7 +61,7 @@ export interface ProvidersListDialogData {
             {{ name(p) }}
             <mat-icon class="verified" *ngIf="p.identity_verified">verified</mat-icon>
           </strong>
-          <span class="meta">⭐ {{ rating(p) }} · {{ p.completed_missions }} missions</span>
+          <span class="meta"><mat-icon class="inline-star">star</mat-icon> {{ rating(p) }} · {{ p.completed_missions }} missions</span>
           <span class="city" *ngIf="p.city">{{ p.city }}</span>
         </div>
         <mat-icon class="chevron">chevron_right</mat-icon>

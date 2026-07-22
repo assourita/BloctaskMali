@@ -952,3 +952,66 @@ class AdminResetPasswordView(APIView):
             'temporary_password': temp_password,
             'user_id': str(user.id),
         })
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def admin_enterprises_list(request):
+    """Liste des entreprises pour l'admin Angular."""
+    if not _admin_only(request.user):
+        return Response({'error': 'Accès réservé aux administrateurs.'}, status=403)
+
+    qs = EnterpriseProfile.objects.select_related('user').order_by('-created_at')
+    search = (request.query_params.get('search') or '').strip()
+    if search:
+        qs = qs.filter(
+            Q(company_name__icontains=search)
+            | Q(city__icontains=search)
+            | Q(user__email__icontains=search)
+            | Q(user__first_name__icontains=search)
+        )
+    verified = request.query_params.get('verified')
+    if verified in ('true', '1'):
+        qs = qs.filter(is_verified=True)
+    elif verified in ('false', '0'):
+        qs = qs.filter(is_verified=False)
+
+    results = []
+    for profile in qs[:200]:
+        user = profile.user
+        defaults = enterprise_profile_defaults(user)
+        employees = Employee.objects.filter(enterprise=profile, is_active=True).count()
+        results.append({
+            'id': str(profile.id),
+            'user_id': str(user.id),
+            'company_name': (profile.company_name or defaults.get('company_name') or user.get_full_name() or '').strip(),
+            'email': user.email,
+            'phone': profile.company_phone or user.phone_number or '',
+            'city': (profile.city or defaults.get('city') or user.city or '').strip(),
+            'is_verified': bool(profile.is_verified),
+            'is_active': bool(user.is_active),
+            'total_employees': employees,
+            'total_missions_posted': profile.total_missions_posted or 0,
+            'created_at': profile.created_at.isoformat() if profile.created_at else None,
+        })
+    return Response({'results': results, 'count': len(results)})
+
+
+@api_view(['POST'])
+@permission_classes([permissions.IsAuthenticated])
+def admin_enterprise_verify(request, id):
+    """Vérifie / retire la vérification d'une entreprise."""
+    if not _admin_only(request.user):
+        return Response({'error': 'Accès réservé aux administrateurs.'}, status=403)
+
+    profile = get_object_or_404(EnterpriseProfile, id=id)
+    verify = request.data.get('is_verified')
+    if verify is None:
+        verify = True
+    profile.is_verified = bool(verify)
+    profile.save(update_fields=['is_verified', 'updated_at'])
+    return Response({
+        'id': str(profile.id),
+        'is_verified': profile.is_verified,
+        'message': 'Entreprise vérifiée' if profile.is_verified else 'Vérification retirée',
+    })

@@ -255,7 +255,7 @@ import {
                 <div class="avatar-initials">{{ emp.initials }}</div>
                 <div class="employee-info">
                   <strong>{{ emp.name }}</strong>
-                  <span>{{ emp.missions }} missions • {{ emp.rating }} ⭐</span>
+                  <span>{{ emp.missions }} missions • {{ emp.rating }} /5</span>
                 </div>
                 <div class="employee-stats">
                   <span class="earnings">{{ emp.missions }} missions</span>

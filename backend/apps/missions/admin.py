@@ -95,7 +95,13 @@ class MissionAdmin(admin.ModelAdmin):
     
     list_per_page = 25
     
-    actions = ['mark_funded', 'mark_in_progress', 'mark_completed', 'cancel_missions']
+    actions = [
+        'mark_funded',
+        'mark_in_progress',
+        'mark_completed',
+        'release_submitted_payments',
+        'cancel_missions',
+    ]
     
     fieldsets = (
         ('Informations principales', {
@@ -213,7 +219,30 @@ class MissionAdmin(admin.ModelAdmin):
         from django.utils import timezone
         queryset.update(status='completed', completed_at=timezone.now())
         self.message_user(request, f"{queryset.count()} missions terminées.")
-    
+
+    @admin.action(description='💸 Libérer paiement (submitted → completed)')
+    def release_submitted_payments(self, request, queryset):
+        """Rattrapage : preuves soumises, pas de validation/litige → payout prestataire."""
+        from apps.missions.services import complete_mission_and_payout
+
+        ok = skipped = errors = 0
+        for mission in queryset.filter(status='submitted'):
+            result = complete_mission_and_payout(
+                mission,
+                changed_by=request.user,
+                reason='Admin : libération paiement après preuves sans action client',
+            )
+            if result.get('ok'):
+                ok += 1
+            elif result.get('dispute_open'):
+                skipped += 1
+            else:
+                errors += 1
+        self.message_user(
+            request,
+            f"Paiements libérés: {ok} | litiges ignorés: {skipped} | erreurs: {errors}",
+        )
+
     @admin.action(description='❌ Annuler missions')
     def cancel_missions(self, request, queryset):
         queryset.update(status='cancelled')

@@ -71,12 +71,52 @@ def _accept_application(mission, application, changed_by):
     )
 
 
-class CategoryViewSet(viewsets.ReadOnlyModelViewSet):
-    """ViewSet pour les catégories de missions"""
-    queryset = Category.objects.filter(is_active=True)
+class CategoryViewSet(viewsets.ModelViewSet):
+    """Catégories : lecture publique, écriture réservée admin/staff."""
     serializer_class = CategorySerializer
     lookup_field = 'slug'
-    
+
+    def get_queryset(self):
+        user = self.request.user
+        if user.is_authenticated and (user.is_staff or getattr(user, 'user_type', '') == 'admin'):
+            return Category.objects.all().order_by('order', 'name')
+        return Category.objects.filter(is_active=True)
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [IsAuthenticated()]
+        return []
+
+    def _require_admin(self, request):
+        if not (request.user.is_staff or getattr(request.user, 'user_type', '') == 'admin'):
+            return Response({'error': 'Accès non autorisé'}, status=403)
+        return None
+
+    def create(self, request, *args, **kwargs):
+        denied = self._require_admin(request)
+        if denied:
+            return denied
+        data = request.data.copy() if hasattr(request.data, 'copy') else dict(request.data)
+        if not data.get('slug') and data.get('name'):
+            from django.utils.text import slugify
+            data['slug'] = slugify(data['name'])
+        serializer = self.get_serializer(data=data)
+        serializer.is_valid(raise_exception=True)
+        self.perform_create(serializer)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    def update(self, request, *args, **kwargs):
+        denied = self._require_admin(request)
+        if denied:
+            return denied
+        return super().update(request, *args, **kwargs)
+
+    def destroy(self, request, *args, **kwargs):
+        denied = self._require_admin(request)
+        if denied:
+            return denied
+        return super().destroy(request, *args, **kwargs)
+
     @action(detail=True, methods=['get'])
     def missions(self, request, slug=None):
         """Récupérer les missions d'une catégorie"""
@@ -1324,6 +1364,54 @@ class MissionViewSet(viewsets.ModelViewSet):
             reason=request.data.get('reason', 'Annulée par un administrateur')
         )
         return Response({'status': 'Mission annulée'})
+
+    @action(detail=True, methods=['post'], url_path='admin_action')
+    def admin_action(self, request, pk=None):
+        """Actions admin : fund | complete | release_payment."""
+        if not request.user.is_staff and getattr(request.user, 'user_type', '') != 'admin':
+            return Response({'error': 'Accès non autorisé'}, status=403)
+
+        mission = self.get_object()
+        action_name = (request.data.get('action') or '').strip().lower()
+        reason = request.data.get('reason') or f'Action admin : {action_name}'
+
+        if action_name == 'fund':
+            if mission.status not in (Mission.Status.PENDING, Mission.Status.DRAFT, 'pending', 'draft'):
+                return Response({'error': f'Statut incompatible: {mission.status}'}, status=400)
+            old = mission.status
+            mission.status = Mission.Status.FUNDED
+            mission.save(update_fields=['status', 'updated_at'])
+            MissionStatusHistory.objects.create(
+                mission=mission, old_status=old, new_status=Mission.Status.FUNDED,
+                changed_by=request.user, reason=reason,
+            )
+            return Response({'ok': True, 'status': mission.status})
+
+        if action_name in ('release_payment', 'complete'):
+            if mission.status != Mission.Status.SUBMITTED and action_name == 'release_payment':
+                return Response(
+                    {'error': 'Libération possible uniquement pour missions avec preuves soumises'},
+                    status=400,
+                )
+            if action_name == 'complete' and mission.status not in (
+                Mission.Status.SUBMITTED, Mission.Status.IN_PROGRESS, Mission.Status.ACCEPTED,
+            ):
+                return Response({'error': f'Statut incompatible: {mission.status}'}, status=400)
+
+            from .services import complete_mission_and_payout
+            result = complete_mission_and_payout(
+                mission,
+                changed_by=request.user,
+                reason=reason or 'Admin : validation et libération du paiement',
+            )
+            if not result.get('ok'):
+                return Response(result, status=400)
+            return Response(result)
+
+        return Response(
+            {'error': 'Action inconnue. Utilisez: fund, release_payment, complete'},
+            status=400,
+        )
 
     @action(detail=True, methods=['get'])
     def tracking(self, request, pk=None):

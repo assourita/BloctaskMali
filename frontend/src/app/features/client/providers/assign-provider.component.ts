@@ -92,7 +92,7 @@ import { AssignMissionDialogComponent } from '../../landing/assign-mission-dialo
                       {{ name(p) }}
                       <mat-icon class="verified" *ngIf="p.identity_verified" title="Identité vérifiée">verified</mat-icon>
                     </h3>
-                    <p class="meta">⭐ {{ rating(p) }} · {{ p.completed_missions }} missions · {{ levelLabel(p.level) }}</p>
+                    <p class="meta"><mat-icon class="inline-star">star</mat-icon> {{ rating(p) }} · {{ p.completed_missions }} missions · {{ levelLabel(p.level) }}</p>
                     <p class="city" *ngIf="p.city"><mat-icon>location_on</mat-icon> {{ p.city }}</p>
                     <mat-chip-set *ngIf="p.skills?.length">
                       <mat-chip *ngFor="let skill of p.skills.slice(0, 3)">{{ skill }}</mat-chip>
@@ -249,24 +249,32 @@ import { AssignMissionDialogComponent } from '../../landing/assign-mission-dialo
     .list {
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 10px;
     }
 
     .item-card {
-      padding: 20px;
-      border-radius: 14px;
+      padding: 14px 16px;
+      border-radius: 12px;
       border: 1px solid #e2e8f0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
     }
 
     .card-top {
       display: flex;
-      gap: 16px;
-      margin-bottom: 16px;
+      gap: 14px;
+      align-items: flex-start;
+      flex: 1;
+      min-width: 220px;
+      margin-bottom: 0;
     }
 
     .avatar-wrap, .logo-wrap {
-      width: 64px;
-      height: 64px;
+      width: 52px;
+      height: 52px;
       border-radius: 50%;
       flex-shrink: 0;
       display: flex;
@@ -276,15 +284,15 @@ import { AssignMissionDialogComponent } from '../../landing/assign-mission-dialo
     }
 
     .logo-wrap {
-      border-radius: 14px;
+      border-radius: 12px;
       background: #ede9fe;
       color: #7c3aed;
     }
 
     .logo-wrap mat-icon {
-      font-size: 32px;
-      width: 32px;
-      height: 32px;
+      font-size: 26px;
+      width: 26px;
+      height: 26px;
     }
 
     .logo-wrap img, .avatar-wrap img {
@@ -296,22 +304,28 @@ import { AssignMissionDialogComponent } from '../../landing/assign-mission-dialo
     .avatar-wrap {
       color: white;
       font-weight: 700;
-      font-size: 20px;
+      font-size: 18px;
+    }
+
+    .info {
+      min-width: 0;
+      flex: 1;
     }
 
     .info h3 {
-      margin: 0 0 4px;
-      font-size: 18px;
+      margin: 0 0 2px;
+      font-size: 1rem;
       display: flex;
       align-items: center;
       gap: 6px;
+      line-height: 1.3;
     }
 
     .verified {
       color: #3CB371;
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
     }
 
     .verified.enterprise {
@@ -319,35 +333,73 @@ import { AssignMissionDialogComponent } from '../../landing/assign-mission-dialo
     }
 
     .meta, .city {
-      margin: 0 0 6px;
+      margin: 0 0 4px;
       font-size: 13px;
       color: #64748b;
-    }
-
-    .city {
       display: flex;
       align-items: center;
       gap: 4px;
+      flex-wrap: wrap;
+    }
+
+    .inline-star {
+      font-size: 14px !important;
+      width: 14px !important;
+      height: 14px !important;
+      color: #f59e0b;
     }
 
     .city mat-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+
+    .info ::ng-deep .mat-mdc-chip-set {
+      margin-top: 4px;
+    }
+
+    .info ::ng-deep .mdc-evolution-chip-set__chips {
+      gap: 4px;
+    }
+
+    .info ::ng-deep .mat-mdc-chip {
+      font-size: 11px;
+      min-height: 24px;
+      text-transform: capitalize;
     }
 
     .card-actions {
       display: flex;
       justify-content: flex-end;
+      align-items: center;
       gap: 8px;
       flex-wrap: wrap;
-      border-top: 1px solid #f1f5f9;
-      padding-top: 14px;
+      border-top: none;
+      padding-top: 0;
+      margin-left: auto;
+      flex-shrink: 0;
     }
 
     .enterprise-btn {
       background: #7c3aed !important;
       color: white !important;
+    }
+
+    @media (max-width: 700px) {
+      .item-card {
+        flex-direction: column;
+        align-items: stretch;
+      }
+      .card-actions {
+        width: 100%;
+        justify-content: stretch;
+        border-top: 1px solid #f1f5f9;
+        padding-top: 12px;
+      }
+      .card-actions button {
+        flex: 1;
+      }
     }
 
     .empty {

@@ -46,7 +46,7 @@ import { ProviderProfileService, PublicProviderProfile } from '../../../core/ser
 
       <div class="stats-row">
         <div class="stat">
-          <span class="stat-value">⭐ {{ rating }}</span>
+          <span class="stat-value"><mat-icon class="inline-star">star</mat-icon> {{ rating }}</span>
           <span class="stat-label">{{ profile.review_count }} avis</span>
         </div>
         <div class="stat">

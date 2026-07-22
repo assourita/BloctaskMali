@@ -13,6 +13,12 @@ interface NavItem {
   path: string;
   label: string;
   icon: string;
+  exact?: boolean;
+}
+
+interface NavGroup {
+  label?: string;
+  items: NavItem[];
 }
 
 @Component({
@@ -38,16 +44,20 @@ interface NavItem {
       <mat-divider></mat-divider>
 
       <nav class="nav-menu">
-        <a 
-          *ngFor="let item of getNavItems(vm.activeRole)" 
-          [routerLink]="item.path"
-          routerLinkActive="active"
-          class="nav-item"
-          (click)="onNavClick()"
-        >
-          <mat-icon>{{ item.icon }}</mat-icon>
-          <span>{{ item.label }}</span>
-        </a>
+        <ng-container *ngFor="let group of getNavGroups(vm.activeRole)">
+          <div class="nav-group-label" *ngIf="group.label">{{ group.label }}</div>
+          <a
+            *ngFor="let item of group.items"
+            [routerLink]="item.path"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: !!item.exact }"
+            class="nav-item"
+            (click)="onNavClick()"
+          >
+            <mat-icon>{{ item.icon }}</mat-icon>
+            <span class="nav-label">{{ item.label }}</span>
+          </a>
+        </ng-container>
       </nav>
 
       <mat-divider></mat-divider>
@@ -55,11 +65,11 @@ interface NavItem {
       <div class="sidebar-footer">
         <a routerLink="/" class="nav-item home-btn" target="_self">
           <mat-icon>home</mat-icon>
-          <span>Page d'accueil</span>
+          <span class="nav-label">Page d'accueil</span>
         </a>
         <a routerLink="/help" class="nav-item">
           <mat-icon>help</mat-icon>
-          <span>Aide & Support</span>
+          <span class="nav-label">Aide & Support</span>
         </a>
       </div>
     </aside>
@@ -79,6 +89,8 @@ interface NavItem {
       border-right: 1px solid #e9ecef;
       transform: translateX(-100%);
       transition: transform 0.3s ease;
+      overflow: hidden;
+      box-sizing: border-box;
     }
 
     .sidebar.open {
@@ -86,58 +98,70 @@ interface NavItem {
     }
 
     .user-info {
-      padding: 24px;
+      padding: 20px 16px;
       display: flex;
       align-items: center;
-      gap: 16px;
+      gap: 12px;
       background: #f8f9fa;
       border-bottom: 1px solid #e9ecef;
+      flex-shrink: 0;
+      min-width: 0;
     }
 
     .user-avatar-icon {
-      font-size: 48px;
-      width: 48px;
-      height: 48px;
+      font-size: 40px;
+      width: 40px;
+      height: 40px;
       color: #3CB371;
+      flex-shrink: 0;
     }
 
     .user-details {
       display: flex;
       flex-direction: column;
+      min-width: 0;
     }
 
     .user-name {
       font-weight: 600;
       color: #1a1a1a;
-      font-size: 1rem;
+      font-size: 0.95rem;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .user-type {
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       color: #6c757d;
       text-transform: uppercase;
       letter-spacing: 0.5px;
       font-weight: 500;
-      margin-top: 4px;
+      margin-top: 2px;
     }
 
     .nav-menu {
       flex: 1;
-      padding: 16px 12px;
+      padding: 12px 10px 16px;
       display: flex;
       flex-direction: column;
-      gap: 4px;
+      gap: 2px;
       overflow-y: auto;
       overflow-x: hidden;
-      max-height: calc(100vh - 250px);
+      min-height: 0;
+    }
+
+    .nav-group-label {
+      font-size: 0.65rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      padding: 12px 12px 6px;
     }
 
     .nav-menu::-webkit-scrollbar {
       width: 6px;
-    }
-
-    .nav-menu::-webkit-scrollbar-track {
-      background: transparent;
     }
 
     .nav-menu::-webkit-scrollbar-thumb {
@@ -145,31 +169,37 @@ interface NavItem {
       border-radius: 3px;
     }
 
-    .nav-menu::-webkit-scrollbar-thumb:hover {
-      background: #94a3b8;
-    }
-
     .nav-item {
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 12px 16px;
+      padding: 10px 12px;
       border-radius: 8px;
-      color: #6c757d;
+      color: #475569;
       text-decoration: none;
-      transition: all 0.2s ease;
+      transition: background 0.15s ease, color 0.15s ease;
       cursor: pointer;
       font-weight: 500;
-      font-size: 0.9375rem;
+      font-size: 0.875rem;
+      min-width: 0;
+      box-sizing: border-box;
+    }
+
+    .nav-label {
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
 
     .nav-item:hover {
-      background: #f8f9fa;
-      color: #3CB371;
+      background: #f1f5f9;
+      color: #15803d;
     }
 
     .nav-item.active {
-      background: #3CB371;
+      background: #16a34a;
       color: white;
       font-weight: 600;
     }
@@ -178,42 +208,40 @@ interface NavItem {
       font-size: 20px;
       width: 20px;
       height: 20px;
+      flex-shrink: 0;
+      line-height: 20px;
     }
 
     .sidebar-footer {
-      padding: 16px 12px;
+      padding: 12px 10px;
       border-top: 1px solid #e9ecef;
-    }
-
-    .sidebar-footer .nav-item {
-      color: #6c757d;
-    }
-
-    .sidebar-footer .nav-item:hover {
-      color: #3CB371;
+      flex-shrink: 0;
     }
 
     .sidebar-footer .home-btn {
-      color: #3CB371;
+      color: #15803d;
       font-weight: 600;
-      border: 1px solid #d4edda;
-      background: #f0faf4;
+      border: 1px solid #bbf7d0;
+      background: #f0fdf4;
       margin-bottom: 4px;
     }
 
     .sidebar-footer .home-btn:hover {
-      background: #3CB371;
+      background: #16a34a;
       color: white;
-      border-color: #3CB371;
+      border-color: #16a34a;
     }
 
     @media (max-width: 768px) {
       .sidebar {
-        transform: translateX(-100%);
+        top: 56px;
+        width: min(86vw, 300px);
+        z-index: 200;
+        box-shadow: 4px 0 24px rgba(0, 0, 0, 0.18);
       }
 
-      .sidebar.open {
-        transform: translateX(0);
+      .nav-item {
+        min-height: 44px;
       }
     }
   `]
@@ -221,55 +249,90 @@ interface NavItem {
 export class SidebarComponent implements OnInit {
   viewModel$: Observable<{ user: User; activeRole: string }>;
 
-  private clientNav: NavItem[] = [
-    { path: '/client/dashboard', label: 'Tableau de bord', icon: 'dashboard' },
-    { path: '/client/missions', label: 'Mes missions créées', icon: 'assignment' },
-    { path: '/client/missions/create', label: 'Nouvelle mission', icon: 'add_circle' },
-    { path: '/client/providers', label: 'Attribuer une mission', icon: 'assignment_ind' },
-    { path: '/client/solicitations', label: 'Sollicitations envoyées', icon: 'send' },
-    { path: '/client/tracking', label: 'Suivi en temps réel', icon: 'my_location' },
-    { path: '/client/payments', label: 'Paiements', icon: 'payment' },
-    { path: '/client/disputes', label: 'Litiges', icon: 'gavel' },
-    { path: '/client/profile', label: 'Mon profil', icon: 'person' }
+  private clientGroups: NavGroup[] = [
+    {
+      items: [
+        { path: '/client/dashboard', label: 'Tableau de bord', icon: 'dashboard' },
+        { path: '/client/missions', label: 'Mes missions créées', icon: 'assignment' },
+        { path: '/client/missions/create', label: 'Nouvelle mission', icon: 'add_circle' },
+        { path: '/client/providers', label: 'Attribuer une mission', icon: 'assignment_ind' },
+        { path: '/client/solicitations', label: 'Sollicitations envoyées', icon: 'send' },
+        { path: '/client/tracking', label: 'Suivi en temps réel', icon: 'my_location' },
+        { path: '/client/payments', label: 'Paiements', icon: 'payment' },
+        { path: '/client/disputes', label: 'Litiges', icon: 'gavel' },
+        { path: '/client/profile', label: 'Mon profil', icon: 'person' },
+      ],
+    },
   ];
 
-  private providerNav: NavItem[] = [
-    { path: '/provider/dashboard', label: 'Tableau de bord', icon: 'dashboard' },
-    { path: '/provider/missions', label: 'Mes missions assignées', icon: 'assignment' },
-    { path: '/provider/missions/solicitations', label: 'Mes sollicitations', icon: 'mail' },
-    { path: '/provider/missions/available', label: 'Missions disponibles', icon: 'search' },
-    { path: '/provider/tracking', label: 'Suivi GPS', icon: 'my_location' },
-    { path: '/provider/earnings', label: 'Mes revenus', icon: 'attach_money' },
-    { path: '/provider/reputation', label: 'Réputation', icon: 'verified' },
-    { path: '/provider/deposit', label: 'Caution', icon: 'security' },
-    { path: '/provider/profile', label: 'Mon profil', icon: 'person' }
+  private providerGroups: NavGroup[] = [
+    {
+      items: [
+        { path: '/provider/dashboard', label: 'Tableau de bord', icon: 'dashboard' },
+        { path: '/provider/missions', label: 'Mes missions assignées', icon: 'assignment' },
+        { path: '/provider/missions/solicitations', label: 'Mes sollicitations', icon: 'mail' },
+        { path: '/provider/missions/available', label: 'Missions disponibles', icon: 'search' },
+        { path: '/provider/tracking', label: 'Suivi GPS', icon: 'my_location' },
+        { path: '/provider/earnings', label: 'Mes revenus', icon: 'attach_money' },
+        { path: '/provider/reputation', label: 'Réputation', icon: 'verified' },
+        { path: '/provider/deposit', label: 'Caution', icon: 'security' },
+        { path: '/provider/profile', label: 'Mon profil', icon: 'person' },
+      ],
+    },
   ];
 
-  private enterpriseNav: NavItem[] = [
-    { path: '/enterprise/dashboard', label: 'Tableau de bord', icon: 'dashboard' },
-    { path: '/enterprise/employees', label: 'Employés', icon: 'people' },
-    { path: '/enterprise/missions', label: 'Missions', icon: 'assignment' },
-    { path: '/enterprise/missions/available', label: 'Missions disponibles', icon: 'search' },
-    { path: '/enterprise/solicitations', label: 'Sollicitations reçues', icon: 'mail' },
-    { path: '/enterprise/providers', label: 'Attribuer mission', icon: 'assignment_ind' },
-    { path: '/enterprise/tracking', label: 'Carte GPS', icon: 'my_location' },
-    { path: '/enterprise/analytics', label: 'Analytics', icon: 'analytics' },
-    { path: '/enterprise/finances', label: 'Finances', icon: 'account_balance' },
-    { path: '/enterprise/deposit', label: 'Caution', icon: 'security' },
-    { path: '/enterprise/payments', label: 'Paiements', icon: 'payment' },
-    { path: '/enterprise/disputes', label: 'Litiges', icon: 'gavel' },
-    { path: '/enterprise/profile', label: 'Mon entreprise', icon: 'business' },
+  private enterpriseGroups: NavGroup[] = [
+    {
+      items: [
+        { path: '/enterprise/dashboard', label: 'Tableau de bord', icon: 'dashboard' },
+        { path: '/enterprise/employees', label: 'Employés', icon: 'people' },
+        { path: '/enterprise/missions', label: 'Missions', icon: 'assignment' },
+        { path: '/enterprise/missions/available', label: 'Missions disponibles', icon: 'search' },
+        { path: '/enterprise/solicitations', label: 'Sollicitations reçues', icon: 'mail' },
+        { path: '/enterprise/providers', label: 'Attribuer mission', icon: 'assignment_ind' },
+        { path: '/enterprise/tracking', label: 'Carte GPS', icon: 'my_location' },
+        { path: '/enterprise/analytics', label: 'Analytics', icon: 'analytics' },
+        { path: '/enterprise/finances', label: 'Finances', icon: 'account_balance' },
+        { path: '/enterprise/deposit', label: 'Caution', icon: 'security' },
+        { path: '/enterprise/payments', label: 'Paiements', icon: 'payment' },
+        { path: '/enterprise/disputes', label: 'Litiges', icon: 'gavel' },
+        { path: '/enterprise/profile', label: 'Mon entreprise', icon: 'business' },
+      ],
+    },
   ];
 
-  private adminNav: NavItem[] = [
-    { path: '/admin/dashboard', label: 'Dashboard', icon: 'dashboard' },
-    { path: '/admin/users', label: 'Utilisateurs', icon: 'people' },
-    { path: '/admin/missions', label: 'Missions', icon: 'assignment' },
-    { path: '/admin/disputes', label: 'Litiges', icon: 'gavel' },
-    { path: '/admin/kyc', label: 'Validation KYC', icon: 'verified_user' },
-    { path: '/admin/analytics', label: 'Analytics', icon: 'analytics' },
-    { path: '/admin/blockchain', label: 'Blockchain', icon: 'link' },
-    { path: '/admin/settings', label: 'Paramètres', icon: 'settings' }
+  private adminGroups: NavGroup[] = [
+    {
+      label: 'Vue d\'ensemble',
+      items: [
+        { path: '/admin/dashboard', label: 'Dashboard', icon: 'dashboard' },
+        { path: '/admin/analytics', label: 'Analytics', icon: 'analytics' },
+      ],
+    },
+    {
+      label: 'Opérations',
+      items: [
+        { path: '/admin/users', label: 'Utilisateurs', icon: 'people' },
+        { path: '/admin/kyc', label: 'Validation KYC', icon: 'verified_user' },
+        { path: '/admin/missions', label: 'Missions', icon: 'assignment' },
+        { path: '/admin/disputes', label: 'Litiges', icon: 'gavel' },
+        { path: '/admin/enterprises', label: 'Entreprises', icon: 'business' },
+      ],
+    },
+    {
+      label: 'Contenu & finance',
+      items: [
+        { path: '/admin/categories', label: 'Catégories', icon: 'category' },
+        { path: '/admin/blockchain', label: 'Escrow & blockchain', icon: 'account_balance_wallet' },
+      ],
+    },
+    {
+      label: 'Configuration',
+      items: [
+        { path: '/admin/settings', label: 'Paramètres', icon: 'settings' },
+        { path: '/admin/profile', label: 'Mon profil', icon: 'person' },
+      ],
+    },
   ];
 
   constructor(
@@ -296,12 +359,12 @@ export class SidebarComponent implements OnInit {
     }
   }
 
-  getNavItems(userType: string): NavItem[] {
+  getNavGroups(userType: string): NavGroup[] {
     switch (userType) {
-      case 'client': return this.clientNav;
-      case 'provider': return this.providerNav;
-      case 'enterprise': return this.enterpriseNav;
-      case 'admin': return this.adminNav;
+      case 'client': return this.clientGroups;
+      case 'provider': return this.providerGroups;
+      case 'enterprise': return this.enterpriseGroups;
+      case 'admin': return this.adminGroups;
       default: return [];
     }
   }

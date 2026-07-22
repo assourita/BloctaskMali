@@ -55,7 +55,7 @@ export interface ProviderProfileDialogData {
       <div class="dialog-body">
         <div class="stats-row">
           <div class="stat">
-            <span class="stat-value">⭐ {{ rating }}</span>
+            <span class="stat-value"><mat-icon class="inline-star">star</mat-icon> {{ rating }}</span>
             <span class="stat-label">{{ reviewCount }} avis</span>
           </div>
           <div class="stat">

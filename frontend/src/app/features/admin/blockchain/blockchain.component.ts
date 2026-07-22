@@ -131,7 +131,7 @@ interface BlockchainEvent {
       <mat-tab-group class="bc-tabs" (selectedIndexChange)="onTabChange($event)">
 
         <!-- ===== ESCROW TRANSACTIONS ===== -->
-        <mat-tab label="💰 Transactions Escrow">
+        <mat-tab label="Transactions Escrow">
           <div class="tab-content">
             <div class="filters-bar">
               <select class="filter-select" [(ngModel)]="escrowFilterType" (change)="filterEscrow()">
@@ -255,7 +255,7 @@ interface BlockchainEvent {
         </mat-tab>
 
         <!-- ===== RÉPUTATION ===== -->
-        <mat-tab label="⭐ Réputation">
+        <mat-tab label="Réputation">
           <div class="tab-content">
             <!-- Rep stats -->
             <div class="rep-stats-row" *ngIf="repStats">

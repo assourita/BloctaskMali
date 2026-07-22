@@ -127,7 +127,7 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
                   <div class="route-point delivery" *ngIf="mission.delivery_address">
                     <div class="route-icon"><mat-icon>place</mat-icon></div>
                     <div>
-                      <strong>{{ mission.pickup_address ? 'Point de livraison' : 'Lieu d\'intervention' }}</strong>
+                      <strong>{{ deliveryOrServiceLabel() }}</strong>
                       <p>{{ mission.delivery_address }}</p>
                     </div>
                   </div>
@@ -311,7 +311,7 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
                     *ngIf="!mission.is_applied && mission.can_apply"
                     (click)="applyToMission()"
                     [disabled]="actionLoading">
-                    <mat-icon>send</mat-icon> {{ enterpriseAvailable ? 'Postuler pour l\'entreprise' : 'Postuler à cette mission' }}
+                    <mat-icon>send</mat-icon> {{ applyButtonLabel() }}
                   </button>
                   <p class="action-hint" *ngIf="!mission.is_applied && !mission.can_apply">
                     {{ applyBlockMessage() }}
@@ -659,8 +659,27 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
     @media (max-width: 960px) {
       .layout { grid-template-columns: 1fr; }
       .action-card { position: static; }
-      .hero { padding: 20px; }
-      .hero h1 { font-size: 22px; }
+      .hero { padding: 16px; }
+      .hero h1 { font-size: 1.35rem; }
+      .page { padding: 0; max-width: 100%; }
+      .page-header { flex-wrap: wrap; gap: 8px; }
+      .hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .stat-card { padding: 10px 12px; min-width: 0; }
+      .stat-value { font-size: 16px; word-break: break-word; }
+      .timeline { min-width: 360px; }
+      .detail-row { grid-template-columns: 1fr; gap: 4px; }
+      .media-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .proof-actions { flex-direction: column; align-items: stretch; }
+      .full-width, button.full-width { width: 100%; }
+      .info-banner, .success-banner, .applied-banner {
+        align-items: flex-start;
+        line-height: 1.4;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .hero-stats { grid-template-columns: 1fr 1fr; }
+      .category-badge, .status-badge { font-size: 11px; }
     }
   `]
 })
@@ -913,6 +932,14 @@ export class ProviderMissionDetailComponent implements OnInit {
 
   reqFlag(key: string): boolean {
     return !!(this.mission?.requirements as Record<string, boolean>)?.[key];
+  }
+
+  deliveryOrServiceLabel(): string {
+    return this.mission?.pickup_address ? 'Point de livraison' : "Lieu d'intervention";
+  }
+
+  applyButtonLabel(): string {
+    return this.enterpriseAvailable ? "Postuler pour l'entreprise" : 'Postuler à cette mission';
   }
 
   formatDetailValue(d: { type: string; value: unknown }): string {

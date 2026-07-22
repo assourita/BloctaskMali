@@ -117,6 +117,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'fr-fr'
 TIME_ZONE = 'Africa/Bamako'
+DEFAULT_CHARSET = 'utf-8'
 
 # File upload settings
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10MB

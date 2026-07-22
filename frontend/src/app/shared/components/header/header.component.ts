@@ -362,6 +362,31 @@ import { MatTooltipModule } from '@angular/material/tooltip';
       color: #bbb; font-size: 13px;
       mat-icon { font-size: 34px; width: 34px; height: 34px; color: #ddd; }
     }
+
+    @media (max-width: 767px) {
+      .header-toolbar {
+        height: 56px;
+        padding: 0 12px;
+      }
+
+      .logo-text {
+        font-size: 1.1rem;
+      }
+
+      .dropdown-panel.notif-panel,
+      .dropdown-panel.profile-panel {
+        position: fixed;
+        right: 8px;
+        left: 8px;
+        width: auto;
+        max-width: none;
+        max-height: min(70vh, 420px);
+      }
+
+      .actions-section {
+        gap: 4px;
+      }
+    }
   `]
 })
 export class HeaderComponent implements OnInit {

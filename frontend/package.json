@@ -34,6 +34,7 @@
     "chart.js": "^4.5.1",
     "ethers": "^6.9.0",
     "leaflet": "^1.9.4",
+    "material-icons": "^1.13.14",
     "moment": "^2.29.4",
     "ng2-charts": "^5.0.4",
     "ngx-dropzone": "^3.1.0",

@@ -303,9 +303,24 @@ interface Mission {
             <mat-divider style="margin: 16px 0"></mat-divider>
 
             <div class="panel-actions">
+              <button class="action-fund-btn"
+                *ngIf="selectedMission.status === 'pending' || selectedMission.status === 'draft'"
+                (click)="adminAction(selectedMission, 'fund')" [disabled]="actionLoading">
+                <mat-icon>account_balance_wallet</mat-icon> Marquer financée
+              </button>
+              <button class="action-release-btn"
+                *ngIf="selectedMission.status === 'submitted'"
+                (click)="adminAction(selectedMission, 'release_payment')" [disabled]="actionLoading">
+                <mat-icon>payments</mat-icon> Libérer le paiement
+              </button>
+              <button class="action-complete-btn"
+                *ngIf="['in_progress','accepted','submitted'].includes(selectedMission.status)"
+                (click)="adminAction(selectedMission, 'complete')" [disabled]="actionLoading">
+                <mat-icon>check_circle</mat-icon> Terminer + payer
+              </button>
               <button class="action-cancel-btn"
                 *ngIf="!['completed','cancelled'].includes(selectedMission.status)"
-                (click)="cancelMission(selectedMission)">
+                (click)="cancelMission(selectedMission)" [disabled]="actionLoading">
                 <mat-icon>cancel</mat-icon> Annuler la mission
               </button>
             </div>
@@ -521,13 +536,27 @@ interface Mission {
     .info-val { font-size: 13px; color: #1a1a2e; font-weight: 500; }
     .budget-val { color: #059669; font-size: 15px; font-weight: 700; }
 
-    .panel-actions { margin-top: 8px; }
-    .action-cancel-btn {
+    .panel-actions { margin-top: 8px; display: flex; flex-direction: column; gap: 8px; }
+    .action-cancel-btn,
+    .action-fund-btn,
+    .action-release-btn,
+    .action-complete-btn {
       width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px;
-      background: #fee2e2; color: #dc2626; border: none;
-      border-radius: 10px; padding: 10px; cursor: pointer; font-weight: 600; font-size: 13px;
+      border: none; border-radius: 10px; padding: 10px; cursor: pointer; font-weight: 600; font-size: 13px;
       mat-icon { font-size: 18px; width: 18px; height: 18px; }
-      &:hover { background: #fecaca; }
+      &:disabled { opacity: 0.6; cursor: not-allowed; }
+    }
+    .action-cancel-btn {
+      background: #fee2e2; color: #dc2626;
+      &:hover:not(:disabled) { background: #fecaca; }
+    }
+    .action-fund-btn {
+      background: #e0e7ff; color: #4338ca;
+      &:hover:not(:disabled) { background: #c7d2fe; }
+    }
+    .action-release-btn, .action-complete-btn {
+      background: #d1fae5; color: #047857;
+      &:hover:not(:disabled) { background: #a7f3d0; }
     }
 
     @media (max-width: 900px) {
@@ -669,16 +698,53 @@ export class AdminMissionsComponent implements OnInit, AfterViewInit {
   openPanel(mission: Mission): void { this.selectedMission = mission; }
   closePanel(): void { this.selectedMission = null; }
 
+  actionLoading = false;
+
+  adminAction(mission: Mission, action: 'fund' | 'release_payment' | 'complete'): void {
+    const labels: Record<string, string> = {
+      fund: 'Marquer cette mission comme financée ?',
+      release_payment: 'Libérer le paiement au prestataire ?',
+      complete: 'Terminer la mission et libérer le paiement ?',
+    };
+    if (!confirm(labels[action])) return;
+    this.actionLoading = true;
+    this.http.post<any>(
+      `${this.apiUrl}/missions/${mission.id}/admin_action/`,
+      { action, reason: `Admin Angular : ${action}` },
+      { headers: this.getHeaders() },
+    ).subscribe({
+      next: (res) => {
+        this.actionLoading = false;
+        mission.status = res?.status || (action === 'fund' ? 'funded' : 'completed');
+        if (this.selectedMission?.id === mission.id) {
+          this.selectedMission = { ...mission };
+        }
+        this.buildStats();
+        setTimeout(() => this.renderCharts(), 100);
+        this.snackBar.open('Action effectuée', 'OK', { duration: 3000 });
+      },
+      error: (err) => {
+        this.actionLoading = false;
+        this.snackBar.open(err?.error?.error || 'Erreur action admin', 'Fermer', { duration: 4000 });
+      }
+    });
+  }
+
   cancelMission(mission: Mission): void {
     if (!confirm(`Annuler la mission "${mission.title}" ?`)) return;
+    this.actionLoading = true;
     this.http.post(`${this.apiUrl}/missions/${mission.id}/admin_cancel/`, { reason: 'Annulée par un administrateur' }, { headers: this.getHeaders() }).subscribe({
       next: () => {
+        this.actionLoading = false;
         mission.status = 'cancelled';
         this.buildStats();
         this.renderCharts();
         this.snackBar.open('Mission annulée', 'Fermer', { duration: 3000 });
       },
-      error: () => this.snackBar.open('Erreur lors de l\'annulation', 'Fermer', { duration: 3000 })
+      error: () => {
+        this.actionLoading = false;
+        this.snackBar.open('Erreur lors de l\'annulation', 'Fermer', { duration: 3000 });
+      }
     });
   }
 

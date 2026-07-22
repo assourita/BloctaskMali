@@ -465,11 +465,12 @@ interface Mission {
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
       transition: all 0.2s ease;
       cursor: pointer;
+      position: relative;
 
       &:hover {
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         transform: translateY(-2px);
-        border-color: #6366f1;
+        border-color: #16a34a;
       }
 
       ::ng-deep {
@@ -481,29 +482,31 @@ interface Mission {
 
     .mission-status-badge {
       position: absolute;
-      top: 1rem;
-      right: 1rem;
-      display: flex;
+      top: 0.75rem;
+      right: 0.75rem;
+      display: inline-flex;
       align-items: center;
       gap: 0.25rem;
-      padding: 0.375rem 0.875rem;
+      padding: 0.3rem 0.7rem;
       border-radius: 9999px;
-      font-size: 0.75rem;
+      font-size: 0.7rem;
       font-weight: 600;
-      z-index: 1;
+      z-index: 2;
+      max-width: calc(100% - 1.5rem);
+      pointer-events: none;
 
       mat-icon {
-        font-size: 1rem;
-        width: 1rem;
-        height: 1rem;
+        font-size: 0.9rem;
+        width: 0.9rem;
+        height: 0.9rem;
       }
 
-      &.status-published {
+      &.status-published, &.status-funded, &.status-pending {
         background: #e0f2fe;
         color: #0284c7;
       }
 
-      &.status-in_progress {
+      &.status-accepted, &.status-in_progress {
         background: #e0e7ff;
         color: #4f46e5;
       }
@@ -522,46 +525,64 @@ interface Mission {
         background: #fef3c7;
         color: #d97706;
       }
+
+      &.status-expired {
+        background: #f3f4f6;
+        color: #4b5563;
+      }
+
+      &.status-disputed {
+        background: #fce7f3;
+        color: #be185d;
+      }
     }
 
     .expiry-strip {
       background: #fffbeb;
-      border-left: 4px solid #f59e0b;
-      padding: 0.75rem 1rem;
+      border-bottom: 1px solid #fde68a;
+      padding: 0.65rem 1rem;
+      padding-right: 7.5rem;
       display: flex;
       align-items: center;
       gap: 0.75rem;
+      position: relative;
+      z-index: 1;
 
       mat-icon {
         color: #d97706;
-        font-size: 1.25rem;
-        width: 1.25rem;
-        height: 1.25rem;
+        font-size: 1.15rem;
+        width: 1.15rem;
+        height: 1.15rem;
+        flex-shrink: 0;
       }
 
       span {
         flex: 1;
-        font-size: 0.875rem;
+        font-size: 0.8125rem;
         color: #b45309;
         font-weight: 500;
+        min-width: 0;
       }
 
       button {
-        margin-left: 0.5rem;
+        flex-shrink: 0;
       }
     }
 
     .mission-content {
-      padding: 1.5rem;
+      padding: 1rem 1.25rem;
+      padding-top: 2.75rem;
       display: grid;
       grid-template-columns: 1fr auto;
-      gap: 1.5rem;
+      gap: 1rem;
+      align-items: start;
     }
 
     .mission-main {
       display: flex;
       flex-direction: column;
-      gap: 1rem;
+      gap: 0.75rem;
+      min-width: 0;
     }
 
     .mission-header-row {

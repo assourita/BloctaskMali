@@ -37,7 +37,7 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
       <!-- Welcome Section - Stripe Style -->
       <div class="welcome-section">
         <div class="welcome-content">
-          <h1>Bonjour {{ (currentUser$ | async)?.first_name || 'Client' }} 👋</h1>
+          <h1>Bonjour {{ (currentUser$ | async)?.first_name || 'Client' }}</h1>
           <p>Bienvenue sur votre tableau de bord BlockTask</p>
         </div>
         <button mat-raised-button class="create-btn" routerLink="/client/missions/create">

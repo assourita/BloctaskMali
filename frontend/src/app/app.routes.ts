@@ -266,6 +266,14 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/missions/missions.component').then(m => m.AdminMissionsComponent)
       },
       {
+        path: 'enterprises',
+        loadComponent: () => import('./features/admin/enterprises/enterprises.component').then(m => m.AdminEnterprisesComponent)
+      },
+      {
+        path: 'categories',
+        loadComponent: () => import('./features/admin/categories/categories.component').then(m => m.AdminCategoriesComponent)
+      },
+      {
         path: 'disputes',
         loadComponent: () => import('./features/admin/disputes/disputes.component').then(m => m.AdminDisputesComponent)
       },

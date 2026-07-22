@@ -64,4 +64,6 @@ urlpatterns = [
     # Admin
     path('admin/stats/', views.admin_stats, name='admin-stats'),
     path('admin/activity/', views.admin_recent_activity, name='admin-activity'),
+    path('admin/enterprises/', views.admin_enterprises_list, name='admin-enterprises'),
+    path('admin/enterprises/<uuid:id>/verify/', views.admin_enterprise_verify, name='admin-enterprise-verify'),
 ]

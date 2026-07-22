@@ -64,7 +64,7 @@ export interface SolicitMissionDialogData {
               </div>
               <div class="target-info">
                 <strong>{{ providerName(p) }}</strong>
-                <span>⭐ {{ providerRating(p) }} · {{ p.city }}</span>
+                <span><mat-icon class="inline-star">star</mat-icon> {{ providerRating(p) }} · {{ p.city }}</span>
               </div>
               <mat-icon *ngIf="selectedType === 'provider' && selectedId === p.id">check_circle</mat-icon>
             </button>

@@ -104,13 +104,17 @@ import { SidebarService } from './core/services/sidebar.service';
       }
 
       .content {
-        padding: 16px;
+        padding: 12px;
         min-height: calc(100vh - 56px);
+        min-width: 0;
+        width: 100%;
+        max-width: 100vw;
+        overflow-x: hidden;
       }
 
       main.with-sidebar.sidebar-open .content {
         margin-left: 0;
-        padding: 16px;
+        padding: 12px;
       }
 
       .sidebar-overlay {
