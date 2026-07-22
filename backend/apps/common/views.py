@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from apps.missions.models import Category, Mission
+from apps.missions.category_rules import CATEGORY_RULES, display_category_name
 from apps.users.models import EnterpriseProfile
 from apps.users.enterprise_helpers import enterprise_profile_defaults
 from .africa_config import get_market_config, get_operators_for_country
@@ -13,6 +14,10 @@ from .models import PlatformSettings
 from .serializers import PlatformSettingsSerializer
 
 User = get_user_model()
+
+
+def _category_display_name(category) -> str:
+    return display_category_name(category)
 
 
 @api_view(['GET'])
@@ -215,7 +220,7 @@ def landing_data(request):
         'categories': [
             {
                 'id': str(cat.id),
-                'name': cat.name,
+                'name': _category_display_name(cat),
                 'slug': cat.slug,
                 'description': cat.description,
                 'icon': cat.icon or 'category',
@@ -234,7 +239,7 @@ def landing_data(request):
             {
                 'id': str(mission.id),
                 'title': mission.title,
-                'category_name': mission.category.name if mission.category else '',
+                'category_name': _category_display_name(mission.category),
                 'category_icon': mission.category.icon if mission.category else 'assignment',
                 'budget': float(mission.budget),
                 'currency': mission.currency,
@@ -246,7 +251,7 @@ def landing_data(request):
             for mission in featured_missions
         ],
         'popular_categories': [
-            cat.name
+            _category_display_name(cat)
             for cat in Category.objects.filter(is_active=True)
             .annotate(
                 cnt=Count(

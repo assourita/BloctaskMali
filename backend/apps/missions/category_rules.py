@@ -893,3 +893,14 @@ def estimate_deposit_preview(budget: float, merchandise_value: float | None, cat
         'deposit_reason': rule.deposit_reason,
         'requires_merchandise_value': rule.requires_merchandise_value,
     }
+
+def display_category_name(category) -> str:
+    """Nom affiché propre (corrige les accents corrompus type M??nage)."""
+    if not category:
+        return ''
+    name = (getattr(category, 'name', None) or '').strip()
+    if name and '??' not in name and '\ufffd' not in name:
+        return name
+    slug = getattr(category, 'slug', None) or ''
+    rule = CATEGORY_RULES.get(slug)
+    return rule.label if rule else (name or 'Mission')

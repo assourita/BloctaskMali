@@ -119,7 +119,7 @@ class MissionListSerializer(serializers.ModelSerializer):
     """Serializer pour la liste des missions (aperçu)"""
     client = UserBasicSerializer(read_only=True)
     provider = UserBasicSerializer(read_only=True)
-    category_name = serializers.CharField(source='category.name', read_only=True)
+    category_name = serializers.SerializerMethodField()
     category_icon = serializers.CharField(source='category.icon', read_only=True)
     category_slug = serializers.CharField(source='category.slug', read_only=True, allow_null=True)
     requirements = serializers.SerializerMethodField()
@@ -171,6 +171,10 @@ class MissionListSerializer(serializers.ModelSerializer):
     def get_applications_open(self, obj):
         from .eligibility import mission_is_open_for_applications
         return mission_is_open_for_applications(obj)
+
+    def get_category_name(self, obj):
+        from .category_rules import display_category_name
+        return display_category_name(obj.category)
 
     def get_requirements(self, obj):
         from .requirements import parse_mission_requirements

@@ -110,14 +110,32 @@ function isNetworkError(err: unknown): boolean {
 }
 
 function networkErrorMessage(): string {
-  return `Impossible de joindre le serveur (${API_URL}). Lancez le backend avec « python manage.py runserver 0.0.0.0:8000 » et vérifiez le Wi‑Fi / l'IP dans mobile/.env.`;
+  const isRender = /onrender\.com/i.test(API_URL);
+  if (isRender) {
+    return (
+      `Impossible de joindre le serveur (${API_URL}). `
+      + 'Sur Render (gratuit), le backend peut mettre 30–60 s à se réveiller : '
+      + 'attendez puis réessayez. Vérifiez aussi votre connexion internet.'
+    );
+  }
+  return (
+    `Impossible de joindre le serveur (${API_URL}). `
+    + 'Lancez le backend avec « python manage.py runserver 0.0.0.0:8000 » '
+    + 'et vérifiez le Wi‑Fi / l\'IP dans mobile/.env.'
+  );
 }
 
-const FETCH_TIMEOUT_MS = 20000;
+/** Timeout plus long pour Render (cold start) et uploads KYC. */
+const FETCH_TIMEOUT_MS = /onrender\.com/i.test(API_URL) ? 90000 : 25000;
+const FORM_FETCH_TIMEOUT_MS = /onrender\.com/i.test(API_URL) ? 120000 : 60000;
 
-async function safeFetch(url: string, options?: RequestInit): Promise<Response> {
+async function safeFetch(
+  url: string,
+  options?: RequestInit,
+  timeoutMs: number = FETCH_TIMEOUT_MS,
+): Promise<Response> {
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
     return await fetch(url, { ...options, signal: controller.signal });
   } catch (err) {
@@ -200,7 +218,11 @@ export async function apiFormRequest<T>(
   const headers: Record<string, string> = {};
   if (token) headers.Authorization = `Bearer ${token}`;
 
-  const res = await safeFetch(`${API_URL}${path}`, { method, headers, body: formData });
+  const res = await safeFetch(
+    `${API_URL}${path}`,
+    { method, headers, body: formData },
+    FORM_FETCH_TIMEOUT_MS,
+  );
 
   if (res.status === 401 && retry) {
     memoryToken = undefined;

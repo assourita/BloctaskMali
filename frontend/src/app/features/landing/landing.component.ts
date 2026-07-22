@@ -212,17 +212,17 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
           </div>
           <div class="missions-grid" *ngIf="!loading && missions.length">
             <mat-card class="mission-card" *ngFor="let mission of missions">
-              <div class="mission-card-header">
+              <div class="mission-card-top">
                 <span class="mission-category">
                   <mat-icon>{{ mission.category_icon || 'assignment' }}</mat-icon>
-                  {{ mission.category_name }}
+                  {{ mission.category_name || 'Mission' }}
                 </span>
                 <span class="mission-budget">{{ mission.budget | number:'1.0-0' }} {{ mission.currency }}</span>
               </div>
               <h3>{{ mission.title }}</h3>
-              <p class="mission-location" *ngIf="mission.pickup_address">
+              <p class="mission-location">
                 <mat-icon>place</mat-icon>
-                {{ mission.pickup_address }}
+                <span>{{ mission.pickup_address || 'Lieu à confirmer' }}</span>
               </p>
               <div class="mission-meta">
                 <span *ngIf="mission.deadline">
@@ -234,9 +234,11 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
                   {{ mission.application_count }} candidature{{ mission.application_count > 1 ? 's' : '' }}
                 </span>
               </div>
-              <button mat-stroked-button class="mission-btn" (click)="viewMission(mission)">
-                Voir la mission
-              </button>
+              <div class="mission-card-footer">
+                <button mat-flat-button color="primary" class="mission-btn" (click)="viewMission(mission)">
+                  Voir la mission
+                </button>
+              </div>
             </mat-card>
           </div>
           <p class="empty-message" *ngIf="!loading && !missions.length">
@@ -1128,92 +1130,138 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
     .missions-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 1.5rem;
+      gap: 1.25rem;
+      align-items: stretch;
     }
 
     .mission-card {
-      padding: 1.25rem;
-      border-radius: 1rem;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      padding: 1.35rem 1.35rem 1.15rem;
+      border-radius: 1.15rem;
       border: 1px solid #e5e7eb;
-      box-shadow: none;
+      background: #fff;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+      transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
     }
 
-    .mission-card-header {
+    .mission-card:hover {
+      border-color: #bbf7d0;
+      box-shadow: 0 10px 28px rgba(22, 163, 74, 0.1);
+      transform: translateY(-2px);
+    }
+
+    .mission-card-top {
       display: flex;
       justify-content: space-between;
-      align-items: center;
-      margin-bottom: 0.75rem;
+      align-items: flex-start;
+      gap: 0.75rem;
+      margin-bottom: 0.85rem;
     }
 
     .mission-category {
-      display: flex;
+      display: inline-flex;
       align-items: center;
-      gap: 0.25rem;
-      font-size: 0.8125rem;
-      color: #6b7280;
+      gap: 0.35rem;
+      max-width: 62%;
+      padding: 0.3rem 0.65rem;
+      border-radius: 999px;
+      background: #f3f4f6;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #4b5563;
+      line-height: 1.2;
 
       mat-icon {
-        font-size: 1rem;
-        width: 1rem;
-        height: 1rem;
+        font-size: 0.95rem;
+        width: 0.95rem;
+        height: 0.95rem;
+        color: #6b7280;
       }
     }
 
     .mission-budget {
-      font-weight: 700;
-      color: #16a34a;
-      font-size: 0.9375rem;
+      flex-shrink: 0;
+      font-weight: 800;
+      color: #15803d;
+      font-size: 0.95rem;
+      letter-spacing: -0.01em;
+      white-space: nowrap;
     }
 
     .mission-card h3 {
-      font-size: 1.125rem;
-      font-weight: 600;
-      margin: 0 0 0.5rem;
+      font-size: 1.15rem;
+      font-weight: 700;
+      margin: 0 0 0.65rem;
       color: #111827;
+      line-height: 1.35;
+      min-height: 2.7em;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
     }
 
     .mission-location {
       display: flex;
       align-items: flex-start;
-      gap: 0.25rem;
+      gap: 0.3rem;
       font-size: 0.875rem;
       color: #6b7280;
-      margin: 0 0 0.75rem;
+      margin: 0 0 0.85rem;
+      min-height: 1.35rem;
 
       mat-icon {
         font-size: 1rem;
         width: 1rem;
         height: 1rem;
         flex-shrink: 0;
+        margin-top: 1px;
+        color: #9ca3af;
+      }
+
+      span {
+        display: -webkit-box;
+        -webkit-line-clamp: 1;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
       }
     }
 
     .mission-meta {
       display: flex;
-      gap: 1rem;
+      gap: 0.85rem;
       font-size: 0.8125rem;
       color: #6b7280;
       margin-bottom: 1rem;
       flex-wrap: wrap;
 
       span {
-        display: flex;
+        display: inline-flex;
         align-items: center;
         gap: 0.25rem;
       }
 
       mat-icon {
-        font-size: 0.875rem;
-        width: 0.875rem;
-        height: 0.875rem;
+        font-size: 0.9rem;
+        width: 0.9rem;
+        height: 0.9rem;
+        color: #9ca3af;
       }
+    }
+
+    .mission-card-footer {
+      margin-top: auto;
+      padding-top: 0.25rem;
     }
 
     .mission-btn {
       width: 100%;
-      border-color: #16a34a !important;
-      color: #15803d !important;
-      font-weight: 600;
+      font-weight: 700 !important;
+      border-radius: 0.75rem !important;
+      background: #16a34a !important;
+      color: #fff !important;
     }
 
     /* Prestataires */
