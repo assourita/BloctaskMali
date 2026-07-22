@@ -138,14 +138,14 @@ class BlockchainService:
         self.litigation_contract = None
         self.last_error = ' | '.join(errors)[:500] or 'Impossible de se connecter à la blockchain'
         logger.error(self.last_error)
-                return False
-            
+        return False
+
     def ensure_connected(self) -> bool:
         """Reconnecte si besoin (cold start Render / RPC momentanément down)."""
         if self.is_connected():
             return True
         return self._connect()
-    
+
     def _load_contracts(self):
         """Charge les smart contracts depuis les ABIs compilés"""
         blockchain_cfg = getattr(settings, 'BLOCKCHAIN_CONFIG', {})
