@@ -1,0 +1,84 @@
+---
+title: Figure 3.5b — Diagramme de cas d'utilisation — Prestataire (UML)
+---
+flowchart TD
+    %% Acteurs
+    Prestataire((Prestataire))
+
+    %% Cas d'utilisation principaux
+    UC01["UC01<br/>S'inscrire / Se connecter"]
+    UC02["UC02<br/>Soumettre KYC NINA"]
+    UC03["UC03<br/>Consulter missions"]
+    UC04["UC04<br/>Postuler à une mission"]
+    UC05["UC05<br/>Déposer caution"]
+    UC06["UC06<br/>Démarrer mission"]
+    UC07["UC07<br/>Soumettre preuves"]
+    UC08["UC08<br/>Communiquer avec client"]
+    UC09["UC09<br/>Ouvrir litige"]
+    UC10["UC10<br/>Gérer profil"]
+    UC11["UC11<br/>Activer 2FA TOTP"]
+    UC12["UC12<br/>Ancrer preuves on-chain"]
+    UC13["UC13<br/>Consulter revenus"]
+
+    %% Cas d'utilisation inclus (obligatoires)
+    UC_Auth["Authentification<br/><<include>>"]
+    UC_Notif["Recevoir notifications<br/><<include>>"]
+    UC_GPS["Partager position GPS<br/><<include>>"]
+    UC_Payment["Recevoir paiement<br/><<include>>"]
+
+    %% Cas d'utilisation étendus (optionnels)
+    UC_Analysis["Analyse IA des preuves<br/><<extend>>"]
+    UC_Blockchain["Validation blockchain<br/><<extend>>"]
+    UC_Chat["Chat avancé<br/><<extend>>"]
+
+    %% Relations acteur - cas d'utilisation
+    Prestataire --> UC01
+    Prestataire --> UC02
+    Prestataire --> UC03
+    Prestataire --> UC04
+    Prestataire --> UC05
+    Prestataire --> UC06
+    Prestataire --> UC07
+    Prestataire --> UC08
+    Prestataire --> UC09
+    Prestataire --> UC10
+    Prestataire --> UC11
+    Prestataire --> UC12
+    Prestataire --> UC13
+
+    %% Relations <<include>> (obligatoires)
+    UC04 -.->|<<include>>| UC_Auth
+    UC06 -.->|<<include>>| UC_GPS
+    UC07 -.->|<<include>>| UC_Notif
+    UC08 -.->|<<include>>| UC_Auth
+    UC10 -.->|<<include>>| UC_Auth
+    UC11 -.->|<<include>>| UC_Auth
+    UC13 -.->|<<include>>| UC_Payment
+
+    %% Relations <<extend>> (optionnels)
+    UC07 -.->|<<extend>>| UC_Analysis
+    UC07 -.->|<<extend>>| UC_Blockchain
+    UC08 -.->|<<extend>>| UC_Chat
+
+    %% Relations entre cas d'utilisation
+    UC01 --> UC02
+    UC03 --> UC04
+    UC04 --> UC05
+    UC05 --> UC06
+    UC06 --> UC07
+    UC07 -.-> UC09
+
+    %% Généralisation/Héritage
+    UC_Auth --> UC01
+    UC_Payment --> UC13
+
+    %% Styles
+    classDef actor fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef useCase fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    classDef include fill:#fff3e0,stroke:#f57c00,stroke-width:2px,stroke-dasharray: 5 5
+    classDef extend fill:#fce4ec,stroke:#c2185b,stroke-width:2px,stroke-dasharray: 3 3
+
+    class Prestataire actor
+    class UC01,UC02,UC03,UC04,UC05,UC06,UC07,UC08,UC09,UC10,UC11,UC12,UC13 useCase
+    class UC_Auth,UC_Notif,UC_GPS,UC_Payment include
+    class UC_Analysis,UC_Blockchain,UC_Chat extend

@@ -1,0 +1,76 @@
+---
+title: Figure 3.5d — Diagramme de cas d'utilisation — Administrateur (UML)
+---
+flowchart TD
+    %% Acteurs
+    Admin((Administrateur))
+
+    %% Cas d'utilisation principaux
+    UC01["UC01<br/>Se connecter"]
+    UC02["UC02<br/>Valider KYC utilisateurs"]
+    UC03["UC03<br/>Arbitrer litiges"]
+    UC04["UC04<br/>Superviser plateforme"]
+    UC05["UC05<br/>Gérer utilisateurs"]
+    UC06["UC06<br/>Analyser preuves IA"]
+    UC07["UC07<br/>Gérer transactions blockchain"]
+    UC08["UC08<br/>Consulter statistiques"]
+    UC09["UC09<br/>Activer 2FA TOTP"]
+    UC10["UC10<br/>Exporter données"]
+
+    %% Cas d'utilisation inclus (obligatoires)
+    UC_Auth["Authentification admin<br/><<include>>"]
+    UC_Audit["Journalisation actions<br/><<include>>"]
+    UC_Notif["Recevoir alertes<br/><<include>>"]
+
+    %% Cas d'utilisation étendus (optionnels)
+    UC_AI["Analyse IA avancée<br/><<extend>>"]
+    UC_Blockchain["Audit blockchain<br/><<extend>>"]
+    UC_Reports["Rapports personnalisés<br/><<extend>>"]
+
+    %% Relations acteur - cas d'utilisation
+    Admin --> UC01
+    Admin --> UC02
+    Admin --> UC03
+    Admin --> UC04
+    Admin --> UC05
+    Admin --> UC06
+    Admin --> UC07
+    Admin --> UC08
+    Admin --> UC09
+    Admin --> UC10
+
+    %% Relations <<include>> (obligatoires)
+    UC01 -.->|<<include>>| UC_Auth
+    UC02 -.->|<<include>>| UC_Audit
+    UC03 -.->|<<include>>| UC_Audit
+    UC04 -.->|<<include>>| UC_Notif
+    UC05 -.->|<<include>>| UC_Audit
+    UC07 -.->|<<include>>| UC_Audit
+    UC09 -.->|<<include>>| UC_Auth
+
+    %% Relations <<extend>> (optionnels)
+    UC06 -.->|<<extend>>| UC_AI
+    UC07 -.->|<<extend>>| UC_Blockchain
+    UC08 -.->|<<extend>>| UC_Reports
+
+    %% Relations entre cas d'utilisation
+    UC01 --> UC02
+    UC02 --> UC03
+    UC03 --> UC04
+    UC04 --> UC05
+    UC06 --> UC07
+
+    %% Généralisation/Héritage
+    UC_Auth --> UC01
+    UC_Audit --> UC02
+
+    %% Styles
+    classDef actor fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef useCase fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    classDef include fill:#fff3e0,stroke:#f57c00,stroke-width:2px,stroke-dasharray: 5 5
+    classDef extend fill:#fce4ec,stroke:#c2185b,stroke-width:2px,stroke-dasharray: 3 3
+
+    class Admin actor
+    class UC01,UC02,UC03,UC04,UC05,UC06,UC07,UC08,UC09,UC10 useCase
+    class UC_Auth,UC_Audit,UC_Notif include
+    class UC_AI,UC_Blockchain,UC_Reports extend

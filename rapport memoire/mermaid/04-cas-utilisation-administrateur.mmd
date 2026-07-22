@@ -1,0 +1,33 @@
+---
+title: Figure 3.5d — Cas d'utilisation — Administrateur
+---
+flowchart LR
+    A((Admin)) --> BlockTask["Système BlockTask"]
+    
+    subgraph BlockTask["Fonctionnalités Administrateur"]
+        direction TB
+        
+        subgraph Litiges["Litiges"]
+            UC14["UC14<br/>Arbitrer litige"]
+        end
+        
+        subgraph Admin["Administration"]
+            UC17["UC17<br/>Superviser plateforme"]
+        end
+        
+        subgraph IA["Analyse"]
+            UC20["UC20<br/>Analyser preuves IA"]
+        end
+    end
+    
+    %% Liens
+    A --- UC14 & UC17 & UC20
+    
+    %% Styles
+    classDef disputeBox fill:#ffebee,stroke:#d32f2f
+    classDef adminBox fill:#fff8e1,stroke:#f9a825
+    classDef iaBox fill:#e8eaf6,stroke:#3f51b5
+    
+    class UC14 disputeBox
+    class UC17 adminBox
+    class UC20 iaBox

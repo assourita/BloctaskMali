@@ -1,0 +1,70 @@
+---
+title: Figure 3.6c — Classes — Exécution et Preuves
+---
+classDiagram
+    direction TB
+
+    class Mission {
+        +UUID id
+        +String title
+        +Enum status
+    }
+
+    class MissionProof {
+        +Enum proof_type
+        +Enum verification_status
+        +String file_url
+    }
+
+    class GPSLocation {
+        +Float latitude
+        +Float longitude
+        +Float accuracy
+        +DateTime timestamp
+    }
+
+    class QRValidation {
+        +String qr_code_data
+        +Enum status
+        +DateTime expires_at
+    }
+
+    class SignatureRecord {
+        +String signer_role
+        +DateTime signed_at
+    }
+
+    class PhotoAnalysis {
+        +Boolean is_blurry
+        +Float fraud_score
+        +SmallInt faces_count
+        +JSON fraud_flags
+    }
+
+    class ProofChecklist {
+        +Boolean requires_photo
+        +Boolean requires_signature
+        +Boolean requires_qr_code
+        +Float completion_percentage
+    }
+
+    class Conversation {
+        +Boolean is_closed
+        +DateTime updated_at
+    }
+
+    class Message {
+        +String content
+        +Enum message_type
+        +Boolean is_read
+        +DateTime delivered_at
+    }
+
+    Mission "1" --> "*" MissionProof : soumet
+    Mission "1" --> "*" GPSLocation : suit
+    Mission "1" --> "0..1" QRValidation : valide via
+    Mission "1" --> "*" SignatureRecord : signe
+    Mission "1" --> "0..1" ProofChecklist : vérifie
+    Mission "1" --> "0..1" Conversation : communique via
+    MissionProof "1" --> "0..1" PhotoAnalysis : analysée par
+    Conversation "1" --> "*" Message : contient

@@ -1,0 +1,79 @@
+---
+title: Figure 3.5c — Diagramme de cas d'utilisation — Entreprise (UML)
+---
+flowchart TD
+    %% Acteurs
+    Entreprise((Entreprise))
+
+    %% Cas d'utilisation principaux
+    UC01["UC01<br/>S'inscrire / Se connecter"]
+    UC02["UC02<br/>Soumettre documents légaux"]
+    UC03["UC03<br/>Créer mission B2B"]
+    UC04["UC04<br/>Gérer employés"]
+    UC05["UC05<br/>Assigner mission à employé"]
+    UC06["UC06<br/>Suivre missions employés"]
+    UC07["UC07<br/>Gérer caution collective"]
+    UC08["UC08<br/>Consulter statistiques"]
+    UC09["UC09<br/>Gérer facturation"]
+    UC10["UC10<br/>Activer 2FA TOTP"]
+
+    %% Cas d'utilisation inclus (obligatoires)
+    UC_Auth["Authentification<br/><<include>>"]
+    UC_KYC["Vérification entreprise<br/><<include>>"]
+    UC_Notif["Recevoir notifications<br/><<include>>"]
+    UC_Payment["Traiter paiement<br/><<include>>"]
+
+    %% Cas d'utilisation étendus (optionnels)
+    UC_Analytics["Analyse avancée<br/><<extend>>"]
+    UC_Billing["Facturation automatique<br/><<extend>>"]
+    UC_GPS["Suivi GPS équipe<br/><<extend>>"]
+
+    %% Relations acteur - cas d'utilisation
+    Entreprise --> UC01
+    Entreprise --> UC02
+    Entreprise --> UC03
+    Entreprise --> UC04
+    Entreprise --> UC05
+    Entreprise --> UC06
+    Entreprise --> UC07
+    Entreprise --> UC08
+    Entreprise --> UC09
+    Entreprise --> UC10
+
+    %% Relations <<include>> (obligatoires)
+    UC01 -.->|<<include>>| UC_Auth
+    UC02 -.->|<<include>>| UC_KYC
+    UC03 -.->|<<include>>| UC_Auth
+    UC04 -.->|<<include>>| UC_Auth
+    UC05 -.->|<<include>>| UC_Notif
+    UC06 -.->|<<include>>| UC_Notif
+    UC07 -.->|<<include>>| UC_Payment
+    UC09 -.->|<<include>>| UC_Payment
+    UC10 -.->|<<include>>| UC_Auth
+
+    %% Relations <<extend>> (optionnels)
+    UC08 -.->|<<extend>>| UC_Analytics
+    UC09 -.->|<<extend>>| UC_Billing
+    UC06 -.->|<<extend>>| UC_GPS
+
+    %% Relations entre cas d'utilisation
+    UC01 --> UC02
+    UC04 --> UC05
+    UC05 --> UC06
+    UC07 --> UC09
+
+    %% Généralisation/Héritage
+    UC_Auth --> UC01
+    UC_KYC --> UC02
+    UC_Payment --> UC09
+
+    %% Styles
+    classDef actor fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef useCase fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    classDef include fill:#fff3e0,stroke:#f57c00,stroke-width:2px,stroke-dasharray: 5 5
+    classDef extend fill:#fce4ec,stroke:#c2185b,stroke-width:2px,stroke-dasharray: 3 3
+
+    class Entreprise actor
+    class UC01,UC02,UC03,UC04,UC05,UC06,UC07,UC08,UC09,UC10 useCase
+    class UC_Auth,UC_KYC,UC_Notif,UC_Payment include
+    class UC_Analytics,UC_Billing,UC_GPS extend

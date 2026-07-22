@@ -1,0 +1,59 @@
+---
+title: Figure 3.5b — Cas d'utilisation — Prestataire
+---
+flowchart LR
+    P((Prestataire)) --> BlockTask["Système BlockTask"]
+    
+    subgraph BlockTask["Fonctionnalités Prestataire"]
+        direction TB
+        
+        subgraph Auth["Authentification"]
+            UC01["UC01<br/>S'inscrire / Se connecter"]
+            UC02["UC02<br/>Soumettre KYC NINA"]
+            UC19["UC19<br/>Activer 2FA TOTP"]
+        end
+        
+        subgraph Mission["Gestion Missions"]
+            UC05["UC05<br/>Consulter missions"]
+            UC06["UC06<br/>Postuler"]
+            UC09["UC09<br/>Démarrer mission"]
+        end
+        
+        subgraph Payment["Caution"]
+            UC08["UC08<br/>Déposer caution"]
+        end
+        
+        subgraph Execution["Exécution"]
+            UC10["UC10<br/>Soumettre preuves"]
+            UC18["UC18<br/>Chat mission"]
+        end
+        
+        subgraph Litiges["Litiges"]
+            UC13["UC13<br/>Ouvrir litige"]
+        end
+        
+        subgraph Blockchain["Blockchain"]
+            UC15["UC15<br/>Ancrer on-chain"]
+        end
+    end
+    
+    %% Liens
+    P --- UC01 & UC02 & UC05 & UC06 & UC08 & UC09 & UC10 & UC13 & UC15 & UC18 & UC19
+    
+    %% Dépendances
+    UC09 -.-> UC10
+    
+    %% Styles
+    classDef authBox fill:#e3f2fd,stroke:#1976d2
+    classDef missionBox fill:#e8f5e9,stroke:#388e3c
+    classDef paymentBox fill:#fff3e0,stroke:#f57c00
+    classDef executionBox fill:#fce4ec,stroke:#c2185b
+    classDef disputeBox fill:#ffebee,stroke:#d32f2f
+    classDef blockchainBox fill:#f3e5f5,stroke:#7b1fa2
+    
+    class UC01,UC02,UC19 authBox
+    class UC05,UC06,UC09 missionBox
+    class UC08 paymentBox
+    class UC10,UC18 executionBox
+    class UC13 disputeBox
+    class UC15 blockchainBox

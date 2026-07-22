@@ -1,0 +1,44 @@
+@startuml
+title Figure 3.5c — Cas d'utilisation — Administrateur
+
+left to right direction
+skinparam actorStyle awesome
+skinparam usecase {
+    BackgroundColor #fff3e0
+    BorderColor #f57c00
+    ArrowColor #1976d2
+}
+
+actor "Administrateur" as Admin
+
+rectangle "Système BlockTask" {
+    usecase "Se connecter" as UC01
+    usecase "Valider dossier KYC" as UC20
+    usecase "Rejeter dossier KYC" as UC21
+    usecase "Arbitrer un litige" as UC22
+    usecase "Gérer les utilisateurs" as UC23
+    usecase "Configurer la plateforme" as UC24
+    usecase "Consulter analytics\n& statistiques" as UC25
+    usecase "Superviser transactions\nblockchain" as UC26
+
+    usecase "Authentification" as UC_Auth
+    usecase "Notifier l'utilisateur" as UC_Notif
+}
+
+Admin --> UC01
+Admin --> UC20
+Admin --> UC21
+Admin --> UC22
+Admin --> UC23
+Admin --> UC24
+Admin --> UC25
+Admin --> UC26
+
+UC01 ..> UC_Auth : <<include>>
+UC20 ..> UC_Notif : <<include>>
+UC21 ..> UC_Notif : <<include>>
+UC22 ..> UC_Notif : <<include>>
+
+UC21 ..> UC20 : <<extend>>
+
+@enduml

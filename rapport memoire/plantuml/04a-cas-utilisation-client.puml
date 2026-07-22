@@ -1,0 +1,50 @@
+@startuml
+title Figure 3.5a — Cas d'utilisation — Client
+
+left to right direction
+skinparam actorStyle awesome
+skinparam usecase {
+    BackgroundColor #e8f5e9
+    BorderColor #388e3c
+    ArrowColor #1976d2
+}
+
+actor "Client" as Client
+
+rectangle "Système BlockTask" {
+    usecase "S'inscrire / Se connecter" as UC01
+    usecase "Soumettre KYC (NINA)" as UC02
+    usecase "Créer une mission" as UC03
+    usecase "Payer escrow (FCFA)" as UC04
+    usecase "Accepter candidature" as UC07
+    usecase "Suivre mission (GPS)" as UC08
+    usecase "Valider mission" as UC09
+    usecase "Ouvrir litige" as UC10
+    usecase "Évaluer prestataire" as UC06
+    usecase "Gérer profil" as UC11
+
+    usecase "Authentification" as UC_Auth
+    usecase "Traiter paiement\nMobile Money" as UC_Payment
+    usecase "Recevoir notifications" as UC_Notif
+}
+
+Client --> UC01
+Client --> UC02
+Client --> UC03
+Client --> UC04
+Client --> UC07
+Client --> UC08
+Client --> UC09
+Client --> UC10
+Client --> UC06
+Client --> UC11
+
+UC01 ..> UC_Auth : <<include>>
+UC03 ..> UC_Auth : <<include>>
+UC04 ..> UC_Payment : <<include>>
+UC09 ..> UC_Auth : <<include>>
+UC08 ..> UC_Notif : <<include>>
+
+UC09 ..> UC10 : <<extend>>
+
+@enduml

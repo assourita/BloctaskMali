@@ -1,0 +1,60 @@
+---
+title: Figure 3.5a — Cas d'utilisation — Client
+---
+flowchart LR
+    C((Client)) --> BlockTask["Système BlockTask"]
+    
+    subgraph BlockTask["Fonctionnalités Client"]
+        direction TB
+        
+        subgraph Auth["Authentification"]
+            UC01["UC01<br/>S'inscrire / Se connecter"]
+            UC02["UC02<br/>Soumettre KYC NINA"]
+            UC19["UC19<br/>Activer 2FA TOTP"]
+        end
+        
+        subgraph Mission["Gestion Missions"]
+            UC03["UC03<br/>Créer une mission"]
+            UC07["UC07<br/>Accepter candidature"]
+            UC12["UC12<br/>Valider mission"]
+        end
+        
+        subgraph Payment["Paiements"]
+            UC04["UC04<br/>Payer escrow FCFA"]
+        end
+        
+        subgraph Execution["Suivi"]
+            UC11["UC11<br/>Suivre GPS"]
+            UC18["UC18<br/>Chat mission"]
+        end
+        
+        subgraph Litiges["Litiges"]
+            UC13["UC13<br/>Ouvrir litige"]
+        end
+        
+        subgraph Blockchain["Blockchain"]
+            UC15["UC15<br/>Ancrer on-chain"]
+        end
+    end
+    
+    %% Liens
+    C --- UC01 & UC02 & UC03 & UC04 & UC07 & UC11 & UC12 & UC13 & UC15 & UC18 & UC19
+    
+    %% Dépendances
+    UC03 -.-> UC04
+    UC07 -.-> UC08
+    
+    %% Styles
+    classDef authBox fill:#e3f2fd,stroke:#1976d2
+    classDef missionBox fill:#e8f5e9,stroke:#388e3c
+    classDef paymentBox fill:#fff3e0,stroke:#f57c00
+    classDef executionBox fill:#fce4ec,stroke:#c2185b
+    classDef disputeBox fill:#ffebee,stroke:#d32f2f
+    classDef blockchainBox fill:#f3e5f5,stroke:#7b1fa2
+    
+    class UC01,UC02,UC19 authBox
+    class UC03,UC07,UC12 missionBox
+    class UC04 paymentBox
+    class UC11,UC18 executionBox
+    class UC13 disputeBox
+    class UC15 blockchainBox

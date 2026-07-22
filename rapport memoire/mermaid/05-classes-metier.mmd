@@ -1,15 +1,15 @@
 ---
-title: Figure 3.5 — Diagramme de classes (cœur métier)
+title: Figure 3.6a — Classes — Utilisateurs et Profils
 ---
 classDiagram
+    direction TB
+
     class User {
         +UUID id
         +String email
         +Enum user_type
         +Enum kyc_status
         +String nina
-        +String wallet_address
-        +String country
         +Boolean gps_tracking_enabled
     }
 
@@ -20,30 +20,16 @@ classDiagram
         +Enum level
     }
 
-    class Mission {
-        +UUID id
-        +String title
-        +Decimal budget
-        +Enum status
-        +Decimal required_deposit
-        +Boolean deposit_paid
-        +Int mission_contract_id
-        +String blockchain_status
-        +DateTime deposit_deadline
+    class ReputationScore {
+        +Float overall_score
+        +Float success_rate
+        +Float avg_rating
     }
 
-    class MissionApplication {
-        +Enum status
-        +Decimal proposed_price
-        +String message
-    }
-
-    class Payment {
-        +Decimal amount
-        +Decimal platform_fee
-        +Decimal provider_amount
-        +Enum status
-        +String mobile_operator
+    class User2FA {
+        +String secret_key
+        +Boolean is_enabled
+        +DateTime last_used
     }
 
     class ProviderDeposit {
@@ -52,45 +38,7 @@ classDiagram
         +Boolean is_dynamic
     }
 
-    class MissionProof {
-        +Enum proof_type
-        +Enum verification_status
-        +String file_url
-    }
-
-    class GPSLocation {
-        +Float latitude
-        +Float longitude
-        +DateTime timestamp
-    }
-
-    class Dispute {
-        +Enum status
-        +Enum decision
-        +Decimal refund_amount
-    }
-
-    class ReputationScore {
-        +Float overall_score
-        +Float success_rate
-        +Float avg_rating
-    }
-
-    class EscrowTransaction {
-        +Enum transaction_type
-        +String tx_hash
-        +Int block_number
-    }
-
-    User "1" --> "0..1" ProviderProfile
-    User "1" --> "*" Mission : client
-    User "1" --> "*" Mission : provider
-    Mission "1" --> "*" MissionApplication
-    Mission "1" --> "0..1" Payment
-    Mission "1" --> "*" MissionProof
-    Mission "1" --> "*" GPSLocation
-    Mission "1" --> "0..1" Dispute
-    Mission "1" --> "*" EscrowTransaction
-    User "1" --> "0..1" ReputationScore
-    User "1" --> "*" ProviderDeposit
-    MissionApplication --> User : provider
+    User "1" --> "0..1" ProviderProfile : possède
+    User "1" --> "0..1" ReputationScore : a
+    User "1" --> "0..1" User2FA : configure
+    User "1" --> "*" ProviderDeposit : dépose

@@ -1,0 +1,40 @@
+---
+title: Figure 3.5c — Cas d'utilisation — Entreprise
+---
+flowchart LR
+    E((Entreprise)) --> BlockTask["Système BlockTask"]
+    
+    subgraph BlockTask["Fonctionnalités Entreprise"]
+        direction TB
+        
+        subgraph Auth["Authentification"]
+            UC01["UC01<br/>S'inscrire / Se connecter"]
+            UC02["UC02<br/>Soumettre KYC NINA"]
+        end
+        
+        subgraph Mission["Gestion Missions"]
+            UC03["UC03<br/>Créer une mission"]
+        end
+        
+        subgraph Execution["Suivi"]
+            UC11["UC11<br/>Suivre GPS"]
+        end
+        
+        subgraph B2B["Gestion"]
+            UC16["UC16<br/>Gérer employés B2B"]
+        end
+    end
+    
+    %% Liens
+    E --- UC01 & UC02 & UC03 & UC11 & UC16
+    
+    %% Styles
+    classDef authBox fill:#e3f2fd,stroke:#1976d2
+    classDef missionBox fill:#e8f5e9,stroke:#388e3c
+    classDef executionBox fill:#fce4ec,stroke:#c2185b
+    classDef b2bBox fill:#e0f2f1,stroke:#00796b
+    
+    class UC01,UC02 authBox
+    class UC03 missionBox
+    class UC11 executionBox
+    class UC16 b2bBox

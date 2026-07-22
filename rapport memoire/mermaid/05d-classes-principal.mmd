@@ -1,0 +1,70 @@
+---
+title: Figure 3.6 — Diagramme de classes — Cœur métier (simplifié)
+---
+classDiagram
+    direction TB
+
+    class User {
+        +UUID id
+        +String email
+        +Enum user_type
+        +Enum kyc_status
+        +String nina
+    }
+
+    class Mission {
+        +UUID id
+        +String title
+        +Decimal budget
+        +Enum status
+        +Boolean deposit_paid
+        +DateTime deposit_deadline
+    }
+
+    class MissionApplication {
+        +Enum status
+        +Decimal proposed_price
+        +String message
+    }
+
+    class Payment {
+        +Decimal amount
+        +Decimal platform_fee
+        +Decimal provider_amount
+        +Enum status
+        +String mobile_operator
+    }
+
+    class MissionProof {
+        +Enum proof_type
+        +Enum verification_status
+        +String file_url
+    }
+
+    class Dispute {
+        +Enum status
+        +Enum decision
+        +Decimal refund_amount
+    }
+
+    class ProviderProfile {
+        +Float reputation_score
+        +Decimal deposit_balance
+        +Enum level
+    }
+
+    class EscrowTransaction {
+        +Enum transaction_type
+        +String tx_hash
+        +Int block_number
+    }
+
+    User "1" --> "0..1" ProviderProfile : possède
+    User "1" --> "*" Mission : crée (client)
+    User "1" --> "*" Mission : exécute (prestataire)
+    Mission "1" --> "*" MissionApplication : reçoit
+    MissionApplication "*" --> "1" User : soumise par
+    Mission "1" --> "0..1" Payment : financée par
+    Mission "1" --> "*" MissionProof : soumet
+    Mission "1" --> "0..1" Dispute : génère
+    Mission "1" --> "*" EscrowTransaction : ancre

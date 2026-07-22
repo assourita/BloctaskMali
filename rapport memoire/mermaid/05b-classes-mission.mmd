@@ -1,0 +1,62 @@
+---
+title: Figure 3.6b — Classes — Mission et Workflow
+---
+classDiagram
+    direction TB
+
+    class Mission {
+        +UUID id
+        +String title
+        +Decimal budget
+        +Enum status
+        +Boolean deposit_paid
+        +DateTime deposit_deadline
+        +String blockchain_status
+    }
+
+    class MissionApplication {
+        +Enum status
+        +Decimal proposed_price
+        +String message
+    }
+
+    class Payment {
+        +Decimal amount
+        +Decimal platform_fee
+        +Decimal provider_amount
+        +Enum status
+        +String mobile_operator
+    }
+
+    class Dispute {
+        +Enum status
+        +Enum decision
+        +Decimal refund_amount
+    }
+
+    class MissionReview {
+        +SmallInt client_rating
+        +SmallInt provider_rating
+        +Text client_comment
+        +DateTime client_reviewed_at
+    }
+
+    class MissionStatusHistory {
+        +String old_status
+        +String new_status
+        +Text reason
+        +DateTime changed_at
+    }
+
+    class EscrowTransaction {
+        +Enum transaction_type
+        +String tx_hash
+        +Int block_number
+    }
+
+    Mission "1" --> "*" MissionApplication : reçoit
+    Mission "1" --> "0..1" Payment : financée par
+    Mission "1" --> "0..1" Dispute : peut déclencher
+    Mission "1" --> "0..1" MissionReview : évaluée par
+    Mission "1" --> "*" MissionStatusHistory : trace
+    Mission "1" --> "*" EscrowTransaction : ancre

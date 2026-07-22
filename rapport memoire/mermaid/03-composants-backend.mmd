@@ -1,5 +1,5 @@
 ---
-title: Figure 3.3 — Composants backend Django
+title: Figure 3.4 — Diagramme de composants — Backend Django
 ---
 flowchart TB
     subgraph Frontend["Couche présentation"]
@@ -23,6 +23,12 @@ flowchart TB
         notifications["notifications<br/>Alertes"]
         analytics["analytics<br/>Statistiques"]
         common["common<br/>Config Mali"]
+        chat["chat<br/>Messages mission"]
+        totp["totp<br/>2FA authentification"]
+        analysis["analysis<br/>Analyse preuves IA"]
+        solicitations["solicitations<br/>Sollicitations directes"]
+        reviews["reviews<br/>Évaluations missions"]
+        bookmarks["bookmarks<br/>Missions sauvegardées"]
     end
 
     subgraph External["Externe"]
@@ -34,6 +40,7 @@ flowchart TB
     SPA --> GW
     GW --> users & missions & payments & escrow & proofs & tracking
     GW --> disputes & reputation & enterprises & notifications & analytics & common
+    GW --> chat & totp & analysis & solicitations & reviews & bookmarks
 
     missions --> payments
     missions --> escrow
@@ -45,3 +52,10 @@ flowchart TB
     escrow --> ETH
     payments --> MM
     users & missions & payments --> PG
+    missions --> chat
+    proofs --> analysis
+    users --> totp
+    missions --> solicitations
+    missions --> reviews
+    missions --> bookmarks
+    users --> bookmarks

@@ -1,0 +1,48 @@
+@startuml
+title Figure 3.5d — Cas d'utilisation — Entreprise (B2B)
+
+left to right direction
+skinparam actorStyle awesome
+skinparam usecase {
+    BackgroundColor #e3f2fd
+    BorderColor #1976d2
+    ArrowColor #1976d2
+}
+
+actor "Entreprise" as Ent
+actor "Employé" as Emp
+
+rectangle "Système BlockTask" {
+    usecase "S'inscrire / Se connecter" as UC01
+    usecase "Soumettre KYC entreprise" as UC02
+    usecase "Créer un employé" as UC30
+    usecase "Affecter employé\nà une mission" as UC31
+    usecase "Consulter missions\nde l'entreprise" as UC32
+    usecase "Suivre performance\nde l'équipe" as UC33
+    usecase "Gérer facturation" as UC34
+
+    usecase "Se connecter\n(espace employé)" as UC35
+    usecase "Consulter missions\nassignées" as UC36
+    usecase "Démarrer / Exécuter\nmission" as UC37
+
+    usecase "Authentification" as UC_Auth
+}
+
+Ent --> UC01
+Ent --> UC02
+Ent --> UC30
+Ent --> UC31
+Ent --> UC32
+Ent --> UC33
+Ent --> UC34
+
+Emp --> UC35
+Emp --> UC36
+Emp --> UC37
+
+UC01 ..> UC_Auth : <<include>>
+UC35 ..> UC_Auth : <<include>>
+UC31 ..> UC30 : <<include>>
+UC37 ..> UC36 : <<include>>
+
+@enduml

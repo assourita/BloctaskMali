@@ -1,5 +1,5 @@
 ---
-title: Figure 3.8 — Séquence — Caution, exécution, preuves et validation
+title: Figure 3.8 — Diagramme de séquence — Caution, exécution et validation
 ---
 sequenceDiagram
     autonumber
@@ -8,48 +8,107 @@ sequenceDiagram
     participant FE as Angular
     participant API as Django REST
     participant ESC as EscrowService
+    participant Chat as ChatService
+    participant Track as TrackingService
+    participant Proof as ProofService
+    participant AI as AnalysisService
+    participant WS as WebSocket<br/>Channels
+    participant Notif as NotificationService
     participant MM as MetaMask
     participant SC as EscrowContract
-    participant WS as WebSocket<br/>Channels
 
-    Prestataire->>FE: Postule à la mission
-    FE->>API: POST /api/missions/{id}/apply/
-    API-->>FE: Candidature pending
+    Note over Prestataire,SC: Étape 6: Exécution mission
 
-    Client->>FE: Accepte la candidature
-    FE->>API: POST /api/missions/{id}/accept_application/
-    API-->>FE: status=accepted, deposit_deadline=+4h
-
-    Prestataire->>FE: Dépose caution (solde FCFA)
-    FE->>API: POST /api/missions/{id}/pay_deposit/
-    API->>ESC: lock_provider_deposit()
-    API-->>FE: deposit_paid=true
-
-    opt Ancrage caution on-chain
-        FE->>MM: acceptMission(missionContractId)
-        MM->>SC: Transaction
-        FE->>API: POST .../record-provider-deposit/
-    end
-
-    Prestataire->>FE: Démarrer la mission
+    Prestataire->>FE: 6️⃣ Démarrer la mission
     FE->>API: POST /api/missions/{id}/start/
     API-->>FE: status=in_progress
+    API->>Notif: send_notification(mission_started)
+    
+    Prestataire->>Chat: Envoyer message initial
+    Chat->>WS: Broadcast message
+    WS-->>Client: Message reçu en temps réel
 
-    loop Suivi GPS
-        Prestataire->>WS: Position GPS
-        WS-->>Client: Mise à jour temps réel
+    loop Suivi GPS continu
+        Prestataire->>Track: Envoyer position GPS
+        Track->>WS: gps_location_update
+        WS-->>Client: Mise à jour carte temps réel
+        Note right of Client: Suivi trajectoire<br/>Points de contrôle<br/>ETA estimé
     end
 
-    Prestataire->>FE: Upload photos + Finaliser
+    Prestataire->>Chat: Communications ongoing
+    Chat->>WS: message_exchange
+    WS-->>Client: Notifications chat
+
+    Note over Prestataire,SC: Étape 7: Soumission preuves
+
+    Prestataire->>FE: 7️⃣ Capturer preuves
+    FE->>Proof: upload_proof(photo_before)
+    Proof->>AI: analyze_photo_quality()
+    AI-->>Proof: blur_score, brightness, fraud_detection
+    Proof-->>FE: proof_uploaded + analysis_results
+    
+    Prestataire->>FE: Capturer photo pendant
+    FE->>Proof: upload_proof(photo_during)
+    
+    Prestataire->>FE: Capturer photo après
+    FE->>Proof: upload_proof(photo_after)
+    Proof->>AI: verify_mission_completion()
+    
+    Prestataire->>FE: Ajouter signature numérique
+    FE->>Proof: upload_signature()
+    
+    Prestataire->>FE: Scanner QR code (si requis)
+    FE->>Proof: validate_qr_code()
+    
+    Prestataire->>FE: 7️⃣ Finaliser soumission
     FE->>API: POST /api/missions/{id}/submit_proof/
+    API->>Proof: validate_checklist_complete()
     API-->>FE: status=submitted
+    API->>Notif: send_notification(proofs_submitted)
 
-    opt Ancrage preuve on-chain
-        FE->>MM: submitProof(missionId, proofHash)
-        FE->>API: POST .../record-proof/
+    opt Ancrage preuves on-chain
+        FE->>MM: submitProof(missionId, proofHashes[])
+        MM->>SC: batchTransaction(proofs)
+        SC-->>MM: proofAnchored, txHash
+        FE->>API: POST /api/escrow/blockchain/record-proofs/
+        API-->>FE: blockchain_proofs=true
     end
 
-    Client->>FE: Valide la mission
-    FE->>API: POST /api/missions/{id}/validate/
+    Note over Prestataire,SC: Étape 8: Validation client
+
+    Client->>FE: 8️⃣ Vérifier preuves soumises
+    FE->>API: GET /api/missions/{id}/proofs/
+    API-->>FE: Liste preuves + analyses IA
+    
+    Client->>FE: Examiner photos et signatures
+    FE->>Proof: display_proof_details()
+    
+    alt Validation manuelle
+        Client->>FE: Approuver mission
+        FE->>API: POST /api/missions/{id}/validate/
+    else Auto-validation (24h)
+        API->>API: schedule_auto_validation(24h)
+        Note over API: Timer déclenché<br/>Validation automatique
+    end
+
+    Note over Prestataire,SC: Étape 9: Paiement final
+
     API->>ESC: release_payment_to_provider()
-    API-->>FE: status=completed, 95% libérés
+    ESC->>ESC: calculate_commission(5%)
+    ESC->>ESC: transfer_95%_provider()
+    ESC->>ESC: transfer_5%_platform()
+    
+    API->>API: update_reputation_scores()
+    API->>Notif: send_notification(mission_completed)
+    API-->>FE: status=completed ✅
+    
+    opt Ancrage final on-chain
+        FE->>MM: completeMission(missionId, rating)
+        MM->>SC: finalizeMission()
+        FE->>API: POST /api/escrow/blockchain/record-completion/
+    end
+
+    FE-->>Client: Mission terminée<br/>Paiement effectué
+    FE-->>Prestataire: Mission complétée<br/>Fonds reçus (95%)
+    
+    Note over Client,Notif: Cycle mission terminé ✅

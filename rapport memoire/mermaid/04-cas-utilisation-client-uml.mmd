@@ -1,0 +1,82 @@
+---
+title: Figure 3.5a — Diagramme de cas d'utilisation — Client (UML)
+---
+flowchart TD
+    %% Acteurs
+    Client((Client))
+
+    %% Cas d'utilisation principaux
+    UC01["UC01<br/>S'inscrire / Se connecter"]
+    UC02["UC02<br/>Soumettre KYC NINA"]
+    UC03["UC03<br/>Créer une mission"]
+    UC04["UC04<br/>Payer escrow FCFA"]
+    UC05["UC05<br/>Consulter missions disponibles"]
+    UC06["UC06<br/>Évaluer prestataire"]
+    UC07["UC07<br/>Accepter candidature"]
+    UC08["UC08<br/>Suivre mission en temps réel"]
+    UC09["UC09<br/>Valider mission"]
+    UC10["UC10<br/>Ouvrir litige"]
+    UC11["UC11<br/>Gérer profil"]
+    UC12["UC12<br/>Activer 2FA TOTP"]
+    UC13["UC13<br/>Ancrer on-chain"]
+
+    %% Cas d'utilisation inclus (obligatoires)
+    UC_Auth["Authentification<br/><<include>>"]
+    UC_Notif["Recevoir notifications<br/><<include>>"]
+    UC_Payment["Traiter paiement<br/><<include>>"]
+
+    %% Cas d'utilisation étendus (optionnels)
+    UC_GPS["Suivi GPS avancé<br/><<extend>>"]
+    UC_Blockchain["Validation blockchain<br/><<extend>>"]
+    UC_Chat["Communication avancée<br/><<extend>>"]
+
+    %% Relations acteur - cas d'utilisation
+    Client --> UC01
+    Client --> UC02
+    Client --> UC03
+    Client --> UC04
+    Client --> UC05
+    Client --> UC06
+    Client --> UC07
+    Client --> UC08
+    Client --> UC09
+    Client --> UC10
+    Client --> UC11
+    Client --> UC12
+    Client --> UC13
+
+    %% Relations <<include>> (obligatoires)
+    UC03 -.->|<<include>>| UC_Auth
+    UC04 -.->|<<include>>| UC_Payment
+    UC08 -.->|<<include>>| UC_Notif
+    UC09 -.->|<<include>>| UC_Auth
+    UC11 -.->|<<include>>| UC_Auth
+    UC12 -.->|<<include>>| UC_Auth
+
+    %% Relations <<extend>> (optionnels)
+    UC08 -.->|<<extend>>| UC_GPS
+    UC09 -.->|<<extend>>| UC_Blockchain
+    UC03 -.->|<<extend>>| UC_Chat
+
+    %% Relations entre cas d'utilisation
+    UC01 --> UC02
+    UC03 --> UC04
+    UC04 --> UC07
+    UC07 --> UC08
+    UC08 --> UC09
+    UC09 -.-> UC10
+
+    %% Généralisation/Héritage
+    UC_Auth --> UC01
+    UC_Payment --> UC04
+
+    %% Styles
+    classDef actor fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    classDef useCase fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    classDef include fill:#fff3e0,stroke:#f57c00,stroke-width:2px,stroke-dasharray: 5 5
+    classDef extend fill:#fce4ec,stroke:#c2185b,stroke-width:2px,stroke-dasharray: 3 3
+
+    class Client actor
+    class UC01,UC02,UC03,UC04,UC05,UC06,UC07,UC08,UC09,UC10,UC11,UC12,UC13 useCase
+    class UC_Auth,UC_Notif,UC_Payment include
+    class UC_GPS,UC_Blockchain,UC_Chat extend

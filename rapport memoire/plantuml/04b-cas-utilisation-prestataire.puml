@@ -1,0 +1,48 @@
+@startuml
+title Figure 3.5b — Cas d'utilisation — Prestataire
+
+left to right direction
+skinparam actorStyle awesome
+skinparam usecase {
+    BackgroundColor #e8f5e9
+    BorderColor #388e3c
+    ArrowColor #1976d2
+}
+
+actor "Prestataire" as Prest
+
+rectangle "Système BlockTask" {
+    usecase "S'inscrire / Se connecter" as UC01
+    usecase "Soumettre KYC (NINA)" as UC02
+    usecase "Consulter missions\ndisponibles" as UC05
+    usecase "Postuler à une mission" as UC13
+    usecase "Déposer caution" as UC14
+    usecase "Démarrer mission" as UC15
+    usecase "Soumettre preuves" as UC16
+    usecase "Activer suivi GPS" as UC17
+    usecase "Gérer profil\n& portfolio" as UC11
+    usecase "Consulter réputation" as UC18
+
+    usecase "Authentification" as UC_Auth
+    usecase "Traiter paiement\nMobile Money" as UC_Payment
+}
+
+Prest --> UC01
+Prest --> UC02
+Prest --> UC05
+Prest --> UC13
+Prest --> UC14
+Prest --> UC15
+Prest --> UC16
+Prest --> UC17
+Prest --> UC11
+Prest --> UC18
+
+UC01 ..> UC_Auth : <<include>>
+UC13 ..> UC_Auth : <<include>>
+UC14 ..> UC_Payment : <<include>>
+UC15 ..> UC_Auth : <<include>>
+
+UC16 ..> UC17 : <<extend>>
+
+@enduml
