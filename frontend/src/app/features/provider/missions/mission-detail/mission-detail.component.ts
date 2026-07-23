@@ -75,12 +75,20 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
             </div>
             <div class="stat-card" *ngIf="mission.deadline">
               <span class="stat-label">Échéance</span>
-              <span class="stat-value">{{ mission.deadline | date:'dd MMM yyyy' }}</span>
+              <span class="stat-value">{{ mission.deadline | date:'dd MMM yyyy HH:mm' }}</span>
               <span class="stat-hint">{{ deadlineHint(mission.deadline) }}</span>
             </div>
-            <div class="stat-card" *ngIf="mission.expected_duration">
+            <div class="stat-card" *ngIf="scheduleLabel">
+              <span class="stat-label">Créneau</span>
+              <span class="stat-value">{{ scheduleLabel }}</span>
+            </div>
+            <div class="stat-card" *ngIf="estimatedDuration">
               <span class="stat-label">Durée estimée</span>
-              <span class="stat-value">{{ mission.expected_duration }} min</span>
+              <span class="stat-value">{{ estimatedDuration }} min</span>
+            </div>
+            <div class="stat-card" *ngIf="merchandiseValue != null">
+              <span class="stat-label">Valeur marchandise</span>
+              <span class="stat-value">{{ merchandiseValue | number:'1.0-0' }} {{ mission.currency || 'XOF' }}</span>
             </div>
             <div class="stat-card" *ngIf="mission.status === 'funded'">
               <span class="stat-label">Candidatures</span>
@@ -121,6 +129,7 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
                     <div>
                       <strong>Point de retrait</strong>
                       <p>{{ mission.pickup_address }}</p>
+                      <small *ngIf="pickupContact">Contact : {{ pickupContact }}</small>
                     </div>
                   </div>
                   <div class="route-connector" *ngIf="mission.pickup_address && mission.delivery_address"></div>
@@ -129,6 +138,7 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
                     <div>
                       <strong>{{ deliveryOrServiceLabel() }}</strong>
                       <p>{{ mission.delivery_address }}</p>
+                      <small *ngIf="deliveryContact">Contact : {{ deliveryContact }}</small>
                     </div>
                   </div>
                 </div>
@@ -141,7 +151,7 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
             <!-- Détails catégorie (pour décider de postuler) -->
             <mat-card class="section-card" *ngIf="mission.custom_details?.length">
               <mat-card-header>
-                <mat-card-title><mat-icon>info</mat-icon> Détails de la mission</mat-card-title>
+                <mat-card-title><mat-icon>list_alt</mat-icon> Détails renseignés par le client</mat-card-title>
               </mat-card-header>
               <mat-card-content>
                 <div class="detail-grid">
@@ -185,8 +195,14 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
               </mat-card-header>
               <mat-card-content>
                 <mat-chip-set>
+                  <mat-chip *ngIf="mission.enterprise_only">
+                    <mat-icon>business</mat-icon> Entreprises uniquement
+                  </mat-chip>
                   <mat-chip *ngIf="mission.requires_verified_provider">
                     <mat-icon>verified_user</mat-icon> Identité vérifiée
+                  </mat-chip>
+                  <mat-chip *ngIf="reqFlag('requires_id_verification')">
+                    <mat-icon>badge</mat-icon> Vérif. pièce d'identité
                   </mat-chip>
                   <mat-chip *ngIf="mission.requires_gps_tracking">
                     <mat-icon>gps_fixed</mat-icon> Suivi GPS
@@ -570,6 +586,7 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
     .delivery .route-icon { background: #d1fae5; color: #059669; }
     .route-point strong { font-size: 13px; color: #374151; }
     .route-point p { margin: 4px 0 0; font-size: 14px; color: #6b7280; }
+    .route-point small { display: block; margin-top: 4px; font-size: 12px; color: #475569; }
 
     .detail-grid { display: flex; flex-direction: column; gap: 10px; }
     .detail-row {
@@ -927,11 +944,55 @@ export class ProviderMissionDetailComponent implements OnInit {
     const m = this.mission;
     if (!m) return false;
     return !!(m.requires_verified_provider || m.requires_gps_tracking || m.min_reputation_score
-      || this.reqFlag('requires_vehicle') || this.reqFlag('requires_photo') || this.reqFlag('requires_signature'));
+      || m.enterprise_only
+      || this.reqFlag('requires_vehicle') || this.reqFlag('requires_photo')
+      || this.reqFlag('requires_signature') || this.reqFlag('requires_id_verification'));
   }
 
   reqFlag(key: string): boolean {
     return !!(this.mission?.requirements as Record<string, boolean>)?.[key];
+  }
+
+  reqValue(key: string): unknown {
+    return (this.mission?.requirements as Record<string, unknown> | undefined)?.[key];
+  }
+
+  get pickupContact(): string {
+    return this.formatContact(this.reqValue('pickup_contact_name'), this.reqValue('pickup_contact_phone'));
+  }
+
+  get deliveryContact(): string {
+    return this.formatContact(this.reqValue('delivery_contact_name'), this.reqValue('delivery_contact_phone'));
+  }
+
+  get scheduleLabel(): string {
+    const start = String(this.reqValue('start_time') || '');
+    const end = String(this.reqValue('end_time') || '');
+    if (!start && !end) return '';
+    if (start && end) return `${start} → ${end}`;
+    return start || end;
+  }
+
+  get estimatedDuration(): number | null {
+    const raw = this.reqValue('estimated_duration') || this.mission?.expected_duration;
+    if (raw == null || raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  get merchandiseValue(): number | null {
+    const raw = this.mission?.deposit_policy?.merchandise_value ?? this.reqValue('merchandise_value');
+    if (raw == null || raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  private formatContact(name: unknown, phone: unknown): string {
+    const n = String(name || '').trim();
+    const p = String(phone || '').trim();
+    if (!n && !p) return '';
+    if (n && p) return `${n} — ${p}`;
+    return n || p;
   }
 
   deliveryOrServiceLabel(): string {
@@ -942,10 +1003,15 @@ export class ProviderMissionDetailComponent implements OnInit {
     return this.enterpriseAvailable ? "Postuler pour l'entreprise" : 'Postuler à cette mission';
   }
 
-  formatDetailValue(d: { type: string; value: unknown }): string {
+  formatDetailValue(d: { name?: string; type: string; value: unknown }): string {
     const v = d.value;
     if (typeof v === 'boolean') return v ? 'Oui' : 'Non';
-    if (v == null) return '—';
+    if (v == null || v === '') return '—';
+    if (d.name === 'merchandise_value') {
+      const n = Number(v);
+      return Number.isFinite(n) ? n.toLocaleString('fr-FR') : String(v);
+    }
+    if (d.name === 'estimated_duration') return `${v} min`;
     return String(v);
   }
 

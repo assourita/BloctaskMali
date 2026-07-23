@@ -102,6 +102,10 @@ export interface Mission {
     email?: string;
   } | null;
   requirements?: Record<string, unknown>;
+  special_instructions?: string;
+  enterprise_only?: boolean;
+  requires_verified_provider?: boolean;
+  min_reputation_score?: number;
   custom_details?: Array<{ name: string; label: string; type: string; value: unknown }>;
   media?: MissionMediaItem[];
 }

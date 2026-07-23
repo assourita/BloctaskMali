@@ -800,11 +800,11 @@ def get_custom_field_details(mission) -> list[dict[str, Any]]:
     details: list[dict[str, Any]] = []
 
     extra_labels = {
-        'special_instructions': 'Instructions spÃ©ciales',
+        'special_instructions': 'Instructions spéciales',
         'merchandise_value': 'Valeur marchandise (XOF)',
-        'start_time': 'Heure de dÃ©but',
+        'start_time': 'Heure de début',
         'end_time': 'Heure de fin',
-        'estimated_duration': 'DurÃ©e estimÃ©e',
+        'estimated_duration': 'Durée estimée (min)',
     }
     for key, label in extra_labels.items():
         value = req.get(key)

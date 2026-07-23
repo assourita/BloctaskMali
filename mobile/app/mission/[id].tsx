@@ -308,8 +308,63 @@ export default function MissionDetailScreen() {
 
   const category = mission.category?.name || mission.category_name;
   const statusMeta = STATUS_META[mission.status] || { label: mission.status, bg: '#f3f4f6', fg: '#6b7280' };
-  const deposit = mission.required_deposit ?? mission.deposit_amount;
-  const duration = mission.expected_duration ?? mission.estimated_duration;
+  const deposit = mission.required_deposit ?? mission.deposit_amount ?? mission.deposit_policy?.required_deposit;
+  const req = (mission.requirements || {}) as Record<string, unknown>;
+  const reqFlag = (key: string) => {
+    if (req[key]) return true;
+    const top = (mission as unknown as Record<string, unknown>)[key];
+    return !!top;
+  };
+  const reqStr = (key: string) => String(req[key] ?? '').trim();
+  const formatContact = (nameKey: string, phoneKey: string) => {
+    const n = reqStr(nameKey);
+    const p = reqStr(phoneKey);
+    if (!n && !p) return '';
+    return n && p ? `${n} — ${p}` : n || p;
+  };
+  const pickupContact = formatContact('pickup_contact_name', 'pickup_contact_phone');
+  const deliveryContact = formatContact('delivery_contact_name', 'delivery_contact_phone');
+  const startTime = reqStr('start_time');
+  const endTime = reqStr('end_time');
+  const scheduleLabel = startTime && endTime ? `${startTime} → ${endTime}` : startTime || endTime;
+  const merchandiseRaw = mission.deposit_policy?.merchandise_value ?? req.merchandise_value;
+  const merchandiseValue =
+    merchandiseRaw != null && merchandiseRaw !== '' && Number.isFinite(Number(merchandiseRaw))
+      ? Number(merchandiseRaw)
+      : null;
+  const durationRaw = req.estimated_duration ?? mission.expected_duration ?? mission.estimated_duration;
+  const duration =
+    durationRaw != null && Number.isFinite(Number(durationRaw)) && Number(durationRaw) > 0
+      ? Number(durationRaw)
+      : null;
+  const specialInstructions =
+    String(mission.special_instructions || req.special_instructions || '').trim();
+  const hasCustomSpecial = !!mission.custom_details?.some((d) => d.name === 'special_instructions');
+  const requirementChips = [
+    mission.enterprise_only ? 'Entreprises uniquement' : '',
+    mission.requires_verified_provider ? 'Identité vérifiée' : '',
+    reqFlag('requires_id_verification') ? "Vérif. pièce d'identité" : '',
+    reqFlag('requires_vehicle') ? 'Véhicule' : '',
+    reqFlag('requires_photo') ? 'Photo' : '',
+    reqFlag('requires_signature') ? 'Signature' : '',
+    mission.requires_gps_tracking ? 'Suivi GPS' : '',
+    mission.min_reputation_score ? `Réputation min. ${mission.min_reputation_score}` : '',
+  ].filter(Boolean) as string[];
+  const allRequirementChips = [
+    ...requirementChips,
+    ...(mission.requirement_labels || []).filter((l) => !requirementChips.includes(l)),
+  ];
+  const formatDetailValue = (d: { name?: string; type: string; value: unknown }) => {
+    const v = d.value;
+    if (typeof v === 'boolean') return v ? 'Oui' : 'Non';
+    if (v == null || v === '') return '—';
+    if (d.name === 'merchandise_value') {
+      const n = Number(v);
+      return Number.isFinite(n) ? formatXOF(n) : String(v);
+    }
+    if (d.name === 'estimated_duration') return `${v} min`;
+    return String(v);
+  };
   const escrowFunded = ['funded', 'accepted', 'in_progress', 'submitted', 'completed'].includes(mission.status);
   const escrowLabel =
     mission.status === 'completed'
@@ -337,9 +392,9 @@ export default function MissionDetailScreen() {
           {mission.description ? <Text style={styles.desc}>{mission.description}</Text> : null}
         </View>
 
-        {mission.requirement_labels && mission.requirement_labels.length > 0 ? (
+        {allRequirementChips.length > 0 ? (
           <View style={styles.reqRow}>
-            {mission.requirement_labels.map((label) => (
+            {allRequirementChips.map((label) => (
               <Text key={label} style={styles.reqChip}>{label}</Text>
             ))}
           </View>
@@ -354,10 +409,22 @@ export default function MissionDetailScreen() {
           {mission.deadline ? (
             <View style={styles.metricBox}>
               <Text style={styles.metricLabel}>Échéance</Text>
-              <Text style={[styles.metricValue, { fontSize: 14 }]}>
-                {new Date(mission.deadline).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+              <Text style={[styles.metricValue, { fontSize: 13 }]}>
+                {new Date(mission.deadline).toLocaleString('fr-FR', {
+                  day: '2-digit',
+                  month: 'short',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
               </Text>
               {deadlinePassed ? <Text style={styles.metricSub}>Échéance dépassée</Text> : null}
+            </View>
+          ) : null}
+          {scheduleLabel ? (
+            <View style={styles.metricBox}>
+              <Text style={styles.metricLabel}>Créneau</Text>
+              <Text style={[styles.metricValue, { fontSize: 14 }]}>{scheduleLabel}</Text>
             </View>
           ) : null}
           {duration ? (
@@ -366,10 +433,16 @@ export default function MissionDetailScreen() {
               <Text style={[styles.metricValue, { fontSize: 14 }]}>{duration} min</Text>
             </View>
           ) : null}
-          {deposit && (isProvider || isEnterpriseReceived) ? (
+          {merchandiseValue != null ? (
+            <View style={styles.metricBox}>
+              <Text style={styles.metricLabel}>Valeur marchandise</Text>
+              <Text style={styles.metricValue}>{formatXOF(merchandiseValue)}</Text>
+            </View>
+          ) : null}
+          {deposit ? (
             <View style={styles.metricBox}>
               <Text style={styles.metricLabel}>
-                {isEnterpriseReceived ? 'Caution entreprise' : 'Caution prestataire'}
+                {isEnterpriseReceived ? 'Caution entreprise' : 'Caution'}
               </Text>
               <Text style={styles.metricValue}>{formatXOF(deposit)}</Text>
             </View>
@@ -514,13 +587,14 @@ export default function MissionDetailScreen() {
         {/* Itinéraire */}
         {(mission.pickup_address || mission.delivery_address) && (
           <Card>
-            <Text style={styles.section}>Itinéraire</Text>
+            <Text style={styles.section}>Itinéraire & contacts</Text>
             {mission.pickup_address ? (
               <View style={styles.routeRow}>
                 <View style={[styles.dot, { backgroundColor: colors.accent }]} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.routeLabel}>Point de retrait</Text>
                   <Text style={styles.routeAddr}>{mission.pickup_address}</Text>
+                  {pickupContact ? <Text style={styles.routeContact}>Contact : {pickupContact}</Text> : null}
                 </View>
               </View>
             ) : null}
@@ -528,8 +602,11 @@ export default function MissionDetailScreen() {
               <View style={[styles.routeRow, { marginTop: mission.pickup_address ? spacing.sm : 0 }]}>
                 <View style={[styles.dot, { backgroundColor: colors.primary }]} />
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.routeLabel}>Point de livraison / intervention</Text>
+                  <Text style={styles.routeLabel}>
+                    {mission.pickup_address ? 'Point de livraison' : "Lieu d'intervention"}
+                  </Text>
                   <Text style={styles.routeAddr}>{mission.delivery_address}</Text>
+                  {deliveryContact ? <Text style={styles.routeContact}>Contact : {deliveryContact}</Text> : null}
                 </View>
               </View>
             ) : null}
@@ -539,15 +616,20 @@ export default function MissionDetailScreen() {
         {/* Détails catégorie — visibles avant de postuler */}
         {mission.custom_details && mission.custom_details.length > 0 ? (
           <Card>
-            <Text style={styles.section}>Détails de la mission</Text>
+            <Text style={styles.section}>Détails renseignés par le client</Text>
             {mission.custom_details.map((d) => (
               <View key={d.name} style={styles.detailRow}>
                 <Text style={styles.detailLabel}>{d.label}</Text>
-                <Text style={styles.detailValue}>
-                  {typeof d.value === 'boolean' ? (d.value ? 'Oui' : 'Non') : String(d.value ?? '—')}
-                </Text>
+                <Text style={styles.detailValue}>{formatDetailValue(d)}</Text>
               </View>
             ))}
+          </Card>
+        ) : null}
+
+        {specialInstructions && !hasCustomSpecial ? (
+          <Card>
+            <Text style={styles.section}>Instructions spéciales</Text>
+            <Text style={styles.routeAddr}>{specialInstructions}</Text>
           </Card>
         ) : null}
 
@@ -987,6 +1069,7 @@ const styles = StyleSheet.create({
   dot: { width: 10, height: 10, borderRadius: 5, marginTop: 4 },
   routeLabel: { fontSize: 11, fontWeight: '700', color: colors.textMuted, textTransform: 'uppercase' },
   routeAddr: { fontSize: 14, color: colors.text, marginTop: 2 },
+  routeContact: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
   detailRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',

@@ -56,14 +56,26 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
               <span class="stat-label">Budget</span>
               <span class="stat-value">{{ mission.budget | number:'1.0-0' }} {{ mission.currency }}</span>
             </div>
-            <div class="stat-card" *ngIf="mission.deposit_amount">
+            <div class="stat-card" *ngIf="mission.deposit_amount || mission.required_deposit || mission.deposit_policy?.required_deposit">
               <span class="stat-label">Caution prestataire</span>
-              <span class="stat-value">{{ mission.deposit_amount | number:'1.0-0' }} {{ mission.currency }}</span>
+              <span class="stat-value">{{ (mission.deposit_amount || mission.required_deposit || mission.deposit_policy?.required_deposit) | number:'1.0-0' }} {{ mission.currency }}</span>
+            </div>
+            <div class="stat-card" *ngIf="merchandiseValue != null">
+              <span class="stat-label">Valeur marchandise</span>
+              <span class="stat-value">{{ merchandiseValue | number:'1.0-0' }} {{ mission.currency }}</span>
             </div>
             <div class="stat-card" *ngIf="mission.deadline" [class.overdue]="isDeadlineOverdue()">
               <span class="stat-label">Échéance</span>
               <span class="stat-value">{{ mission.deadline | date:'dd MMM yyyy HH:mm' }}</span>
               <span class="stat-overdue" *ngIf="isDeadlineOverdue()">Échéance dépassée</span>
+            </div>
+            <div class="stat-card" *ngIf="scheduleLabel">
+              <span class="stat-label">Créneau</span>
+              <span class="stat-value schedule">{{ scheduleLabel }}</span>
+            </div>
+            <div class="stat-card" *ngIf="estimatedDuration">
+              <span class="stat-label">Durée estimée</span>
+              <span class="stat-value">{{ estimatedDuration }} min</span>
             </div>
           </div>
         </div>
@@ -182,25 +194,25 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
 
         <div class="layout">
           <div class="main-col">
-            <mat-card class="section-card">
+            <mat-card class="section-card" *ngIf="mission.pickup_address || mission.delivery_address">
               <mat-card-header>
-                <mat-card-title><mat-icon>route</mat-icon> Itinéraire</mat-card-title>
+                <mat-card-title><mat-icon>route</mat-icon> Itinéraire &amp; contacts</mat-card-title>
               </mat-card-header>
               <mat-card-content>
                 <div class="route">
-                  <div class="route-point pickup">
+                  <div class="route-point pickup" *ngIf="mission.pickup_address">
                     <div class="route-icon"><mat-icon>trip_origin</mat-icon></div>
                     <div>
-                      <strong>Retrait</strong>
+                      <strong>Point de retrait</strong>
                       <p>{{ mission.pickup_address }}</p>
                       <small *ngIf="pickupContact">Contact : {{ pickupContact }}</small>
                     </div>
                   </div>
-                  <div class="route-connector"></div>
-                  <div class="route-point delivery">
+                  <div class="route-connector" *ngIf="mission.pickup_address && mission.delivery_address"></div>
+                  <div class="route-point delivery" *ngIf="mission.delivery_address">
                     <div class="route-icon"><mat-icon>place</mat-icon></div>
                     <div>
-                      <strong>Livraison</strong>
+                      <strong>{{ deliveryOrServiceLabel }}</strong>
                       <p>{{ mission.delivery_address }}</p>
                       <small *ngIf="deliveryContact">Contact : {{ deliveryContact }}</small>
                     </div>
@@ -209,7 +221,45 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
               </mat-card-content>
             </mat-card>
 
-            <mat-card class="section-card" *ngIf="specialInstructions">
+            <mat-card class="section-card" *ngIf="mission.custom_details?.length">
+              <mat-card-header>
+                <mat-card-title><mat-icon>list_alt</mat-icon> Détails renseignés à la création</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="detail-grid">
+                  <div class="detail-row" *ngFor="let d of mission.custom_details">
+                    <span class="detail-label">{{ d.label }}</span>
+                    <span class="detail-value">{{ formatDetailValue(d) }}</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="section-card" *ngIf="mission.media?.length">
+              <mat-card-header>
+                <mat-card-title><mat-icon>photo_library</mat-icon> Photos / documents</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="media-grid">
+                  <a
+                    class="media-item"
+                    *ngFor="let m of mission.media"
+                    [href]="m.url"
+                    target="_blank"
+                    rel="noopener"
+                  >
+                    <img *ngIf="isImageMedia(m)" [src]="m.url" [alt]="m.label || m.file_name">
+                    <div class="media-doc" *ngIf="!isImageMedia(m)">
+                      <mat-icon>description</mat-icon>
+                      <span>{{ m.file_name }}</span>
+                    </div>
+                    <span class="media-caption">{{ m.label || m.field_name }}</span>
+                  </a>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="section-card" *ngIf="specialInstructions && !customDetailHas('special_instructions')">
               <mat-card-header>
                 <mat-card-title><mat-icon>info</mat-icon> Instructions spéciales</mat-card-title>
               </mat-card-header>
@@ -224,10 +274,14 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
               </mat-card-header>
               <mat-card-content>
                 <mat-chip-set>
+                  <mat-chip *ngIf="mission.enterprise_only"><mat-icon>business</mat-icon> Entreprises uniquement</mat-chip>
+                  <mat-chip *ngIf="mission.requires_verified_provider"><mat-icon>verified_user</mat-icon> Identité vérifiée</mat-chip>
+                  <mat-chip *ngIf="reqFlag('requires_id_verification')"><mat-icon>badge</mat-icon> Vérif. pièce d'identité</mat-chip>
                   <mat-chip *ngIf="reqFlag('requires_vehicle')"><mat-icon>local_shipping</mat-icon> Véhicule</mat-chip>
                   <mat-chip *ngIf="reqFlag('requires_photo')"><mat-icon>photo_camera</mat-icon> Photo</mat-chip>
                   <mat-chip *ngIf="reqFlag('requires_signature')"><mat-icon>draw</mat-icon> Signature</mat-chip>
                   <mat-chip *ngIf="mission.requires_gps_tracking"><mat-icon>gps_fixed</mat-icon> Suivi GPS</mat-chip>
+                  <mat-chip *ngIf="mission.min_reputation_score"><mat-icon>star</mat-icon> Réputation min. {{ mission.min_reputation_score }}</mat-chip>
                 </mat-chip-set>
               </mat-card-content>
             </mat-card>
@@ -464,7 +518,43 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
     .layout { display: grid; grid-template-columns: 1fr 320px; gap: 24px; }
     .section-card { margin-bottom: 20px; border-radius: 12px; }
     .section-card mat-card-title { display: flex; align-items: center; gap: 8px; font-size: 16px; }
-    .section-card mat-card-title mat-icon { color: #6C5CE7; }
+    .section-card mat-card-title mat-icon { color: #16a34a; }
+    .route { background: #f9fafb; border-radius: 12px; padding: 16px; }
+    .route-point { display: flex; gap: 12px; }
+    .route-icon {
+      width: 36px; height: 36px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+    }
+    .pickup .route-icon { background: #ecfdf3; color: #16a34a; }
+    .delivery .route-icon { background: #dbeafe; color: #2563eb; }
+    .route-point strong { font-size: 13px; color: #374151; }
+    .route-point p { margin: 4px 0 0; font-size: 14px; color: #6b7280; }
+    .route-point small { display: block; margin-top: 4px; font-size: 12px; color: #475569; }
+    .route-connector { width: 2px; height: 24px; background: #e5e7eb; margin: 4px 0 4px 17px; }
+    .detail-grid { display: flex; flex-direction: column; gap: 10px; }
+    .detail-row {
+      display: grid; grid-template-columns: minmax(120px, 40%) 1fr; gap: 12px;
+      padding: 8px 0; border-bottom: 1px solid #f3f4f6;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-label { font-size: 13px; color: #6b7280; font-weight: 500; }
+    .detail-value { font-size: 14px; color: #111827; white-space: pre-wrap; }
+    .media-grid {
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px;
+    }
+    .media-item {
+      display: flex; flex-direction: column; gap: 6px; text-decoration: none; color: inherit;
+    }
+    .media-item img {
+      width: 100%; height: 120px; object-fit: cover; border-radius: 10px; background: #f3f4f6;
+    }
+    .media-doc {
+      height: 120px; border-radius: 10px; background: #f3f4f6; display: flex;
+      flex-direction: column; align-items: center; justify-content: center; gap: 6px;
+      padding: 8px; text-align: center; font-size: 12px; color: #4b5563;
+    }
+    .media-caption { font-size: 12px; color: #6b7280; }
+    .stat-value.schedule { font-size: 15px; }
     .enterprise-progress .ep-steps { display: flex; flex-direction: column; gap: 10px; }
     .ep-step { display: flex; align-items: center; gap: 10px; color: #94a3b8; font-size: 14px; padding: 8px 12px; border-radius: 8px; background: #f9fafb; }
     .ep-step.done { color: #059669; background: #ecfdf5; }
@@ -582,25 +672,92 @@ export class MissionDetailComponent implements OnInit {
   }
 
   get pickupContact(): string {
-    const m = this.mission;
-    if (!m?.pickup_contact_name) return '';
-    return m.pickup_contact_phone ? `${m.pickup_contact_name} — ${m.pickup_contact_phone}` : m.pickup_contact_name;
+    return this.formatContact(
+      this.reqValue('pickup_contact_name') || this.mission?.pickup_contact_name,
+      this.reqValue('pickup_contact_phone') || this.mission?.pickup_contact_phone,
+    );
   }
 
   get deliveryContact(): string {
-    const m = this.mission;
-    if (!m?.delivery_contact_name) return '';
-    return m.delivery_contact_phone ? `${m.delivery_contact_name} — ${m.delivery_contact_phone}` : m.delivery_contact_name;
+    return this.formatContact(
+      this.reqValue('delivery_contact_name') || this.mission?.delivery_contact_name,
+      this.reqValue('delivery_contact_phone') || this.mission?.delivery_contact_phone,
+    );
   }
 
   get specialInstructions(): string {
-    return this.mission?.special_instructions
-      || (this.mission?.requirements as Record<string, string>)?.['special_instructions']
-      || '';
+    return String(
+      this.mission?.special_instructions
+      || this.reqValue('special_instructions')
+      || '',
+    );
+  }
+
+  get merchandiseValue(): number | null {
+    const fromPolicy = this.mission?.deposit_policy?.merchandise_value;
+    const raw = fromPolicy ?? this.reqValue('merchandise_value');
+    if (raw == null || raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) ? n : null;
+  }
+
+  get scheduleLabel(): string {
+    const start = String(this.reqValue('start_time') || '');
+    const end = String(this.reqValue('end_time') || '');
+    if (!start && !end) return '';
+    if (start && end) return `${start} → ${end}`;
+    return start || end;
+  }
+
+  get estimatedDuration(): number | null {
+    const raw = this.reqValue('estimated_duration') || this.mission?.expected_duration;
+    if (raw == null || raw === '') return null;
+    const n = Number(raw);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  get deliveryOrServiceLabel(): string {
+    return this.mission?.pickup_address ? 'Point de livraison' : "Lieu d'intervention";
   }
 
   get providerPhone(): string {
     return this.mission?.counterparty?.phone_number || this.mission?.provider?.phone_number || '';
+  }
+
+  private formatContact(name: unknown, phone: unknown): string {
+    const n = String(name || '').trim();
+    const p = String(phone || '').trim();
+    if (!n && !p) return '';
+    if (n && p) return `${n} — ${p}`;
+    return n || p;
+  }
+
+  private reqValue(key: string): unknown {
+    const req = this.mission?.requirements as Record<string, unknown> | undefined;
+    return req?.[key];
+  }
+
+  customDetailHas(name: string): boolean {
+    return !!this.mission?.custom_details?.some((d) => d.name === name);
+  }
+
+  formatDetailValue(d: { name?: string; type: string; value: unknown }): string {
+    const v = d.value;
+    if (typeof v === 'boolean') return v ? 'Oui' : 'Non';
+    if (v == null || v === '') return '—';
+    if (d.name === 'merchandise_value' || d.type === 'number') {
+      const n = Number(v);
+      if (Number.isFinite(n)) {
+        return d.name === 'estimated_duration' ? `${n} min` : n.toLocaleString('fr-FR');
+      }
+    }
+    if (d.name === 'estimated_duration') return `${v} min`;
+    return String(v);
+  }
+
+  isImageMedia(m: { mime_type?: string; url?: string }): boolean {
+    if (m.mime_type?.startsWith('image/')) return true;
+    return /\.(jpe?g|png|gif|webp|bmp)$/i.test(m.url || '');
   }
 
   get isEnterpriseContext(): boolean {
@@ -646,8 +803,12 @@ export class MissionDetailComponent implements OnInit {
 
   hasRequirements(): boolean {
     const m = this.mission;
-    return !!(m?.requires_vehicle || m?.requires_photo || m?.requires_signature || m?.requires_gps_tracking
-      || this.reqFlag('requires_vehicle') || this.reqFlag('requires_photo') || this.reqFlag('requires_signature'));
+    return !!(
+      m?.requires_vehicle || m?.requires_photo || m?.requires_signature || m?.requires_gps_tracking
+      || m?.requires_verified_provider || m?.enterprise_only || m?.min_reputation_score
+      || this.reqFlag('requires_vehicle') || this.reqFlag('requires_photo')
+      || this.reqFlag('requires_signature') || this.reqFlag('requires_id_verification')
+    );
   }
 
   reqFlag(key: string): boolean {
