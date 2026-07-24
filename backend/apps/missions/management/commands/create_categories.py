@@ -54,15 +54,21 @@ class Command(BaseCommand):
 
         count = 0
         for cat_data in categories_data:
-            obj, created = Category.objects.get_or_create(
+            obj, created = Category.objects.update_or_create(
                 slug=cat_data['slug'],
-                defaults=cat_data
+                defaults={
+                    'name': cat_data['name'],
+                    'description': cat_data['description'],
+                    'icon': cat_data['icon'],
+                    'order': cat_data['order'],
+                    'is_active': True,
+                },
             )
             if created:
                 count += 1
                 self.stdout.write(self.style.SUCCESS(f'[OK] Cree: {cat_data["name"]}'))
             else:
-                self.stdout.write(f'[EXIST] Deja existe: {cat_data["name"]}')
+                self.stdout.write(self.style.WARNING(f'[MAJ] Mis a jour: {cat_data["name"]}'))
 
         total = Category.objects.count()
         self.stdout.write(self.style.SUCCESS(f'\n{count} catégories créées, {total} total'))

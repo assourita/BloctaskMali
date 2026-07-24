@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from apps.missions.models import Category, Mission
-from apps.missions.category_rules import display_category_name
+from apps.missions.category_rules import display_category_name, display_category_description
 from apps.users.models import EnterpriseProfile
 from apps.users.enterprise_helpers import enterprise_profile_defaults
 from .africa_config import get_market_config, get_operators_for_country
@@ -222,7 +222,7 @@ def landing_data(request):
                 'id': str(cat.id),
                 'name': _category_display_name(cat),
                 'slug': cat.slug,
-                'description': cat.description,
+                'description': display_category_description(cat),
                 'icon': cat.icon or 'category',
                 'open_mission_count': cat.open_mission_count,
                 'provider_count': cat.provider_count,

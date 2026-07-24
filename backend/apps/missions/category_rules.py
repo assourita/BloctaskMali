@@ -894,13 +894,145 @@ def estimate_deposit_preview(budget: float, merchandise_value: float | None, cat
         'requires_merchandise_value': rule.requires_merchandise_value,
     }
 
+def looks_mojibake_label(value: str) -> bool:
+    markers = (
+        '\u00c3\u00a9',  # é mojibake
+        '\u00c3\u00a8',
+        '\u00c3\u00a0',
+        '\u00c3\u00b4',
+        '\u00c3\u00a7',
+        '\u00c2',
+    )
+    return any(m in value for m in markers)
+
+
+# Labels pour slugs legacy absents de CATEGORY_RULES
+CATEGORY_SLUG_ALIASES: dict[str, str] = {
+    'menage': 'Ménage',
+    'reparation': 'Réparation',
+    'livraison': 'Livraison',
+    'courses': 'Courses & Achats',
+    'demenagement': 'Déménagement',
+}
+
+
 def display_category_name(category) -> str:
     """Return a clean category label (fixes corrupted accents like M??nage)."""
     if not category:
         return ''
+
+    slug = (getattr(category, 'slug', None) or '').strip()
     name = (getattr(category, 'name', None) or '').strip()
-    if name and '??' not in name and '\ufffd' not in name:
-        return name
-    slug = getattr(category, 'slug', None) or ''
+    broken = (not name) or ('??' in name) or ('\ufffd' in name) or looks_mojibake_label(name)
+
     rule = CATEGORY_RULES.get(slug)
-    return rule.label if rule else (name or 'Mission')
+    if rule and broken:
+        return rule.label
+
+    alias = CATEGORY_SLUG_ALIASES.get(slug)
+    if alias and broken:
+        return alias
+
+    if broken and name:
+        repaired = name.replace('\ufffd', 'é').replace('??', 'é')
+        if repaired != name:
+            return repaired
+
+    if rule:
+        return rule.label
+    return name or 'Mission'
+
+
+def display_category_description(category) -> str:
+    """Description catégorie, avec correction si accents corrompus."""
+    if not category:
+        return ''
+    desc = (getattr(category, 'description', None) or '').strip()
+    slug = (getattr(category, 'slug', None) or '').strip()
+    broken = (not desc) or ('??' in desc) or ('\ufffd' in desc) or looks_mojibake_label(desc)
+    if not broken:
+        return desc
+    canonical = CANONICAL_CATEGORIES.get(slug)
+    if canonical:
+        return canonical[1]
+    if desc:
+        return desc.replace('\ufffd', 'é').replace('??', 'é')
+    return ''
+
+
+# Noms + descriptions canoniques pour réparation DB (slug → name, description)
+CANONICAL_CATEGORIES: dict[str, tuple[str, str]] = {
+    'livraison-colis': ('Livraison de colis', 'Transport et livraison de colis, paquets, courriers'),
+    'courses-achats': ('Courses & Achats', 'Courses au marché, supermarché, achats divers'),
+    'transport-personne': ('Transport personne', 'Déplacement avec chauffeur, taxi, moto-taxi'),
+    'livraison-alimentaire': ('Livraison alimentaire', 'Repas, plats préparés, courses alimentaires'),
+    'demenagement': ('Déménagement', 'Transport de meubles, déménagement complet'),
+    'services-administratifs': ('Services administratifs', 'Démarches administratives, documents, timbres'),
+    'maintenance-reparation': ('Maintenance & Réparation', 'Petite réparation, bricolage, maintenance'),
+    'livraison-urgente': ('Livraison urgente', 'Livraison express, moins de 2h'),
+    'nettoyage-menage': ('Nettoyage & Ménage', 'Ménage, nettoyage, lavage'),
+    'aide-domicile': ('Aide à domicile', 'Assistance personnes âgées, accompagnement'),
+    'gardiennage': ('Gardiennage', "Surveillance maison, garde d'animaux"),
+    'livraison-medicale': ('Livraison médicale', 'Médicaments, analyses, matériel médical'),
+    'covoiturage': ('Covoiturage', 'Partage de trajet, trajets réguliers'),
+    'bricolage': ('Bricolage', 'Petits travaux, montage meubles, réparations'),
+    'jardinage': ('Jardinage', 'Tonte, arrosage, entretien jardin'),
+    'garde-enfants': ("Garde d'enfants", 'Babysitting, accompagnement école'),
+    'cours-particuliers': ('Cours particuliers', 'Soutien scolaire, langues, musique'),
+    'technologie': ('Technologie', 'Dépannage informatique, installation appareils'),
+    'couture': ('Couture', 'Retouches, confection vêtements'),
+    'coiffure': ('Coiffure', 'Coiffure à domicile, tresses, soins'),
+    'esthetique': ('Esthétique', 'Manucure, pédicure, soins beauté'),
+    'massage': ('Massage', 'Massage relaxant, thérapeutique'),
+    'photographie': ('Photographie', 'Photos événements, portraits, produits'),
+    'cuisine': ('Cuisine', 'Traiteur, préparation repas, événements'),
+    'securite': ('Sécurité', 'Agent de sécurité, protection rapprochée'),
+    'traduction': ('Traduction', 'Traduction documents, interprétation'),
+    'redaction': ('Rédaction', 'Rédaction CV, lettres, contenu web'),
+    'comptabilite': ('Comptabilité', 'Tenue de livres, déclarations fiscales'),
+    'conseil-juridique': ('Conseil juridique', 'Consultation légale, rédaction contrats'),
+    'divertissement': ('Divertissement', 'Animation, DJ, musiciens, magiciens'),
+    'decor-evenementiel': ('Décor événementiel', 'Décoration mariage, anniversaire, soirées'),
+    'plomberie': ('Plomberie', 'Réparation fuite, installation sanitaire'),
+    'electricite': ('Électricité', 'Installation électrique, dépannage'),
+    'climatisation': ('Climatisation', 'Installation, entretien climatiseurs'),
+    'menuiserie': ('Menuiserie', 'Fabrication meubles, réparation bois'),
+    'metallerie': ('Métallerie', 'Soudure, ferronnerie, métal'),
+    'peinture': ('Peinture', 'Peinture intérieure, extérieure'),
+    'maconnerie': ('Maçonnerie', 'Petits travaux maçonnerie, réparation'),
+    'carrelage': ('Carrelage', 'Pose carrelage, réparation sols'),
+    'transport-lourd': ('Transport lourd', 'Camions, déménagement professionnel'),
+    'import-export': ('Import/Export', 'Douane, fret international, logistique'),
+    'immobilier': ('Immobilier', 'Visites appartements, état des lieux'),
+    'livraison-ecommerce': ('Livraison e-commerce', 'Livraison colis e-commerce, dropshipping'),
+    'autre': ('Autre', 'Autres services non listés'),
+    'menage': ('Ménage', 'Ménage, nettoyage, lavage'),
+    'reparation': ('Réparation', 'Petite réparation, bricolage, maintenance'),
+    'livraison': ('Livraison', 'Transport et livraison de colis'),
+}
+
+
+def repair_category_row(category) -> list[str]:
+    """Corrige name/description d'une Category. Retourne les champs modifiés."""
+    changed: list[str] = []
+    slug = (getattr(category, 'slug', None) or '').strip()
+    canonical = CANONICAL_CATEGORIES.get(slug)
+    if canonical:
+        good_name, good_desc = canonical
+        if category.name != good_name:
+            category.name = good_name
+            changed.append('name')
+        if (category.description or '') != good_desc:
+            category.description = good_desc
+            changed.append('description')
+        return changed
+
+    name = category.name or ''
+    desc = category.description or ''
+    if '??' in name or '\ufffd' in name:
+        category.name = name.replace('\ufffd', 'é').replace('??', 'é')
+        changed.append('name')
+    if '??' in desc or '\ufffd' in desc:
+        category.description = desc.replace('\ufffd', 'é').replace('??', 'é')
+        changed.append('description')
+    return changed

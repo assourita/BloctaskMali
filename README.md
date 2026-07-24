@@ -262,15 +262,21 @@ Un blueprint `render.yaml` est fourni pour déployer automatiquement :
    - `ETHEREUM_RPC_URL` + adresses des contrats Sepolia
    - `GOOGLE_CLIENT_ID` (optionnel)
    - `MOBILE_MONEY_SANDBOX=true` pour la démo sans vrai débit
-   - **Email SMTP (Gmail gratuit)** pour la vérification à l’inscription :
-     1. Compte Google → Sécurité → Validation en 2 étapes
-     2. Mots de passe des applications → générer un mot de passe « Mail »
-     3. Sur Render (backend) renseigner :
-        - `EMAIL_HOST_USER` = votre Gmail
-        - `EMAIL_HOST_PASSWORD` = le mot de passe d’application (16 caractères)
-        - `DEFAULT_FROM_EMAIL` = **la même** adresse Gmail
-        - laisser `RESEND_API_KEY` et `SENDGRID_API_KEY` vides
-        - `REQUIRE_EMAIL_VERIFICATION=true` (déjà dans `render.yaml`)
+   - **Email SMTP** pour la vérification à l’inscription (choisir **une** option) :
+
+     **Option A — Gmail (gratuit)**  
+     1. Active la validation en 2 étapes : https://myaccount.google.com/signinoptions/two-step-verification  
+     2. Crée un mot de passe d’application (lien direct) : https://myaccount.google.com/apppasswords  
+        - Si la page dit « indisponible », la 2FA n’est pas active, ou c’est un compte école/entreprise qui bloque cette option.  
+     3. Sur Render : `EMAIL_HOST_USER` = ton Gmail, `EMAIL_HOST_PASSWORD` = les 16 caractères (sans espaces), `DEFAULT_FROM_EMAIL` = le même Gmail. Laisse `RESEND_API_KEY` et `SENDGRID_API_KEY` vides.
+
+     **Option B — Brevo (plus simple, 300 mails/jour gratuits)**  
+     1. Crée un compte sur https://www.brevo.com → SMTP & API → SMTP  
+     2. Sur Render :
+        - `EMAIL_HOST=smtp-relay.brevo.com`
+        - `EMAIL_HOST_USER` = l’identifiant SMTP Brevo
+        - `EMAIL_HOST_PASSWORD` = la clé SMTP Brevo
+        - `DEFAULT_FROM_EMAIL` = l’email vérifié dans Brevo
 4. Clique **Apply** — Render provisionne la base, Redis, backend puis frontend.
 5. Crée un super-utilisateur depuis le shell du service backend :
 
