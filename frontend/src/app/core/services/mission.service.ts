@@ -81,7 +81,6 @@ export interface Mission {
   category_slug?: string;
   requirements?: Record<string, unknown>;
   special_instructions?: string;
-  enterprise_only?: boolean;
   custom_details?: Array<{ name: string; label: string; type: string; value: unknown }>;
   media?: MissionMediaItem[];
   status_history?: Array<{

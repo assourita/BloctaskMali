@@ -270,6 +270,7 @@ export class SidebarComponent implements OnInit {
       items: [
         { path: '/provider/dashboard', label: 'Tableau de bord', icon: 'dashboard' },
         { path: '/provider/missions', label: 'Mes missions assignées', icon: 'assignment' },
+        { path: '/provider/enterprises', label: 'Mes entreprises', icon: 'business' },
         { path: '/provider/missions/solicitations', label: 'Mes sollicitations', icon: 'mail' },
         { path: '/provider/missions/available', label: 'Missions disponibles', icon: 'search' },
         { path: '/provider/tracking', label: 'Suivi GPS', icon: 'my_location' },

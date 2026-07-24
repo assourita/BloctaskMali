@@ -105,6 +105,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/provider/dashboard/dashboard.component').then(m => m.ProviderDashboardComponent)
       },
       {
+        path: 'enterprises',
+        loadComponent: () => import('./features/provider/enterprises/enterprises.component').then(m => m.ProviderEnterprisesComponent)
+      },
+      {
         path: 'missions/available',
         loadComponent: () => import('./features/provider/missions/available-missions/available-missions.component').then(m => m.AvailableMissionsComponent)
       },
