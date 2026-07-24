@@ -71,11 +71,48 @@ class DisputeDetailSerializer(DisputeListSerializer):
 
 
 class DisputeResolveSerializer(serializers.Serializer):
-    decision = serializers.ChoiceField(choices=Dispute.Decision.choices)
-    decision_reason = serializers.CharField()
-    client_refund_amount = serializers.DecimalField(max_digits=15, decimal_places=2, default=0)
-    provider_payment_amount = serializers.DecimalField(max_digits=15, decimal_places=2, default=0)
-    deposit_penalty = serializers.DecimalField(max_digits=15, decimal_places=2, default=0)
+    """Décision admin — exclut 'pending' ; tolère montants null/vides du front."""
+
+    RESOLVE_DECISIONS = [
+        (c.value, c.label)
+        for c in Dispute.Decision
+        if c != Dispute.Decision.PENDING
+    ]
+
+    decision = serializers.ChoiceField(choices=RESOLVE_DECISIONS)
+    decision_reason = serializers.CharField(min_length=3, trim_whitespace=True)
+    client_refund_amount = serializers.DecimalField(
+        max_digits=15, decimal_places=2, required=False, allow_null=True, default=0,
+    )
+    provider_payment_amount = serializers.DecimalField(
+        max_digits=15, decimal_places=2, required=False, allow_null=True, default=0,
+    )
+    deposit_penalty = serializers.DecimalField(
+        max_digits=15, decimal_places=2, required=False, allow_null=True, default=0,
+    )
+
+    def validate_decision(self, value):
+        if value == Dispute.Decision.PENDING:
+            raise serializers.ValidationError(
+                'Choisissez une décision finale (pas « en attente »).'
+            )
+        return value
+
+    @staticmethod
+    def _amount_or_zero(value):
+        from decimal import Decimal
+        if value is None or value == '':
+            return Decimal('0')
+        return value
+
+    def validate_client_refund_amount(self, value):
+        return self._amount_or_zero(value)
+
+    def validate_provider_payment_amount(self, value):
+        return self._amount_or_zero(value)
+
+    def validate_deposit_penalty(self, value):
+        return self._amount_or_zero(value)
 
 
 class DisputeStatusSerializer(serializers.Serializer):

@@ -128,7 +128,13 @@ class DisputeViewSet(viewsets.ModelViewSet):
 
         serializer = DisputeResolveSerializer(data=request.data)
         if not serializer.is_valid():
-            return Response(serializer.errors, status=400)
+            return Response(
+                {
+                    'error': 'Données de résolution invalides',
+                    'details': serializer.errors,
+                },
+                status=400,
+            )
 
         data = serializer.validated_data
         dispute.status = Dispute.Status.RESOLVED

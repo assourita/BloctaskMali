@@ -742,12 +742,33 @@ export class AdminDisputesComponent implements OnInit, AfterViewInit {
 
   openResolveModal(dispute: Dispute): void {
     this.resolveTarget = dispute;
+    const budget = Number(dispute.mission_budget) || 0;
     this.resolveForm = this.fb.group({
       decision: ['', Validators.required],
-      decision_reason: ['', Validators.required],
+      decision_reason: ['', [Validators.required, Validators.minLength(3)]],
       client_refund_amount: [0],
       provider_payment_amount: [0],
       deposit_penalty: [0]
+    });
+    this.resolveForm.get('decision')?.valueChanges.subscribe((decision: string) => {
+      if (!this.resolveForm) return;
+      if (decision === 'client_wins') {
+        this.resolveForm.patchValue({
+          client_refund_amount: budget,
+          provider_payment_amount: 0,
+        }, { emitEvent: false });
+      } else if (decision === 'provider_wins') {
+        this.resolveForm.patchValue({
+          client_refund_amount: 0,
+          provider_payment_amount: budget,
+        }, { emitEvent: false });
+      } else if (decision === 'split') {
+        const half = Math.round(budget / 2);
+        this.resolveForm.patchValue({
+          client_refund_amount: half,
+          provider_payment_amount: budget - half,
+        }, { emitEvent: false });
+      }
     });
     this.resolveModalOpen = true;
   }
@@ -757,8 +778,16 @@ export class AdminDisputesComponent implements OnInit, AfterViewInit {
   submitResolve(): void {
     if (!this.resolveForm?.valid || !this.resolveTarget) return;
     this.submitting = true;
+    const raw = this.resolveForm.getRawValue();
+    const payload = {
+      decision: raw.decision,
+      decision_reason: String(raw.decision_reason || '').trim(),
+      client_refund_amount: Number(raw.client_refund_amount) || 0,
+      provider_payment_amount: Number(raw.provider_payment_amount) || 0,
+      deposit_penalty: Number(raw.deposit_penalty) || 0,
+    };
     this.http.post(`${this.apiUrl}/disputes/${this.resolveTarget.id}/resolve/`,
-      this.resolveForm.value, { headers: this.getHeaders() }).subscribe({
+      payload, { headers: this.getHeaders() }).subscribe({
       next: (updated: any) => {
         const idx = this.dataSource.data.findIndex(d => d.id === this.resolveTarget!.id);
         if (idx >= 0) {
@@ -772,7 +801,18 @@ export class AdminDisputesComponent implements OnInit, AfterViewInit {
         this.closeResolveModal();
         this.snackBar.open('Décision rendue avec succès', 'Fermer', { duration: 3000 });
       },
-      error: () => { this.submitting = false; this.snackBar.open('Erreur lors de la résolution', 'Fermer', { duration: 3000 }); }
+      error: (err) => {
+        this.submitting = false;
+        const details = err?.error?.details;
+        let msg = err?.error?.error || 'Erreur lors de la résolution';
+        if (details && typeof details === 'object') {
+          const firstKey = Object.keys(details)[0];
+          const firstVal = details[firstKey];
+          const detail = Array.isArray(firstVal) ? firstVal[0] : firstVal;
+          if (detail) msg = `${firstKey}: ${detail}`;
+        }
+        this.snackBar.open(msg, 'Fermer', { duration: 6000 });
+      }
     });
   }
 
