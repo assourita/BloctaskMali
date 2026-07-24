@@ -112,7 +112,7 @@ export default function SolicitationDetailScreen() {
               const msg = toppedUp > 0
                 ? `Caution déposée (${formatXOF(toppedUp)} XOF ajoutés au solde).`
                 : 'Caution déposée.';
-              Alert.alert('Succès', msg);
+              Alert.alert('Succès', 'Caution déposée — mission démarrée.');
               setLoading(true);
               await load();
             } catch (e) {
@@ -432,7 +432,25 @@ export default function SolicitationDetailScreen() {
                     Employé assigné : {exec.first_name} {exec.last_name}
                   </Text>
                 ) : null}
-                <PrimaryButton label="Démarrer la mission" loading={acting} onPress={start} />
+                <Text style={styles.body}>
+                  Caution OK — démarrage automatique en cours…
+                </Text>
+                <PrimaryButton
+                  label="Actualiser"
+                  loading={acting}
+                  onPress={async () => {
+                    setActing(true);
+                    try {
+                      const mid = preview?.mission?.id;
+                      if (mid) {
+                        await startMission(mid).catch(() => undefined);
+                      }
+                      await load();
+                    } finally {
+                      setActing(false);
+                    }
+                  }}
+                />
               </>
             ) : null}
 

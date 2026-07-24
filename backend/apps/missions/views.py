@@ -795,19 +795,57 @@ class MissionViewSet(viewsets.ModelViewSet):
                     'Vous serez notifié lorsque la mission démarre.'
                 ),
             )
-            return Response({
+            mission.refresh_from_db()
+            response_data = {
                 'status': 'Caution entreprise déposée',
                 'deposit_paid': True,
                 'required_deposit': float(required),
                 'next_step': 'assign_employee',
-            })
+            }
+            # Si un employé est déjà assigné, démarrer automatiquement
+            if mission.executing_employee_id and _start_mission_record(
+                mission,
+                request.user,
+                reason='Mission démarrée automatiquement après caution entreprise',
+            ):
+                response_data['mission_started'] = True
+                response_data['next_step'] = 'in_progress'
+                response_data['status'] = 'Caution déposée — mission démarrée'
+                notify_mission_event(
+                    mission,
+                    'started',
+                    mission.client,
+                    'Mission démarrée',
+                    f'La mission « {mission.title} » a démarré.',
+                )
+            return Response(response_data)
 
         if mission.provider != request.user:
             return Response({'error': 'Seul le prestataire assigné peut déposer la caution'}, status=403)
         if mission.status != Mission.Status.ACCEPTED:
             return Response({'error': 'La mission n\'est pas en attente de caution'}, status=400)
         if mission.deposit_paid:
-            return Response({'message': 'Caution déjà déposée'}, status=200)
+            # Caution déjà payée : démarrer si encore en accepted (missions bloquées)
+            if _start_mission_record(
+                mission,
+                request.user,
+                reason='Mission démarrée automatiquement (caution déjà déposée)',
+            ):
+                from apps.notifications.services import notify_mission_event
+                notify_mission_event(
+                    mission,
+                    'started',
+                    mission.client,
+                    'Mission démarrée',
+                    f'Le prestataire a démarré « {mission.title} ».',
+                )
+                return Response({
+                    'message': 'Caution déjà déposée',
+                    'deposit_paid': True,
+                    'mission_started': True,
+                    'status': 'Caution déjà déposée — mission démarrée',
+                })
+            return Response({'message': 'Caution déjà déposée', 'deposit_paid': True}, status=200)
         if mission.deposit_deadline and mission.deposit_deadline < timezone.now():
             return Response(
                 {'error': 'Délai de caution dépassé. La mission sera réouverte.', 'deposit_expired': True},
@@ -862,12 +900,13 @@ class MissionViewSet(viewsets.ModelViewSet):
             'deposit_paid',
             mission.client,
             'Caution reçue',
-            f'Le prestataire a déposé la caution pour « {mission.title} ». La mission peut démarrer.',
+            f'Le prestataire a déposé la caution pour « {mission.title} ». La mission démarre.',
         )
 
         if _truthy(request.data.get('gps_consent')):
             _apply_gps_consent(mission, request.user)
 
+        mission.refresh_from_db()
         response_data = {
             'status': 'Caution déposée',
             'deposit_paid': True,
@@ -879,27 +918,27 @@ class MissionViewSet(viewsets.ModelViewSet):
             ),
         }
 
-        if _truthy(request.data.get('auto_start')):
-            if _start_mission_record(
+        # Prestataire indépendant : la caution démarre automatiquement la mission
+        if _start_mission_record(
+            mission,
+            request.user,
+            reason='Mission démarrée automatiquement après dépôt de caution',
+        ):
+            response_data['mission_started'] = True
+            response_data['status'] = 'Caution déposée — mission démarrée'
+            notify_mission_event(
                 mission,
-                request.user,
-                reason='Mission démarrée automatiquement après dépôt de caution',
-            ):
-                response_data['mission_started'] = True
-                response_data['status'] = 'Caution déposée — mission démarrée'
-                notify_mission_event(
-                    mission,
-                    'started',
-                    mission.client,
-                    'Mission démarrée',
-                    f'Le prestataire a démarré « {mission.title} ».',
-                )
+                'started',
+                mission.client,
+                'Mission démarrée',
+                f'Le prestataire a démarré « {mission.title} ».',
+            )
 
         return Response(response_data)
 
     @action(detail=True, methods=['post'])
     def start(self, request, pk=None):
-        """Démarrer une mission (prestataire)"""
+        """Démarrer une mission (prestataire) — fallback si auto-start n'a pas eu lieu."""
         mission = self.get_object()
 
         if not _mission_start_allowed(request.user, mission):
@@ -928,7 +967,6 @@ class MissionViewSet(viewsets.ModelViewSet):
                 if mission.required_deposit:
                     reasons.append(f"Caution requise: {mission.required_deposit} {mission.currency}")
                 if mission.deposit_deadline:
-                    from django.utils import timezone
                     if mission.deposit_deadline < timezone.now():
                         reasons.append("⚠️ Le délai de dépôt est dépassé")
                     else:
@@ -937,7 +975,6 @@ class MissionViewSet(viewsets.ModelViewSet):
                         reasons.append(f"Temps restant: {hours_left:.1f} heures")
             
             # Vérifier si l'échéance est dépassée
-            from django.utils import timezone
             if mission.deposit_deadline and mission.deposit_deadline < timezone.now():
                 if mission.deposit_paid:
                     reasons.append("⚠️ L'échéance est dépassée mais la caution est payée")
@@ -1721,20 +1758,8 @@ def _truthy(value) -> bool:
 
 
 def _start_mission_record(mission, user, reason='Mission démarrée'):
-    if mission.status != Mission.Status.ACCEPTED:
-        return False
-    old_status = mission.status
-    mission.status = Mission.Status.IN_PROGRESS
-    mission.started_at = timezone.now()
-    mission.save(update_fields=['status', 'started_at', 'updated_at'])
-    MissionStatusHistory.objects.create(
-        mission=mission,
-        old_status=old_status,
-        new_status=Mission.Status.IN_PROGRESS,
-        changed_by=user,
-        reason=reason,
-    )
-    return True
+    from .services import start_mission_record
+    return start_mission_record(mission, user, reason=reason)
 
 
 def _apply_gps_consent(mission, user):
@@ -1759,7 +1784,6 @@ def get_start_suggestions(mission, user):
         })
 
         # Si échéance dépassée
-        from django.utils import timezone
         if mission.deposit_deadline and mission.deposit_deadline < timezone.now() and not mission.deposit_paid:
             suggestions.append({
                 'action': 'claim_timeout',

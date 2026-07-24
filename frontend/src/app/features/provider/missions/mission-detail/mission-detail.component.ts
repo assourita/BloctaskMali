@@ -370,16 +370,18 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
                     <div class="success-banner" *ngIf="mission.deposit_paid && mission.executing_employee">
                       <mat-icon>check_circle</mat-icon>
                       Employé assigné : {{ mission.executing_employee.first_name }} {{ mission.executing_employee.last_name }}
+                      — la mission démarre automatiquement.
                     </div>
                   </ng-container>
 
                   <ng-container *ngIf="!enterpriseReceived">
                     <button mat-raised-button color="warn" class="full-width" *ngIf="!mission.deposit_paid" (click)="payDeposit()" [disabled]="actionLoading">
-                      <mat-icon>security</mat-icon> Déposer la caution
+                      <mat-icon>security</mat-icon> Déposer la caution et démarrer
                     </button>
-                    <button mat-raised-button color="primary" class="full-width" *ngIf="mission.deposit_paid" (click)="startMission()" [disabled]="actionLoading">
-                      <mat-icon>play_arrow</mat-icon> Démarrer la mission
-                    </button>
+                    <div class="success-banner" *ngIf="mission.deposit_paid">
+                      <mat-icon>check_circle</mat-icon>
+                      Caution déposée — la mission démarre automatiquement.
+                    </div>
                   </ng-container>
                 </ng-container>
 
@@ -1072,7 +1074,7 @@ export class ProviderMissionDetailComponent implements OnInit {
       next: () => {
         this.actionLoading = false;
         if (this.mission) this.mission.deposit_paid = true;
-        this.snackBar.open('Caution déposée — vous pouvez démarrer', 'Fermer', { duration: 4000 });
+        this.snackBar.open('Caution déposée — mission démarrée', 'Fermer', { duration: 4000 });
         this.loadMission();
       },
       error: (e) => {
@@ -1103,7 +1105,7 @@ export class ProviderMissionDetailComponent implements OnInit {
       next: () => {
         this.actionLoading = false;
         this.assignEmployeeId = '';
-        this.snackBar.open('Employé assigné à la mission', 'Fermer', { duration: 4000 });
+        this.snackBar.open('Employé assigné — mission démarrée', 'Fermer', { duration: 4000 });
         this.loadMission();
       },
       error: (e) => {

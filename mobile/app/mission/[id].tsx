@@ -956,7 +956,7 @@ export default function MissionDetailScreen() {
                     minute: '2-digit',
                   })}`
                 : ''}{' '}
-              pour démarrer la mission.
+              — la mission démarrera automatiquement.
             </Text>
             <PrimaryButton
               label="Déposer la caution et démarrer"
@@ -964,14 +964,6 @@ export default function MissionDetailScreen() {
               onPress={goToDeposit}
             />
           </Card>
-        )}
-
-        {isProvider && mission.status === 'accepted' && mission.deposit_paid && (
-          <PrimaryButton
-            label="Démarrer la mission"
-            loading={acting}
-            onPress={() => runAction('Mission démarrée', () => startMission(mission.id))}
-          />
         )}
 
         {isProvider && mission.status === 'in_progress' && (

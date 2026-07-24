@@ -3,7 +3,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import * as Location from 'expo-location';
 import { useAuth } from '../context/AuthContext';
-import { startMission, submitProof } from '../api/missions';
+import { submitProof } from '../api/missions';
 import { sendLocation } from '../api/tracking';
 import { ApiError } from '../api/client';
 import { colors, radius, shadow, spacing, STATUS_META } from '../constants/theme';
@@ -281,13 +281,7 @@ export function MissionCard({
 
         {providerActions && mission.status === 'accepted' && !mission.deposit_paid ? (
           <Pressable style={[styles.actBtn, styles.warnBtn]} disabled={busy} onPress={handleDeposit}>
-            <Text style={styles.actBtnText}>{busy ? '...' : 'Déposer la caution'}</Text>
-          </Pressable>
-        ) : null}
-
-        {providerActions && mission.status === 'accepted' && mission.deposit_paid ? (
-          <Pressable style={[styles.actBtn, styles.primaryBtn]} disabled={busy} onPress={() => run('Mission démarrée', () => startMission(mission.id))}>
-            <Text style={styles.actBtnText}>Démarrer</Text>
+            <Text style={styles.actBtnText}>{busy ? '...' : 'Déposer et démarrer'}</Text>
           </Pressable>
         ) : null}
 

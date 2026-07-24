@@ -26,6 +26,24 @@ def schedule_deposit_deadline(mission) -> None:
     mission.deposit_deadline = timezone.now() + timedelta(hours=DEPOSIT_GRACE_HOURS)
 
 
+def start_mission_record(mission, user, reason='Mission démarrée') -> bool:
+    """Passe ACCEPTED → IN_PROGRESS. Retourne False si statut incompatible."""
+    if mission.status != Mission.Status.ACCEPTED:
+        return False
+    old_status = mission.status
+    mission.status = Mission.Status.IN_PROGRESS
+    mission.started_at = timezone.now()
+    mission.save(update_fields=['status', 'started_at', 'updated_at'])
+    MissionStatusHistory.objects.create(
+        mission=mission,
+        old_status=old_status,
+        new_status=Mission.Status.IN_PROGRESS,
+        changed_by=user,
+        reason=reason,
+    )
+    return True
+
+
 def release_expired_deposit_deadlines() -> int:
     """Libère les missions dont le prestataire n'a pas déposé la caution à temps."""
     now = timezone.now()

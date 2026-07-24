@@ -393,7 +393,7 @@ def assign_employee_to_mission(mission, employee, assigned_by):
     mission.provider = employee.user
     mission.save(update_fields=['executing_employee', 'provider', 'updated_at'])
 
-    from apps.notifications.services import create_notification
+    from apps.notifications.services import create_notification, notify_mission_event
     create_notification(
         employee.user,
         'mission_assigned',
@@ -412,6 +412,22 @@ def assign_employee_to_mission(mission, employee, assigned_by):
             mission=mission,
             action_url=f'/enterprise/employees/{employee.id}/profile'
         )
+
+    # Caution déjà déposée → démarrage automatique (plus de bouton « Démarrer »)
+    if mission.deposit_paid and mission.status == Mission.Status.ACCEPTED:
+        from apps.missions.services import start_mission_record
+        if start_mission_record(
+            mission,
+            assigned_by,
+            reason='Mission démarrée automatiquement après assignation employé',
+        ):
+            notify_mission_event(
+                mission,
+                'started',
+                mission.client,
+                'Mission démarrée',
+                f'La mission « {mission.title} » a démarré avec {employee.first_name} {employee.last_name}.',
+            )
 
     return mission
 

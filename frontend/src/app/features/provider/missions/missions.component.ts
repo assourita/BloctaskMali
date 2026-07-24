@@ -180,11 +180,7 @@ interface Mission {
                   <button mat-button type="button" (click)="viewMissionDetails(mission)">Détails</button>
                   <button mat-raised-button color="warn" (click)="payDeposit(mission)"
                           *ngIf="mission.status === 'accepted' && !mission.deposit_paid">
-                    <mat-icon>security</mat-icon> Déposer la caution
-                  </button>
-                  <button mat-raised-button color="primary" (click)="startMission(mission)"
-                          *ngIf="mission.status === 'accepted' && mission.deposit_paid">
-                    Démarrer
+                    <mat-icon>security</mat-icon> Déposer et démarrer
                   </button>
                   <button mat-raised-button color="accent" type="button" (click)="viewMissionProofs(mission)" *ngIf="mission.status === 'in_progress'">
                     Preuves
@@ -593,7 +589,7 @@ export class ProviderMissionsComponent implements OnInit {
     this.missionService.payDeposit(mission.id).subscribe({
       next: () => {
         mission.deposit_paid = true;
-        this.snackBar.open('Caution déposée — vous pouvez démarrer la mission', 'Fermer', { duration: 4000 });
+        this.snackBar.open('Caution déposée — mission démarrée', 'Fermer', { duration: 4000 });
         this.anchorProviderDepositOnChain(mission);
         this.loadMissions();
       },
