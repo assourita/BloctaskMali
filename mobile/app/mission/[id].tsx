@@ -9,7 +9,6 @@ import {
   cancelMission,
   expireMissionDecision,
   getMission,
-  startMission,
   submitProof,
   validateMission,
 } from '../../src/api/missions';
