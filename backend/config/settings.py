@@ -274,7 +274,8 @@ EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
-# SMTP si credentials présents ; sinon console en DEBUG, SMTP en prod
+# Évite le hang Gunicorn si SMTP (Gmail) est bloqué/lent depuis Render
+EMAIL_TIMEOUT = int(os.getenv('EMAIL_TIMEOUT', '8'))
 _email_backend_env = os.getenv('EMAIL_BACKEND', '').strip()
 if _email_backend_env:
     EMAIL_BACKEND = _email_backend_env

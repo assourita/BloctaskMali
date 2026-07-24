@@ -76,14 +76,18 @@ class RegisterView(generics.CreateAPIView):
         try:
             send_verification_email(user)
             email_sent = True
-        except Exception:
+        except Exception as exc:
+            import logging
+            logging.getLogger(__name__).warning(
+                'Verification email failed for %s: %s', user.email, exc,
+            )
             email_sent = False
         
         return Response({
             'message': (
                 'Compte créé. Consultez votre boîte email pour activer votre compte.'
                 if email_sent else
-                'Compte créé. L\'envoi de l\'email de vérification a échoué — utilisez « Renvoyer l\'email ».'
+                'Compte créé. L\'envoi de l\'email de vérification a échoué — utilisez « Renvoyer l\'email » sur la page de vérification.'
             ),
             'email_verification_required': email_verification_required(user),
             'email_sent': email_sent,

@@ -262,21 +262,23 @@ Un blueprint `render.yaml` est fourni pour déployer automatiquement :
    - `ETHEREUM_RPC_URL` + adresses des contrats Sepolia
    - `GOOGLE_CLIENT_ID` (optionnel)
    - `MOBILE_MONEY_SANDBOX=true` pour la démo sans vrai débit
-   - **Email SMTP** pour la vérification à l’inscription (choisir **une** option) :
+   - **Email** pour la vérification à l’inscription (choisir **une** option) :
 
-     **Option A — Gmail (gratuit)**  
-     1. Active la validation en 2 étapes : https://myaccount.google.com/signinoptions/two-step-verification  
-     2. Crée un mot de passe d’application (lien direct) : https://myaccount.google.com/apppasswords  
-        - Si la page dit « indisponible », la 2FA n’est pas active, ou c’est un compte école/entreprise qui bloque cette option.  
-     3. Sur Render : `EMAIL_HOST_USER` = ton Gmail, `EMAIL_HOST_PASSWORD` = les 16 caractères (sans espaces), `DEFAULT_FROM_EMAIL` = le même Gmail. Laisse `RESEND_API_KEY` et `SENDGRID_API_KEY` vides.
-
-     **Option B — Brevo (plus simple, 300 mails/jour gratuits)**  
-     1. Crée un compte sur https://www.brevo.com → SMTP & API → SMTP  
+     **Option A — Resend (recommandé sur Render, gratuit)**  
+     Gmail SMTP est souvent **bloqué ou très lent** depuis les serveurs Render (timeout Gunicorn).  
+     1. Compte gratuit : https://resend.com → API Keys  
      2. Sur Render :
-        - `EMAIL_HOST=smtp-relay.brevo.com`
-        - `EMAIL_HOST_USER` = l’identifiant SMTP Brevo
-        - `EMAIL_HOST_PASSWORD` = la clé SMTP Brevo
-        - `DEFAULT_FROM_EMAIL` = l’email vérifié dans Brevo
+        - `RESEND_API_KEY` = `re_...`
+        - `DEFAULT_FROM_EMAIL` = `BlockTask <onboarding@resend.dev>` (ou ton domaine vérifié)
+        - laisser `SENDGRID_API_KEY` vide
+        - `EMAIL_BACKEND` peut rester SMTP (ignoré si Resend est défini)
+
+     **Option B — Gmail SMTP (local / si Resend indisponible)**  
+     1. 2FA : https://myaccount.google.com/signinoptions/two-step-verification  
+     2. App password : https://myaccount.google.com/apppasswords  
+     3. Sur Render : `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `DEFAULT_FROM_EMAIL` = même Gmail, `EMAIL_TIMEOUT=8`
+
+     **Option C — Brevo SMTP** : `EMAIL_HOST=smtp-relay.brevo.com` + identifiants SMTP Brevo.
 4. Clique **Apply** — Render provisionne la base, Redis, backend puis frontend.
 5. Crée un super-utilisateur depuis le shell du service backend :
 
@@ -289,6 +291,7 @@ Test local SMTP :
 ```bash
 cd backend
 # renseigner EMAIL_HOST_USER / EMAIL_HOST_PASSWORD / DEFAULT_FROM_EMAIL dans .env
+# ou RESEND_API_KEY pour Resend
 python manage.py send_test_email vous@gmail.com
 ```
 

@@ -52,12 +52,14 @@ services:
         value: "587"
       - key: EMAIL_USE_TLS
         value: "true"
+      - key: EMAIL_TIMEOUT
+        value: "8"
       - key: EMAIL_HOST_USER
-        sync: false            # ex: votre.email@gmail.com
+        sync: false            # Gmail : souvent bloqué en SMTP depuis Render — préférer Resend
       - key: EMAIL_HOST_PASSWORD
-        sync: false            # mot de passe d'application Google (16 caractères)
+        sync: false
       - key: DEFAULT_FROM_EMAIL
-        sync: false            # même adresse que EMAIL_HOST_USER (Gmail)
+        sync: false            # Resend: onboarding@resend.dev ou domaine vérifié
       - key: REQUIRE_EMAIL_VERIFICATION
         value: "true"
       - key: AWS_ACCESS_KEY_ID

@@ -1,9 +1,10 @@
 """Envoi d'emails transactionnels (Resend, SendGrid, SMTP Django)."""
 import logging
+import socket
 
 import requests
 from django.conf import settings
-from django.core.mail import send_mail
+from django.core.mail import get_connection, send_mail
 
 logger = logging.getLogger(__name__)
 
@@ -39,7 +40,7 @@ def send_platform_email(
                     'Content-Type': 'application/json',
                 },
                 json=payload,
-                timeout=20,
+                timeout=10,
             )
             if resp.status_code in (200, 201):
                 return True
@@ -67,7 +68,13 @@ def send_platform_email(
             )
             if html:
                 mail.add_content(html, 'text/html')
-            SendGridAPIClient(sendgrid_key).send(mail)
+            # SendGrid SDK n'expose pas toujours un timeout clair — borne le socket
+            old_timeout = socket.getdefaulttimeout()
+            socket.setdefaulttimeout(10)
+            try:
+                SendGridAPIClient(sendgrid_key).send(mail)
+            finally:
+                socket.setdefaulttimeout(old_timeout)
             return True
         except Exception as exc:
             logger.warning('SendGrid email exception: %s', exc)
@@ -87,12 +94,21 @@ def send_platform_email(
             return False
         raise RuntimeError(msg)
 
-    send_mail(
-        subject=subject,
-        message=message,
-        from_email=from_email,
-        recipient_list=[to],
-        fail_silently=fail_silently,
-        html_message=html,
-    )
-    return True
+    timeout = int(getattr(settings, 'EMAIL_TIMEOUT', 8) or 8)
+    try:
+        connection = get_connection(timeout=timeout)
+        send_mail(
+            subject=subject,
+            message=message,
+            from_email=from_email,
+            recipient_list=[to],
+            fail_silently=False,
+            html_message=html,
+            connection=connection,
+        )
+        return True
+    except Exception as exc:
+        logger.warning('SMTP email exception (timeout=%ss): %s', timeout, exc)
+        if fail_silently:
+            return False
+        raise
