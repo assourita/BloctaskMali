@@ -80,7 +80,7 @@ class DisputeResolveSerializer(serializers.Serializer):
     ]
 
     decision = serializers.ChoiceField(choices=RESOLVE_DECISIONS)
-    decision_reason = serializers.CharField(min_length=3, trim_whitespace=True)
+    decision_reason = serializers.CharField(min_length=1, trim_whitespace=True)
     client_refund_amount = serializers.DecimalField(
         max_digits=15, decimal_places=2, required=False, allow_null=True, default=0,
     )

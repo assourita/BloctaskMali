@@ -745,7 +745,7 @@ export class AdminDisputesComponent implements OnInit, AfterViewInit {
     const budget = Number(dispute.mission_budget) || 0;
     this.resolveForm = this.fb.group({
       decision: ['', Validators.required],
-      decision_reason: ['', [Validators.required, Validators.minLength(3)]],
+      decision_reason: ['', [Validators.required, Validators.minLength(1)]],
       client_refund_amount: [0],
       provider_payment_amount: [0],
       deposit_penalty: [0]
