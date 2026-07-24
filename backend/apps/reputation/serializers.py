@@ -1,8 +1,15 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
+from apps.common.mojibake import fix_corrupted_text
 from .models import ReputationScore, ReputationHistory, ReputationPenalty, ReputationBonus, TrustFactor
 
 User = get_user_model()
+
+
+def _clean_text(value):
+    if not value:
+        return value
+    return fix_corrupted_text(value) or value
 
 
 class UserBasicSerializer(serializers.ModelSerializer):
@@ -32,7 +39,8 @@ class ReputationScoreSerializer(serializers.ModelSerializer):
 
 class ReputationHistorySerializer(serializers.ModelSerializer):
     user = UserBasicSerializer(read_only=True)
-    mission_title = serializers.CharField(source='mission.title', read_only=True, default=None)
+    mission_title = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
 
     class Meta:
         model = ReputationHistory
@@ -41,11 +49,19 @@ class ReputationHistorySerializer(serializers.ModelSerializer):
             'old_score', 'new_score', 'change_amount', 'description', 'created_at'
         ]
 
+    def get_mission_title(self, obj):
+        title = getattr(getattr(obj, 'mission', None), 'title', None)
+        return _clean_text(title)
+
+    def get_description(self, obj):
+        return _clean_text(obj.description)
+
 
 class ReputationPenaltySerializer(serializers.ModelSerializer):
     user = UserBasicSerializer(read_only=True)
     applied_by = UserBasicSerializer(read_only=True)
-    mission_title = serializers.CharField(source='mission.title', read_only=True, default=None)
+    mission_title = serializers.SerializerMethodField()
+    description = serializers.SerializerMethodField()
 
     class Meta:
         model = ReputationPenalty
@@ -54,6 +70,13 @@ class ReputationPenaltySerializer(serializers.ModelSerializer):
             'mission', 'mission_title', 'description',
             'applied_by', 'is_temporary', 'expires_at', 'created_at'
         ]
+
+    def get_mission_title(self, obj):
+        title = getattr(getattr(obj, 'mission', None), 'title', None)
+        return _clean_text(title)
+
+    def get_description(self, obj):
+        return _clean_text(obj.description)
 
 
 class ReputationPenaltyCreateSerializer(serializers.ModelSerializer):

@@ -1029,10 +1029,17 @@ def repair_category_row(category) -> list[str]:
 
     name = category.name or ''
     desc = category.description or ''
-    if '??' in name or '\ufffd' in name:
-        category.name = name.replace('\ufffd', 'é').replace('??', 'é')
-        changed.append('name')
-    if '??' in desc or '\ufffd' in desc:
-        category.description = desc.replace('\ufffd', 'é').replace('??', 'é')
-        changed.append('description')
+    if '??' in name or '\ufffd' in name or looks_mojibake_label(name):
+        from apps.common.mojibake import fix_corrupted_text
+        fixed = fix_corrupted_text(name)
+        if fixed:
+            category.name = fixed
+            changed.append('name')
+    if '??' in desc or '\ufffd' in desc or looks_mojibake_label(desc):
+        from apps.common.mojibake import fix_corrupted_text
+        fixed = fix_corrupted_text(desc)
+        if fixed:
+            category.description = fixed
+            if 'description' not in changed:
+                changed.append('description')
     return changed

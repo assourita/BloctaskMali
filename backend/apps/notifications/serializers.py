@@ -1,10 +1,19 @@
 from rest_framework import serializers
+from apps.common.mojibake import fix_corrupted_text
 from .models import Notification, NotificationPreference
+
+
+def _clean(value):
+    if not value:
+        return value
+    return fix_corrupted_text(value) or value
 
 
 class NotificationSerializer(serializers.ModelSerializer):
     mission_id = serializers.UUIDField(source='mission.id', read_only=True, allow_null=True)
-    mission_title = serializers.CharField(source='mission.title', read_only=True, allow_null=True)
+    mission_title = serializers.SerializerMethodField()
+    title = serializers.SerializerMethodField()
+    message = serializers.SerializerMethodField()
 
     class Meta:
         model = Notification
@@ -15,6 +24,16 @@ class NotificationSerializer(serializers.ModelSerializer):
             'is_read', 'read_at', 'created_at'
         ]
         read_only_fields = fields
+
+    def get_title(self, obj):
+        return _clean(obj.title)
+
+    def get_message(self, obj):
+        return _clean(obj.message)
+
+    def get_mission_title(self, obj):
+        title = getattr(getattr(obj, 'mission', None), 'title', None)
+        return _clean(title)
 
 
 class NotificationPreferenceSerializer(serializers.ModelSerializer):

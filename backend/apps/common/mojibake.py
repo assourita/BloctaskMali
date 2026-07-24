@@ -107,11 +107,119 @@ def fix_mojibake(value: str) -> Optional[str]:
     return None
 
 
+def looks_question_mark_corruption(value: str) -> bool:
+    """Accents FR remplacés par ?? / ??? / U+FFFD (perte irréversible partielle)."""
+    if not value or not isinstance(value, str):
+        return False
+    return '??' in value or '\ufffd' in value
+
+
+# Remplacements contextuels (ordre important : plus spécifiques d'abord)
+_QUESTION_MARK_REPLACEMENTS: tuple[tuple[str, str], ...] = (
+    ('???', '\u2192'),  # → (Niveau bronze → gold)
+    (' mis ?? jour', ' mis à jour'),
+    ('Mis ?? jour', 'Mis à jour'),
+    ('re??ue', 'reçue'),
+    ('re??u', 'reçu'),
+    ('Re??ue', 'Reçue'),
+    ('Re??u', 'Reçu'),
+    ('termin??e', 'terminée'),
+    ('termin??', 'terminé'),
+    ('Termin??e', 'Terminée'),
+    ('Termin??', 'Terminé'),
+    ('tr??s', 'très'),
+    ('Tr??s', 'Très'),
+    ('??quipement', 'équipement'),
+    ('??quipements', 'équipements'),
+    ('??valu', 'évalu'),
+    ('??valuation', 'évaluation'),
+    ('p??nalit', 'pénalit'),
+    ('P??nalit', 'Pénalit'),
+    ('r??uss', 'réuss'),
+    ('R??uss', 'Réuss'),
+    ('r??putation', 'réputation'),
+    ('R??putation', 'Réputation'),
+    ('d??j??', 'déjà'),
+    ('d??j', 'déj'),
+    ('apr??s', 'après'),
+    ('Apr??s', 'Après'),
+    ('avant-hier', 'avant-hier'),  # noop guard
+    ('cr????', 'créé'),
+    ('cr??e', 'crée'),
+    ('cr??é', 'créé'),
+    ('annul??e', 'annulée'),
+    ('annul??', 'annulé'),
+    ('expir??e', 'expirée'),
+    ('expir??', 'expiré'),
+    ('v??rifi', 'vérifi'),
+    ('V??rifi', 'Vérifi'),
+    ('s??curit', 'sécurit'),
+    ('S??curit', 'Sécurit'),
+    ('??lectr', 'électr'),
+    ('??lectronique', 'électronique'),
+    ('d??m??nagement', 'déménagement'),
+    ('d??ménagement', 'déménagement'),
+    ('m??nage', 'ménage'),
+    ('M??nage', 'Ménage'),
+    ('r??paration', 'réparation'),
+    ('R??paration', 'Réparation'),
+    ('pr??vu', 'prévu'),
+    ('pr??sente', 'présente'),
+    ('int??ress', 'intéress'),
+    ('libell??', 'libellé'),
+    ('qualit??', 'qualité'),
+    ('priorit??', 'priorité'),
+    ('activit??', 'activité'),
+    ('disponibilit??', 'disponibilité'),
+    ('sp??cial', 'spécial'),
+    ('g??n??ral', 'général'),
+    ('num??ro', 'numéro'),
+    ('t??l??phone', 'téléphone'),
+    ('e-mail', 'e-mail'),
+)
+
+
+def fix_question_mark_corruption(value: str) -> Optional[str]:
+    if not looks_question_mark_corruption(value):
+        return None
+    fixed = value.replace('\ufffd', 'é')
+    for old, new in _QUESTION_MARK_REPLACEMENTS:
+        if old in fixed:
+            fixed = fixed.replace(old, new)
+    # Reliquats : un accent FR manquant → é (couvre la majorité des cas restants)
+    if '??' in fixed:
+        fixed = fixed.replace('??', 'é')
+    if fixed != value:
+        return fixed
+    return None
+
+
+def fix_corrupted_text(value: str) -> Optional[str]:
+    """Corrige mojibake puis corruption ?? / U+FFFD. None si rien à faire."""
+    if not value or not isinstance(value, str):
+        return None
+    current = value
+    changed = False
+    moji = fix_mojibake(current)
+    if moji is not None:
+        current = moji
+        changed = True
+    qm = fix_question_mark_corruption(current)
+    if qm is not None:
+        current = qm
+        changed = True
+    return current if changed else None
+
+
+def looks_corrupted_text(value: str) -> bool:
+    return looks_mojibake(value) or looks_question_mark_corruption(value)
+
+
 def walk_fix_json(data: Any) -> tuple[Any, bool]:
-    """Parcourt récursivement dict/list et corrige les strings mojibake."""
+    """Parcourt récursivement dict/list et corrige les strings corrompues."""
     changed = False
     if isinstance(data, str):
-        fixed = fix_mojibake(data)
+        fixed = fix_corrupted_text(data)
         if fixed is not None:
             return fixed, True
         return data, False

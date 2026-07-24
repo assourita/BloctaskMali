@@ -16,8 +16,8 @@ from django.db import models, transaction
 from django.db.models import Q
 
 from apps.common.mojibake import (
-    fix_mojibake,
-    looks_mojibake,
+    fix_corrupted_text,
+    looks_corrupted_text,
     should_skip_field,
     walk_fix_json,
 )
@@ -138,7 +138,12 @@ class Command(BaseCommand):
         # Filtre SQL approximatif pour accélérer (marqueurs Latin-1 courants)
         q = Q()
         for name in text_names:
-            q |= Q(**{f'{name}__contains': 'Ã'}) | Q(**{f'{name}__contains': 'Â'}) | Q(**{f'{name}__contains': 'â'})
+            q |= (
+                Q(**{f'{name}__contains': '\u00c3'})
+                | Q(**{f'{name}__contains': '\u00c2'})
+                | Q(**{f'{name}__contains': '??'})
+                | Q(**{f'{name}__contains': '\ufffd'})
+            )
 
         qs = model.objects.all()
         if text_names and q:
@@ -162,9 +167,9 @@ class Command(BaseCommand):
                 if raw is None:
                     continue
                 if kind == 'text':
-                    if not isinstance(raw, str) or not looks_mojibake(raw):
+                    if not isinstance(raw, str) or not looks_corrupted_text(raw):
                         continue
-                    fixed = fix_mojibake(raw)
+                    fixed = fix_corrupted_text(raw)
                     if fixed is None:
                         continue
                     changes[field.name] = (raw, fixed)
