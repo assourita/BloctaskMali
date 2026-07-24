@@ -123,7 +123,7 @@ interface Mission {
                       {{ getStatusLabel(mission.status) }}
                     </mat-chip-option>
                   </mat-chip-listbox>
-                  <span class="deadline">⏰ {{ getTimeRemaining(mission.deadline) }}</span>
+                  <span class="deadline" *ngIf="getTimeRemaining(mission) as remaining">⏰ {{ remaining }}</span>
                 </div>
                 <mat-card-title>{{ mission.title }}</mat-card-title>
                 <mat-card-subtitle class="mission-budget">{{ mission.budget | number }} FCFA</mat-card-subtitle>
@@ -551,7 +551,16 @@ export class ProviderMissionsComponent implements OnInit {
     return labels[status] || status;
   }
 
-  getTimeRemaining(deadline: string): string {
+  getTimeRemaining(mission: Mission | string | null | undefined): string {
+    const m = typeof mission === 'string' || !mission
+      ? null
+      : mission;
+    const deadline = typeof mission === 'string' ? mission : mission?.deadline;
+    if (!deadline) return '';
+    const status = m?.status || '';
+    if (['completed', 'cancelled', 'expired', 'disputed'].includes(status)) {
+      return status === 'completed' ? 'Terminée' : status === 'cancelled' ? 'Annulée' : status === 'expired' ? 'Expirée' : 'Litige';
+    }
     const diff = new Date(deadline).getTime() - Date.now();
     if (diff < 0) return 'En retard';
     const hours = Math.floor(diff / (1000 * 60 * 60));

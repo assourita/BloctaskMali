@@ -53,6 +53,26 @@ _SEPOLIA_RPC_FALLBACKS = (
     'https://sepolia.drpc.org',
 )
 
+_RPC_PLACEHOLDER_MARKERS = (
+    'YOUR_KEY',
+    'YOUR_INFURA',
+    'YOUR_ALCHEMY',
+    'YOUR_PROJECT',
+    'VOTRE_CLE',
+    'VOTRE_CLÉ',
+    'REPLACE_ME',
+    'xxx',
+    '<',
+)
+
+
+def _is_placeholder_rpc(url: str) -> bool:
+    """True si l'URL contient encore un placeholder Infura/Alchemy non remplacé."""
+    u = (url or '').strip().upper()
+    if not u:
+        return True
+    return any(m.upper() in u for m in _RPC_PLACEHOLDER_MARKERS)
+
 
 class BlockchainService:
     """Service pour interagir avec la blockchain Ethereum"""
@@ -85,8 +105,13 @@ class BlockchainService:
             or ''
         )
         urls = []
-        if primary and 'YOUR_KEY' not in primary:
+        if primary and not _is_placeholder_rpc(primary):
             urls.append(primary)
+        elif primary and _is_placeholder_rpc(primary):
+            logger.warning(
+                'ETHEREUM_RPC_URL est un placeholder (%s) — ignoré, fallbacks publics Sepolia utilisés.',
+                primary[:60],
+            )
         for u in _SEPOLIA_RPC_FALLBACKS:
             if u not in urls:
                 urls.append(u)

@@ -9,9 +9,11 @@ import { NetworkBanner } from '../src/components/NetworkBanner';
 import { Input } from '../src/components/buttons';
 import { AppLayout } from '../src/components/layout/AppLayout';
 import { Loader } from '../src/components/ui';
+import { useFooterVisibility } from '../src/context/FooterVisibilityContext';
 import { colors, spacing } from '../src/constants/theme';
 
 export default function MapScreen() {
+  const { contentInset } = useFooterVisibility();
   const mapRef = useRef<BlockTaskMapHandle>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -84,7 +86,7 @@ export default function MapScreen() {
   }, []);
 
   return (
-    <AppLayout scroll={false} title="Carte BlockTask" contentStyle={{ flex: 1, paddingBottom: spacing.md + 78 }}>
+    <AppLayout scroll={false} title="Carte BlockTask" contentStyle={{ flex: 1, paddingBottom: spacing.md + contentInset }}>
       <Input
         placeholder="Rechercher un utilisateur (nom, ville…)"
         value={search}

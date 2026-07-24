@@ -288,7 +288,7 @@ export default function MissionDetailScreen() {
   const deadlinePassed =
     !!mission.deadline &&
     new Date(mission.deadline).getTime() < Date.now() &&
-    !['completed', 'cancelled', 'expired'].includes(mission.status);
+    !['completed', 'cancelled', 'expired', 'disputed'].includes(mission.status);
   const showExpiryDecision =
     isClient &&
     mission.status === 'accepted' &&

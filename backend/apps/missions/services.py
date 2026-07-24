@@ -7,6 +7,16 @@ from .models import Mission, MissionApplication, MissionStatusHistory
 
 DEPOSIT_GRACE_HOURS = 4
 CLIENT_DECISION_HOURS = 48
+COMPLETED_RETENTION_DAYS = 30
+
+# Litiges encore actifs : bloquent la purge des missions terminées
+OPEN_DISPUTE_STATUSES = frozenset({
+    'open',
+    'under_review',
+    'pending_evidence',
+    'arbitration',
+    'appealed',
+})
 
 # Statuts annulables sans litige (prestataire pas encore engagé en exécution)
 CANCELLABLE_STATUSES = frozenset({
@@ -554,3 +564,52 @@ def continue_expired_mission(mission, *, new_deadline, changed_by) -> dict:
         )
 
     return {'ok': True, 'deadline': new_deadline.isoformat()}
+
+
+def purge_old_completed_missions(*, retention_days: int = COMPLETED_RETENTION_DAYS, dry_run: bool = False) -> dict:
+    """Supprime les missions terminées depuis plus de ``retention_days`` sans litige ouvert.
+
+    Les litiges résolus/fermés n'empêchent pas la purge. CASCADE sur les relations mission.
+    """
+    from django.db.models import Exists, OuterRef, Q
+
+    from apps.disputes.models import Dispute
+
+    cutoff = timezone.now() - timedelta(days=retention_days)
+    open_dispute = Dispute.objects.filter(
+        mission_id=OuterRef('pk'),
+        status__in=OPEN_DISPUTE_STATUSES,
+    )
+
+    qs = (
+        Mission.objects.filter(status=Mission.Status.COMPLETED)
+        .annotate(has_open_dispute=Exists(open_dispute))
+        .filter(has_open_dispute=False)
+        .filter(
+            Q(completed_at__lte=cutoff)
+            | Q(completed_at__isnull=True, updated_at__lte=cutoff)
+        )
+    )
+
+    ids = list(qs.values_list('id', flat=True))
+    stats = {
+        'candidates': len(ids),
+        'deleted': 0,
+        'retention_days': retention_days,
+        'dry_run': dry_run,
+        'skipped_open_dispute': Mission.objects.filter(
+            status=Mission.Status.COMPLETED,
+        )
+        .annotate(has_open_dispute=Exists(open_dispute))
+        .filter(has_open_dispute=True)
+        .count(),
+    }
+
+    if dry_run or not ids:
+        return stats
+
+    deleted, _ = Mission.objects.filter(id__in=ids).delete()
+    # delete() returns total objects deleted across cascade
+    stats['deleted'] = len(ids)
+    stats['cascaded_objects'] = deleted
+    return stats

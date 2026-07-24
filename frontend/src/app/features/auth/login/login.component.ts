@@ -35,6 +35,7 @@ import { GoogleSignInButtonComponent } from '../../../shared/components/google-s
         </button>
         <div class="brand-content">
           <div class="logo">
+            <img src="assets/images/logo-blocktask-mali.png" alt="BlockTask" class="logo-img" />
             <span class="logo-text">BlockTask</span>
           </div>
           <h1>Bienvenue</h1>
@@ -142,15 +143,29 @@ import { GoogleSignInButtonComponent } from '../../../shared/components/google-s
       display: flex;
       flex-direction: column;
       justify-content: center;
+      align-items: center;
+      text-align: center;
       max-width: 420px;
+      width: 100%;
+      margin: 0 auto;
       z-index: 1;
     }
 
     .logo {
       display: flex;
+      flex-direction: column;
       align-items: center;
-      gap: 10px;
-      margin-bottom: 32px;
+      gap: 12px;
+      margin-bottom: 28px;
+    }
+
+    .logo-img {
+      width: 72px;
+      height: 72px;
+      object-fit: contain;
+      border-radius: 16px;
+      background: rgba(255, 255, 255, 0.95);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
     }
 
     .logo-icon { font-size: 32px; }
@@ -182,6 +197,8 @@ import { GoogleSignInButtonComponent } from '../../../shared/components/google-s
       display: flex;
       flex-direction: column;
       gap: 14px;
+      align-items: flex-start;
+      text-align: left;
     }
 
     .brand-features li {

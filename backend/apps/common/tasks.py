@@ -29,6 +29,17 @@ def auto_validate_missions_task():
         raise
 
 
+@shared_task(name='missions.purge_completed_missions')
+def purge_completed_missions_task():
+    """Supprime les missions terminées (>30 j) sans litige ouvert."""
+    try:
+        call_command('purge_completed_missions')
+        return {'ok': True}
+    except Exception as exc:
+        logger.exception('purge_completed_missions failed: %s', exc)
+        raise
+
+
 @shared_task(name='escrow.sync_blockchain_events')
 def sync_blockchain_events_task(from_block: int = 0):
     """Synchronise les événements EscrowContract depuis Sepolia."""

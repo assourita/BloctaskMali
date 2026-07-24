@@ -4,6 +4,7 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../src/context/AuthContext';
 import { SidebarProvider } from '../src/context/SidebarContext';
+import { FooterVisibilityProvider } from '../src/context/FooterVisibilityContext';
 import { Sidebar } from '../src/components/layout/Sidebar';
 import { AppFooter } from '../src/components/layout/AppFooter';
 
@@ -12,6 +13,7 @@ export default function RootLayout() {
     <SafeAreaProvider>
       <AuthProvider>
       <SidebarProvider>
+      <FooterVisibilityProvider>
         <StatusBar style="dark" />
         <Stack screenOptions={{ headerShown: false }}>
           <Stack.Screen name="index" />
@@ -54,6 +56,7 @@ export default function RootLayout() {
         </Stack>
         <Sidebar />
         <AppFooter />
+      </FooterVisibilityProvider>
       </SidebarProvider>
       </AuthProvider>
     </SafeAreaProvider>

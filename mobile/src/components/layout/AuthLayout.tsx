@@ -1,5 +1,13 @@
 import { ReactNode } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  Image,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, radius, spacing } from '../../constants/theme';
 
@@ -9,7 +17,7 @@ interface AuthLayoutProps {
   children: ReactNode;
 }
 
-/** Layout connexion / inscription — panneau vert + carte formulaire, adapté mobile. */
+/** Layout connexion / inscription — marque centrée + carte formulaire. */
 export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
   const insets = useSafeAreaInsets();
 
@@ -19,11 +27,20 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <ScrollView
-        contentContainerStyle={[styles.scroll, { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.lg }]}
+        contentContainerStyle={[
+          styles.scroll,
+          { paddingTop: insets.top + spacing.sm, paddingBottom: insets.bottom + spacing.lg },
+        ]}
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.brandPanel}>
-          <View style={styles.logoRow}>
+          <View style={styles.brandMark}>
+            <Image
+              source={require('../../../assets/logo-blocktask-mali.png')}
+              style={styles.logoImg}
+              resizeMode="contain"
+              accessibilityLabel="Logo BlockTask"
+            />
             <Text style={styles.logoText}>BlockTask</Text>
           </View>
           <Text style={styles.brandTitle}>{title}</Text>
@@ -44,12 +61,38 @@ const styles = StyleSheet.create({
     borderRadius: radius.lg,
     padding: spacing.lg,
     marginBottom: spacing.md,
+    alignItems: 'center',
   },
-  logoRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: spacing.md },
-  logoDot: { width: 14, height: 14, borderRadius: 4, backgroundColor: '#fff' },
-  logoText: { fontSize: 20, fontWeight: '800', color: '#fff' },
-  brandTitle: { fontSize: 22, fontWeight: '800', color: '#fff' },
-  brandSubtitle: { color: '#eafff3', fontSize: 14, marginTop: 6, lineHeight: 20 },
+  brandMark: {
+    alignItems: 'center',
+    marginBottom: spacing.md,
+    gap: 8,
+  },
+  logoImg: {
+    width: 64,
+    height: 64,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+  },
+  logoText: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: -0.3,
+  },
+  brandTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#fff',
+    textAlign: 'center',
+  },
+  brandSubtitle: {
+    color: '#eafff3',
+    fontSize: 14,
+    marginTop: 6,
+    lineHeight: 20,
+    textAlign: 'center',
+  },
   card: {
     backgroundColor: colors.surface,
     borderRadius: radius.lg,

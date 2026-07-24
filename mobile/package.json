@@ -3,17 +3,18 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "scripts": {
-    "start": "expo start --offline",
-    "start:clear": "expo start --offline -c",
-    "start:online": "expo start",
-    "start:lan": "expo start --lan",
-    "start:tunnel": "node scripts/start-tunnel.js",
-    "start:tunnel:clear": "node scripts/start-tunnel.js -c",
+    "postinstall": "node scripts/ensure-debugger-locales.js",
+    "start": "node scripts/ensure-debugger-locales.js && expo start --offline",
+    "start:clear": "node scripts/ensure-debugger-locales.js && expo start --offline -c",
+    "start:online": "node scripts/ensure-debugger-locales.js && expo start",
+    "start:lan": "node scripts/ensure-debugger-locales.js && expo start --lan",
+    "start:tunnel": "node scripts/ensure-debugger-locales.js && node scripts/start-tunnel.js",
+    "start:tunnel:clear": "node scripts/ensure-debugger-locales.js && node scripts/start-tunnel.js -c",
     "tunnel": "node scripts/start-tunnel.js",
     "tunnel:backend": "node scripts/tunnel-backend.js",
-    "android": "expo start --offline --android",
-    "ios": "expo start --offline --ios",
-    "web": "expo start --offline --web"
+    "android": "node scripts/ensure-debugger-locales.js && expo start --offline --android",
+    "ios": "node scripts/ensure-debugger-locales.js && expo start --offline --ios",
+    "web": "node scripts/ensure-debugger-locales.js && expo start --offline --web"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

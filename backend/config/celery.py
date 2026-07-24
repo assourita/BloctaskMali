@@ -18,6 +18,10 @@ app.conf.beat_schedule = {
         'task': 'missions.auto_validate_missions',
         'schedule': crontab(minute=15),
     },
+    'purge-completed-missions-daily': {
+        'task': 'missions.purge_completed_missions',
+        'schedule': crontab(hour=3, minute=30),
+    },
     'sync-blockchain-events': {
         'task': 'escrow.sync_blockchain_events',
         'schedule': crontab(minute='*/5'),

@@ -87,7 +87,7 @@ export default function RegisterScreen() {
 
   return (
     <AuthLayout
-      title="Rejoignez BlockTask"
+      title="Rejoignez-nous"
       subtitle="Client, prestataire ou entreprise — créez votre compte en quelques étapes."
     >
       <Text style={styles.formTitle}>Inscription</Text>

@@ -2,11 +2,12 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, usePathname, useSegments } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
+import { useFooterVisibility } from '../../context/FooterVisibilityContext';
 import { GridIcon, HelpIcon, MapPinIcon } from '../icons';
 import { colors, radius, shadow, spacing } from '../../constants/theme';
 
-/** Hauteur utile pour le padding du contenu (hors safe area bas). */
-export const APP_FOOTER_CONTENT_INSET = 78;
+/** @deprecated Prefer useFooterVisibility().contentInset */
+export { APP_FOOTER_CONTENT_INSET } from '../../context/FooterVisibilityContext';
 
 const HIDDEN_PREFIXES = ['/', '/login', '/register', '/forgot-password'];
 
@@ -14,13 +15,12 @@ function isHiddenRoute(pathname: string, hasUser: boolean, user: any) {
   if (!hasUser) return true;
   if (pathname === '/' || pathname === '') return true;
   if (HIDDEN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) return true;
-  
-  // Hide footer if profile is not complete or not verified by admin
+
   const isProfileComplete = user?.first_name && user?.last_name && user?.phone_number;
   const isVerified = user?.kyc_status === 'verified' || user?.identity_verified === true;
-  
+
   if (!isProfileComplete || !isVerified) return true;
-  
+
   return false;
 }
 
@@ -36,8 +36,27 @@ export function AppFooter() {
   const pathname = usePathname();
   const segments = useSegments();
   const { user } = useAuth();
+  const { collapsed, collapse, expand } = useFooterVisibility();
 
   if (isHiddenRoute(pathname, !!user, user)) return null;
+
+  const bottomPad = Math.max(insets.bottom, spacing.sm);
+
+  if (collapsed) {
+    return (
+      <View style={[styles.collapsedWrap, { paddingBottom: bottomPad }]} pointerEvents="box-none">
+        <Pressable
+          style={({ pressed }) => [styles.reopenChip, pressed && styles.pressed]}
+          onPress={expand}
+          accessibilityRole="button"
+          accessibilityLabel="Afficher le menu de navigation"
+        >
+          <Text style={styles.reopenChevron}>⌃</Text>
+          <Text style={styles.reopenLabel}>Menu</Text>
+        </Pressable>
+      </View>
+    );
+  }
 
   const active: TabKey | null =
     pathname === '/map' || pathname.startsWith('/map/')
@@ -51,10 +70,20 @@ export function AppFooter() {
   const go = (href: string) => router.push(href as never);
 
   return (
-    <View style={[styles.wrapper, { paddingBottom: Math.max(insets.bottom, spacing.sm) }]} pointerEvents="box-none">
+    <View style={[styles.wrapper, { paddingBottom: bottomPad }]} pointerEvents="box-none">
       <View style={styles.glow} pointerEvents="none" />
       <View style={styles.bar}>
         <View style={styles.accentLine} pointerEvents="none" />
+
+        <Pressable
+          style={({ pressed }) => [styles.hideBtn, pressed && styles.pressed]}
+          onPress={collapse}
+          accessibilityRole="button"
+          accessibilityLabel="Masquer le menu de navigation"
+          hitSlop={10}
+        >
+          <Text style={styles.hideBtnText}>⌄</Text>
+        </Pressable>
 
         <Pressable
           style={({ pressed }) => [styles.sideTab, pressed && styles.pressed]}
@@ -111,6 +140,39 @@ const styles = StyleSheet.create({
     zIndex: 40,
     alignItems: 'center',
   },
+  collapsedWrap: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 40,
+    alignItems: 'center',
+  },
+  reopenChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    borderWidth: 1,
+    borderColor: 'rgba(233,236,239,0.95)',
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    ...shadow,
+    shadowOpacity: 0.12,
+    elevation: 8,
+  },
+  reopenChevron: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: colors.primary,
+    marginTop: 2,
+  },
+  reopenLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: colors.primary,
+  },
   glow: {
     position: 'absolute',
     bottom: 0,
@@ -138,6 +200,25 @@ const styles = StyleSheet.create({
     shadowRadius: 16,
     elevation: 12,
     overflow: 'visible',
+  },
+  hideBtn: {
+    position: 'absolute',
+    top: 2,
+    right: 8,
+    zIndex: 3,
+    width: 28,
+    height: 22,
+    borderRadius: 11,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.surfaceAlt,
+  },
+  hideBtnText: {
+    fontSize: 16,
+    fontWeight: '800',
+    color: colors.textMuted,
+    marginTop: -4,
+    lineHeight: 20,
   },
   accentLine: {
     position: 'absolute',

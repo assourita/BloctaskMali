@@ -76,7 +76,7 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
             <div class="stat-card" *ngIf="mission.deadline">
               <span class="stat-label">Échéance</span>
               <span class="stat-value">{{ mission.deadline | date:'dd MMM yyyy HH:mm' }}</span>
-              <span class="stat-hint">{{ deadlineHint(mission.deadline) }}</span>
+              <span class="stat-hint">{{ deadlineHint(mission) }}</span>
             </div>
             <div class="stat-card" *ngIf="scheduleLabel">
               <span class="stat-label">Créneau</span>
@@ -922,7 +922,13 @@ export class ProviderMissionDetailComponent implements OnInit {
     return `https://sepolia.etherscan.io/tx/${txHash}`;
   }
 
-  deadlineHint(deadline: string): string {
+  deadlineHint(missionOrDeadline: { deadline?: string; status?: string } | string): string {
+    const deadline = typeof missionOrDeadline === 'string' ? missionOrDeadline : missionOrDeadline?.deadline;
+    const status = typeof missionOrDeadline === 'string' ? this.mission?.status : missionOrDeadline?.status;
+    if (!deadline) return '';
+    if (status && ['completed', 'cancelled', 'expired', 'disputed'].includes(status)) {
+      return 'Compte à rebours arrêté';
+    }
     const diff = new Date(deadline).getTime() - Date.now();
     if (diff < 0) return 'Échéance dépassée';
     const hours = Math.floor(diff / 3600000);

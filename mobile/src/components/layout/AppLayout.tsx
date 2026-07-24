@@ -12,8 +12,8 @@ import {
 } from 'react-native';
 import { router, usePathname } from 'expo-router';
 import { AppHeader } from './AppHeader';
-import { APP_FOOTER_CONTENT_INSET } from './AppFooter';
 import { useAuth } from '../../context/AuthContext';
+import { useFooterVisibility } from '../../context/FooterVisibilityContext';
 import { guardPlatformAccess } from '../../utils/navigation';
 import { colors, spacing } from '../../constants/theme';
 
@@ -40,10 +40,13 @@ export function AppLayout({
 }: AppLayoutProps) {
   const pathname = usePathname();
   const { user } = useAuth();
+  const { contentInset } = useFooterVisibility();
 
   useEffect(() => {
     guardPlatformAccess(pathname, user);
   }, [pathname, user]);
+
+  const contentPad = [styles.content, { paddingBottom: spacing.xl + contentInset }, contentStyle];
 
   return (
     <KeyboardAvoidingView
@@ -59,7 +62,7 @@ export function AppLayout({
       {scroll ? (
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={[styles.content, contentStyle]}
+          contentContainerStyle={contentPad}
           keyboardShouldPersistTaps="handled"
           keyboardDismissMode="interactive"
           refreshControl={
@@ -71,7 +74,7 @@ export function AppLayout({
           {children}
         </ScrollView>
       ) : (
-        <View style={[styles.scroll, styles.content, contentStyle]}>{children}</View>
+        <View style={[styles.scroll, ...contentPad]}>{children}</View>
       )}
       {footer}
     </KeyboardAvoidingView>
@@ -83,5 +86,5 @@ const styles = StyleSheet.create({
   backRow: { paddingHorizontal: spacing.md, paddingVertical: 10, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border },
   backText: { color: colors.primary, fontWeight: '700', fontSize: 14 },
   scroll: { flex: 1, backgroundColor: colors.background },
-  content: { padding: spacing.md, paddingBottom: spacing.xl + APP_FOOTER_CONTENT_INSET },
+  content: { padding: spacing.md },
 });

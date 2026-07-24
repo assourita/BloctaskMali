@@ -1041,7 +1041,7 @@ export class ClientMissionsComponent implements OnInit {
 
   isDeadlineOverdue(mission: Mission): boolean {
     if (!mission.deadline) return false;
-    if (['completed', 'cancelled', 'expired'].includes(mission.status)) return false;
+    if (['completed', 'cancelled', 'expired', 'disputed'].includes(mission.status)) return false;
     return new Date(mission.deadline).getTime() < Date.now();
   }
 

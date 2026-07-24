@@ -28,8 +28,17 @@ function formatTime(d?: string) {
   }
 }
 
-function timeRemaining(deadline?: string): { label: string; late: boolean } | null {
+function timeRemaining(deadline?: string, status?: string): { label: string; late: boolean } | null {
   if (!deadline) return null;
+  if (status && ['completed', 'cancelled', 'expired', 'disputed'].includes(status)) {
+    const labels: Record<string, string> = {
+      completed: 'Terminée',
+      cancelled: 'Annulée',
+      expired: 'Expirée',
+      disputed: 'Litige',
+    };
+    return { label: labels[status] || status, late: false };
+  }
   const diff = new Date(deadline).getTime() - Date.now();
   if (Number.isNaN(diff)) return null;
   if (diff < 0) return { label: 'En retard', late: true };
@@ -39,6 +48,7 @@ function timeRemaining(deadline?: string): { label: string; late: boolean } | nu
 }
 
 function needsExpiryAttention(mission: Mission): boolean {
+  if (['completed', 'cancelled', 'expired', 'disputed'].includes(mission.status)) return false;
   if (mission.status === 'expired') return true;
   if (mission.expiry_decision_pending) return true;
   if (!mission.deadline) return false;
@@ -72,7 +82,7 @@ export function MissionCard({
   const meta = STATUS_META[mission.status] || { label: mission.status, bg: '#f3f4f6', fg: '#6b7280' };
   const category = mission.category?.name || mission.category_name;
   const candidates = mission.application_count ?? mission.applications_count ?? 0;
-  const remaining = timeRemaining(mission.deadline);
+  const remaining = timeRemaining(mission.deadline, mission.status);
   const deadline = formatDate(mission.deadline);
 
   // Contrepartie : le client pour le prestataire, le prestataire pour le client.
