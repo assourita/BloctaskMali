@@ -1,4 +1,4 @@
-"""Envoi d'emails transactionnels (SendGrid, Resend, SMTP Django)."""
+"""Envoi d'emails transactionnels (Resend, SendGrid, SMTP Django)."""
 import logging
 
 import requests
@@ -74,6 +74,18 @@ def send_platform_email(
             if fail_silently:
                 return False
             raise
+
+    host_user = getattr(settings, 'EMAIL_HOST_USER', '') or ''
+    host_password = getattr(settings, 'EMAIL_HOST_PASSWORD', '') or ''
+    if not host_user or not host_password:
+        msg = (
+            'SMTP non configure : renseignez EMAIL_HOST_USER et EMAIL_HOST_PASSWORD '
+            '(Gmail App Password), ou une cle Resend/SendGrid.'
+        )
+        logger.error(msg)
+        if fail_silently:
+            return False
+        raise RuntimeError(msg)
 
     send_mail(
         subject=subject,

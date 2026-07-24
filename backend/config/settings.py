@@ -265,19 +265,25 @@ ETHEREUM_RPC_URL = BLOCKCHAIN_CONFIG['ETHEREUM_RPC_URL']
 BLOCKCHAIN_RELAYER_PRIVATE_KEY = os.getenv('BLOCKCHAIN_RELAYER_PRIVATE_KEY', '')
 BLOCKCHAIN_RELAYER_ADDRESS = os.getenv('BLOCKCHAIN_RELAYER_ADDRESS', '')
 
-# Email
+# Email — priorité : Resend API > SendGrid API > SMTP Django
 SENDGRID_API_KEY = os.getenv('SENDGRID_API_KEY', '')
 RESEND_API_KEY = os.getenv('RESEND_API_KEY', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'noreply@blocktask.ml')
-EMAIL_BACKEND = os.getenv(
-    'EMAIL_BACKEND',
-    'django.core.mail.backends.console.EmailBackend' if DEBUG else 'django.core.mail.backends.smtp.EmailBackend',
-)
 EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
 EMAIL_PORT = int(os.getenv('EMAIL_PORT', '587'))
 EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 EMAIL_USE_TLS = os.getenv('EMAIL_USE_TLS', 'True').lower() == 'true'
+# SMTP si credentials présents ; sinon console en DEBUG, SMTP en prod
+_email_backend_env = os.getenv('EMAIL_BACKEND', '').strip()
+if _email_backend_env:
+    EMAIL_BACKEND = _email_backend_env
+elif EMAIL_HOST_USER and EMAIL_HOST_PASSWORD:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+elif DEBUG:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:4200')
 REQUIRE_EMAIL_VERIFICATION = os.getenv('REQUIRE_EMAIL_VERIFICATION', 'True').lower() == 'true'
 

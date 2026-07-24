@@ -8,6 +8,8 @@
 #   - API_URL                     (URL du backend Render, ex: https://blocktask-backend.onrender.com/api)
 #   - ETHEREUM_RPC_URL            (Sepolia RPC)
 #   - ESCROW/REPUTATION/LITIGATION_CONTRACT_ADDRESS
+#   - EMAIL_HOST_USER / EMAIL_HOST_PASSWORD  (Gmail App Password — SMTP gratuit)
+#   - DEFAULT_FROM_EMAIL                     (même adresse que EMAIL_HOST_USER pour Gmail)
 #   - GOOGLE_CLIENT_ID            (si connexion Google)
 #   - ORANGE/MOOV Mobile Money    (mode SANDBOX recommandé pour démo)
 #   - BLOCKCHAIN_RELAYER_*        (optionnel)
@@ -39,9 +41,25 @@ services:
       - key: USE_REDIS_CHANNELS
         value: "true"
       - key: SENDGRID_API_KEY
-        sync: false
+        sync: false            # laisser vide pour utiliser SMTP Gmail
+      - key: RESEND_API_KEY
+        sync: false            # laisser vide pour utiliser SMTP Gmail
+      - key: EMAIL_BACKEND
+        value: "django.core.mail.backends.smtp.EmailBackend"
+      - key: EMAIL_HOST
+        value: "smtp.gmail.com"
+      - key: EMAIL_PORT
+        value: "587"
+      - key: EMAIL_USE_TLS
+        value: "true"
+      - key: EMAIL_HOST_USER
+        sync: false            # ex: votre.email@gmail.com
+      - key: EMAIL_HOST_PASSWORD
+        sync: false            # mot de passe d'application Google (16 caractères)
       - key: DEFAULT_FROM_EMAIL
-        value: "noreply@blocktask.ml"
+        sync: false            # même adresse que EMAIL_HOST_USER (Gmail)
+      - key: REQUIRE_EMAIL_VERIFICATION
+        value: "true"
       - key: AWS_ACCESS_KEY_ID
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
@@ -77,10 +95,6 @@ services:
           property: connectionString
       - key: MOBILE_MONEY_SANDBOX
         value: "true"
-      - key: REQUIRE_EMAIL_VERIFICATION
-        value: "false"         # mettre true quand l'email sera configuré
-      - key: EMAIL_BACKEND
-        value: "django.core.mail.backends.console.EmailBackend"
       # Blockchain Sepolia — renseigner après déploiement des contrats
       - key: ETHEREUM_RPC_URL
         sync: false

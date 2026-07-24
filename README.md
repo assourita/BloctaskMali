@@ -262,11 +262,28 @@ Un blueprint `render.yaml` est fourni pour déployer automatiquement :
    - `ETHEREUM_RPC_URL` + adresses des contrats Sepolia
    - `GOOGLE_CLIENT_ID` (optionnel)
    - `MOBILE_MONEY_SANDBOX=true` pour la démo sans vrai débit
+   - **Email SMTP (Gmail gratuit)** pour la vérification à l’inscription :
+     1. Compte Google → Sécurité → Validation en 2 étapes
+     2. Mots de passe des applications → générer un mot de passe « Mail »
+     3. Sur Render (backend) renseigner :
+        - `EMAIL_HOST_USER` = votre Gmail
+        - `EMAIL_HOST_PASSWORD` = le mot de passe d’application (16 caractères)
+        - `DEFAULT_FROM_EMAIL` = **la même** adresse Gmail
+        - laisser `RESEND_API_KEY` et `SENDGRID_API_KEY` vides
+        - `REQUIRE_EMAIL_VERIFICATION=true` (déjà dans `render.yaml`)
 4. Clique **Apply** — Render provisionne la base, Redis, backend puis frontend.
 5. Crée un super-utilisateur depuis le shell du service backend :
 
 ```bash
 python manage.py createsuperuser
+```
+
+Test local SMTP :
+
+```bash
+cd backend
+# renseigner EMAIL_HOST_USER / EMAIL_HOST_PASSWORD / DEFAULT_FROM_EMAIL dans .env
+python manage.py send_test_email vous@gmail.com
 ```
 
 ### Railway
