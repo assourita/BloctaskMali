@@ -1,13 +1,9 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule } from '@angular/router';
-import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatTableModule } from '@angular/material/table';
-import { MatBadgeModule } from '@angular/material/badge';
 import { Observable } from 'rxjs';
 import { Router } from '@angular/router';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
@@ -22,692 +18,153 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
   imports: [
     CommonModule,
     RouterModule,
-    MatCardModule,
     MatButtonModule,
     MatIconModule,
-    MatChipsModule,
     MatProgressBarModule,
-    MatTableModule,
-    MatBadgeModule,
     MatSnackBarModule,
     MissionApplicationsComponent
   ],
   template: `
-    <div class="dashboard-container">
-      <!-- Welcome Section - Stripe Style -->
-      <div class="welcome-section">
-        <div class="welcome-content">
+    <div class="dash-page">
+      <header class="dash-header">
+        <div class="dash-header__text">
           <h1>Bonjour {{ (currentUser$ | async)?.first_name || 'Client' }}</h1>
-          <p>Bienvenue sur votre tableau de bord BlockTask</p>
+          <p>Vos missions et paiements en un coup d’œil</p>
         </div>
-        <button mat-raised-button class="create-btn" routerLink="/client/missions/create">
-          <mat-icon>add</mat-icon>
-          Nouvelle mission
-        </button>
-      </div>
-      
-      <!-- Stats Cards - Stripe Style -->
-      <div class="stats-grid">
-        <mat-card class="stat-card stat-card--active">
-          <div class="stat-icon">
-            <mat-icon>pending_actions</mat-icon>
-          </div>
-          <div class="stat-content">
-            <span class="stat-value">{{ stats.active }}</span>
-            <span class="stat-label">Missions actives</span>
-          </div>
-          <div class="stat-trend positive">
-            <mat-icon>trending_up</mat-icon>
-            <span>+12%</span>
-          </div>
-        </mat-card>
+        <div class="dash-header__actions">
+          <button mat-flat-button color="primary" routerLink="/client/missions/create">
+            <mat-icon>add</mat-icon>
+            Nouvelle mission
+          </button>
+        </div>
+      </header>
 
-        <mat-card class="stat-card stat-card--completed">
-          <div class="stat-icon">
-            <mat-icon>check_circle</mat-icon>
-          </div>
-          <div class="stat-content">
-            <span class="stat-value">{{ stats.completed }}</span>
-            <span class="stat-label">Missions terminées</span>
-          </div>
-          <div class="stat-trend positive">
-            <mat-icon>trending_up</mat-icon>
-            <span>+8%</span>
-          </div>
-        </mat-card>
-
-        <mat-card class="stat-card stat-card--pending">
-          <div class="stat-icon">
-            <mat-icon>schedule</mat-icon>
-          </div>
-          <div class="stat-content">
-            <span class="stat-value">{{ stats.pending }}</span>
-            <span class="stat-label">En attente</span>
-          </div>
-          <div class="stat-trend neutral">
-            <mat-icon>remove</mat-icon>
-            <span>0%</span>
-          </div>
-        </mat-card>
-
-        <mat-card class="stat-card stat-card--wallet">
-          <div class="stat-icon">
-            <mat-icon>account_balance_wallet</mat-icon>
-          </div>
-          <div class="stat-content">
-            <span class="stat-value">{{ formatXOF(stats.spentThisMonth) }}</span>
-            <span class="stat-label">Dépensé ce mois</span>
-          </div>
-          <div class="stat-trend negative">
-            <mat-icon>trending_down</mat-icon>
-            <span>-5%</span>
-          </div>
-        </mat-card>
+      <div class="dash-metrics">
+        <div class="dash-metric">
+          <span class="dash-metric__value">{{ stats.active }}</span>
+          <span class="dash-metric__label">Missions actives</span>
+        </div>
+        <div class="dash-metric">
+          <span class="dash-metric__value">{{ stats.completed }}</span>
+          <span class="dash-metric__label">Terminées</span>
+        </div>
+        <div class="dash-metric">
+          <span class="dash-metric__value">{{ stats.pending }}</span>
+          <span class="dash-metric__label">En attente</span>
+        </div>
+        <div class="dash-metric">
+          <span class="dash-metric__value">{{ stats.spentThisMonth }}</span>
+          <span class="dash-metric__label">Dépensé ce mois</span>
+        </div>
       </div>
 
-      <!-- Quick Actions - Linear Style -->
-      <div class="quick-actions">
-        <button mat-stroked-button class="action-btn" routerLink="/client/tracking">
+      <nav class="dash-links" aria-label="Accès rapides">
+        <a routerLink="/client/tracking">
           <mat-icon>my_location</mat-icon>
-          <span>Suivi en direct</span>
-        </button>
-        <button mat-stroked-button class="action-btn" routerLink="/client/missions">
+          Suivi en direct
+        </a>
+        <a routerLink="/client/missions">
           <mat-icon>list</mat-icon>
-          <span>Mes missions</span>
-        </button>
-        <button mat-stroked-button class="action-btn" routerLink="/client/wallet">
+          Mes missions
+        </a>
+        <a routerLink="/client/wallet">
           <mat-icon>account_balance_wallet</mat-icon>
-          <span>Portefeuille</span>
-        </button>
-        <button mat-stroked-button class="action-btn" routerLink="/client/settings">
+          Portefeuille
+        </a>
+        <a routerLink="/client/settings">
           <mat-icon>settings</mat-icon>
-          <span>Paramètres</span>
-        </button>
-      </div>
+          Paramètres
+        </a>
+      </nav>
 
-      <!-- Active Missions -->
-      <mat-card class="missions-card">
-        <mat-card-header>
-          <mat-card-title>Missions en cours</mat-card-title>
-          <button mat-button color="primary" routerLink="/client/missions">Voir tout</button>
-        </mat-card-header>
-        
-        <mat-card-content>
-          <div class="mission-list">
-            <div class="mission-item" *ngFor="let mission of activeMissions">
-              <div class="mission-header">
-                <div class="mission-title">
-                  <h4>{{ mission.title }}</h4>
-                  <mat-chip-listbox>
-                    <mat-chip-option [color]="getStatusColor(mission.status)" selected>
-                      {{ getStatusLabel(mission.status) }}
-                    </mat-chip-option>
-                  </mat-chip-listbox>
-                </div>
-                <span class="mission-price">{{ mission.budget }} {{ mission.currency }}</span>
+      <section class="dash-section">
+        <div class="dash-section__head">
+          <h2>À traiter</h2>
+          <a mat-button color="primary" routerLink="/client/missions">Voir tout</a>
+        </div>
+
+        <div class="dash-list" *ngIf="activeMissions.length; else noActive">
+          <div class="dash-row" *ngFor="let mission of activeMissions">
+            <div class="dash-row__main">
+              <div class="dash-row__title">
+                <h3>{{ mission.title }}</h3>
+                <span class="dash-status" [class]="statusClass(mission.status)">
+                  {{ getStatusLabel(mission.status) }}
+                </span>
               </div>
-              
-              <div class="mission-details">
-                <div class="location">
+              <div class="dash-row__meta">
+                <span>
                   <mat-icon>location_on</mat-icon>
-                  <span>{{ mission.pickup }} → {{ mission.delivery }}</span>
-                </div>
-                <div class="provider" *ngIf="mission.provider">
-                  <img [src]="mission.provider.avatar" alt="Provider" class="avatar">
-                  <span>{{ mission.provider.name }}</span>
-                  <div class="rating">
-                    <mat-icon>star</mat-icon>
-                    <span>{{ mission.provider.rating }}</span>
-                  </div>
-                </div>
+                  {{ mission.pickup }} → {{ mission.delivery }}
+                </span>
+                <span *ngIf="mission.provider">
+                  {{ mission.provider.name }}
+                  <ng-container *ngIf="mission.provider.rating">
+                    · {{ mission.provider.rating }}
+                  </ng-container>
+                </span>
               </div>
 
-              <div class="mission-progress" *ngIf="mission.status === 'in_progress'">
-                <div class="progress-header">
+              <div class="dash-progress" *ngIf="mission.status === 'in_progress'">
+                <div class="dash-progress__labels">
                   <span>Progression</span>
                   <span>{{ mission.progress }}%</span>
                 </div>
-                <mat-progress-bar mode="determinate" [value]="mission.progress"></mat-progress-bar>
-                <div class="tracking-btn">
-                  <button mat-button color="accent" routerLink="/client/tracking">
+                <mat-progress-bar mode="determinate" [value]="mission.progress || 0"></mat-progress-bar>
+                <div class="dash-row__actions">
+                  <button mat-stroked-button routerLink="/client/tracking">
                     <mat-icon>gps_fixed</mat-icon>
-                    Suivre en temps réel
+                    Suivre
                   </button>
                 </div>
               </div>
 
-              <div class="mission-actions" *ngIf="mission.status === 'submitted'">
-                <p class="info-text">Le prestataire a soumis des preuves. Veuillez valider la mission.</p>
-                <div class="action-buttons">
-                  <button mat-raised-button color="primary" (click)="validateMission(mission)">
-                    <mat-icon>check</mat-icon>
-                    Valider et payer
-                  </button>
-                  <button mat-button color="warn" (click)="openDispute(mission)">
-                    <mat-icon>error</mat-icon>
-                    Ouvrir un litige
-                  </button>
-                </div>
+              <div class="dash-row__actions" *ngIf="mission.status === 'submitted'">
+                <button mat-flat-button color="primary" (click)="validateMission(mission)">
+                  <mat-icon>check</mat-icon>
+                  Valider et payer
+                </button>
+                <button mat-button color="warn" (click)="openDispute(mission)">
+                  Litige
+                </button>
               </div>
             </div>
+            <div class="dash-row__side">
+              <span class="dash-row__price">{{ mission.budget }} {{ mission.currency }}</span>
+            </div>
           </div>
-        </mat-card-content>
-      </mat-card>
+        </div>
+        <ng-template #noActive>
+          <div class="dash-empty">Aucune mission à traiter pour le moment.</div>
+        </ng-template>
+      </section>
 
-      <!-- Pending Applications -->
       <app-mission-applications></app-mission-applications>
 
-      <!-- Recent Activity -->
-      <mat-card class="activity-card">
-        <mat-card-header>
-          <mat-card-title>Activité récente</mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="activity-list">
-            <div class="activity-item" *ngFor="let activity of recentActivity">
-              <div class="activity-icon" [class]="activity.type">
-                <mat-icon>{{ activity.icon }}</mat-icon>
-              </div>
-              <div class="activity-content">
-                <p class="activity-text">{{ activity.text }}</p>
-                <span class="activity-time">{{ activity.time }}</span>
-              </div>
-            </div>
+      <section class="dash-section" *ngIf="recentActivity.length">
+        <div class="dash-section__head">
+          <h2>Activité récente</h2>
+        </div>
+        <div class="dash-activity">
+          <div class="dash-activity__item" *ngFor="let activity of recentActivity">
+            <p class="dash-activity__text">{{ activity.text }}</p>
+            <span class="dash-activity__time">{{ activity.time }}</span>
           </div>
-        </mat-card-content>
-      </mat-card>
+        </div>
+      </section>
     </div>
   `,
   styles: [`
-    .dashboard-container {
-      padding: 2rem;
-      padding-bottom: 3rem;
-      display: flex;
-      flex-direction: column;
-      gap: 2rem;
-      max-width: 1400px;
-      margin: 0 auto;
-      font-family: system-ui, -apple-system, sans-serif;
+    :host {
+      display: block;
     }
 
-    /* Welcome Section - BlockTask Green */
-    .welcome-section {
-      background: linear-gradient(135deg, #3CB371 0%, #16a34a 100%);
-      color: #ffffff;
-      padding: 2rem;
-      border-radius: 1.5rem;
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      box-shadow: 0 10px 15px -3px rgba(22, 163, 74, 0.25);
-      
-      .welcome-content {
-        h1 {
-          margin: 0 0 0.5rem 0;
-          font-size: 1.875rem;
-          font-weight: 800;
-        }
-        
-        p {
-          margin: 0;
-          font-size: 1.125rem;
-          opacity: 0.9;
-        }
-      }
-
-      .create-btn {
-        background: #ffffff;
-        color: #16a34a;
-        border: none;
-        border-radius: 0.75rem;
-        padding: 0.875rem 1.75rem;
-        font-weight: 600;
-        font-size: 0.875rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-        transition: all 0.2s ease;
-
-        &:hover {
-          background: #f0fdf4;
-          box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.15);
-          transform: translateY(-1px);
-        }
-
-        mat-icon {
-          margin-right: 0.5rem;
-        }
-      }
-    }
-
-    /* Stats Cards - Stripe Style */
-    .stats-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1.5rem;
-    }
-
-    .stat-card {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-      padding: 1.5rem;
-      min-height: 10rem;
-      border: 1px solid #e5e7eb;
-      border-radius: 1rem;
-      background: #ffffff;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-      position: relative;
-
-      &:hover {
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(22, 163, 74, 0.08);
-        transform: translateY(-3px);
-      }
-
-      .stat-icon {
-        width: 3rem;
-        height: 3rem;
-        border-radius: 0.75rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-      }
-
-      .stat-icon mat-icon {
-        font-size: 1.5rem;
-        width: 1.5rem;
-        height: 1.5rem;
-      }
-
-      .stat-content {
-        display: flex;
-        flex-direction: column;
-        gap: 0.25rem;
-      }
-
-      .stat-value {
-        font-size: 1.875rem;
-        font-weight: 800;
-        color: #111827;
-      }
-
-      .stat-label {
-        font-size: 0.875rem;
-        color: #9ca3af;
-        font-weight: 500;
-      }
-
-      .stat-trend {
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-        font-size: 0.75rem;
-        font-weight: 600;
-        padding: 0.25rem 0.5rem;
-        border-radius: 0.5rem;
-        width: fit-content;
-
-        mat-icon {
-          font-size: 1rem;
-          width: 1rem;
-          height: 1rem;
-        }
-
-        &.positive {
-          background: #dcfce7;
-          color: #16a34a;
-        }
-
-        &.negative {
-          background: #fee2e2;
-          color: #dc2626;
-        }
-
-        &.neutral {
-          background: #f3f4f6;
-          color: #6b7280;
-        }
-      }
-
-      &--active .stat-icon {
-        background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
-        color: #ffffff;
-      }
-
-      &--completed .stat-icon {
-        background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
-        color: #ffffff;
-      }
-
-      &--pending .stat-icon {
-        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-        color: #111827;
-      }
-
-      &--wallet .stat-icon {
-        background: linear-gradient(135deg, #3CB371 0%, #16a34a 100%);
-        color: #ffffff;
-      }
-    }
-
-    /* Quick Actions - Linear Style */
-    .quick-actions {
-      display: flex;
-      gap: 1rem;
-      flex-wrap: wrap;
-    }
-
-    .action-btn {
-      flex: 1;
-      min-width: 160px;
-      height: 3.5rem;
-      border: 2px solid #e5e7eb;
-      border-radius: 0.75rem;
-      background: #ffffff;
-      color: #6b7280;
-      font-weight: 600;
-      font-size: 0.875rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 0.5rem;
-      transition: all 0.2s ease;
-
-      &:hover {
-        border-color: #16a34a;
-        background: #f0fdf4;
-        color: #111827;
-      }
-
-      mat-icon {
-        font-size: 1.25rem;
-        width: 1.25rem;
-        height: 1.25rem;
-      }
-    }
-
-    /* Missions Card */
-    .missions-card {
-      border: 1px solid #e5e7eb;
-      border-radius: 1rem;
-      background: #ffffff;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-
-      ::ng-deep {
-        .mat-mdc-card-header {
-          padding: 1.5rem;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .mat-mdc-card-title {
-          font-size: 1.125rem;
-          font-weight: 600;
-          color: #111827;
-        }
-
-        .mat-mdc-card-content {
-          padding: 1.5rem;
-        }
-      }
-
-      mat-card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-      }
-    }
-
-    .mission-list {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .mission-item {
-      padding: 1.25rem;
-      border: 1px solid #e5e7eb;
-      border-radius: 0.75rem;
-      background: #f9fafb;
-      transition: all 0.2s ease;
-
-      &:hover {
-        border-color: #16a34a;
-        box-shadow: 0 2px 4px rgba(22, 163, 74, 0.1);
-      }
-    }
-
-    .mission-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      margin-bottom: 0.75rem;
-    }
-
-    .mission-title {
-      h4 {
-        margin: 0 0 0.5rem 0;
-        font-size: 1rem;
-        font-weight: 600;
-        color: #111827;
-      }
-    }
-
-    .mission-price {
-      font-size: 1.125rem;
-      font-weight: 800;
-      color: #16a34a;
-    }
-
-    .mission-details {
-      display: flex;
-      flex-direction: column;
-      gap: 0.5rem;
-      margin-bottom: 0.75rem;
-    }
-
-    .location {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 0.875rem;
-      color: #9ca3af;
-
-      mat-icon {
-        font-size: 1rem;
-        width: 1rem;
-        height: 1rem;
-      }
-    }
-
-    .provider {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-
-      .avatar {
-        width: 2rem;
-        height: 2rem;
-        border-radius: 9999px;
-        object-fit: cover;
-      }
-
-      span {
-        font-size: 0.875rem;
-        color: #6b7280;
-        font-weight: 500;
-      }
-
-      .rating {
-        display: flex;
-        align-items: center;
-        gap: 0.25rem;
-        font-size: 0.875rem;
-        color: #f59e0b;
-
-        mat-icon {
-          font-size: 1rem;
-          width: 1rem;
-          height: 1rem;
-        }
-      }
-    }
-
-    .mission-progress {
-      margin-top: 1rem;
-    }
-
-    .progress-header {
-      display: flex;
-      justify-content: space-between;
-      font-size: 0.75rem;
-      color: #9ca3af;
-      margin-bottom: 0.5rem;
-      font-weight: 500;
-    }
-
-    .tracking-btn {
-      margin-top: 0.75rem;
-    }
-
-    .mission-actions {
-      margin-top: 1rem;
-    }
-
-    .info-text {
-      font-size: 0.875rem;
-      color: #6b7280;
-      margin-bottom: 0.75rem;
-    }
-
-    .action-buttons {
-      display: flex;
-      gap: 0.75rem;
-    }
-
-    /* Activity Card */
-    .activity-card {
-      border: 1px solid #e5e7eb;
-      border-radius: 1rem;
-      background: #ffffff;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-
-      ::ng-deep {
-        .mat-mdc-card-header {
-          padding: 1.5rem;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .mat-mdc-card-title {
-          font-size: 1.125rem;
-          font-weight: 600;
-          color: #111827;
-        }
-
-        .mat-mdc-card-content {
-          padding: 1.5rem;
-        }
-      }
-    }
-
-    .activity-list {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .activity-item {
-      display: flex;
-      gap: 1rem;
-      align-items: flex-start;
-    }
-
-    .activity-icon {
-      width: 2.5rem;
-      height: 2.5rem;
-      border-radius: 0.75rem;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      flex-shrink: 0;
-
-      mat-icon {
-        font-size: 1.25rem;
-        width: 1.25rem;
-        height: 1.25rem;
-        color: white;
-      }
-
-      &.mission {
-        background: linear-gradient(135deg, #3CB371 0%, #16a34a 100%);
-      }
-
-      &.payment {
-        background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
-      }
-
-      &.review {
-        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-      }
-
-      &.dispute {
-        background: linear-gradient(135deg, #f87171 0%, #ef4444 100%);
-      }
-    }
-
-    .activity-content {
-      flex: 1;
-    }
-
-    .activity-text {
-      margin: 0 0 0.25rem 0;
-      font-size: 0.875rem;
-      color: #6b7280;
-      line-height: 1.625;
-    }
-
-    .activity-time {
-      font-size: 0.75rem;
-      color: #9ca3af;
-    }
-
-    /* Responsive */
-    @media (max-width: 768px) {
-      .dashboard-container {
-        padding: 1rem;
-        padding-bottom: 2.5rem;
-      }
-
-      .welcome-section {
-        flex-direction: column;
-        text-align: center;
-        gap: 1rem;
-
-        .create-btn {
-          width: 100%;
-        }
-      }
-
-      .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
-        gap: 1rem;
-      }
-
-      .quick-actions {
-        flex-direction: column;
-
-        .action-btn {
-          width: 100%;
-        }
-      }
-    }
-
-    @media (max-width: 480px) {
-      .stats-grid {
-        grid-template-columns: 1fr;
-      }
+    /* Component-specific tweaks only — layout lives in styles/dashboard.scss */
+    app-mission-applications {
+      display: block;
     }
   `]
 })
-
 export class ClientDashboardComponent implements OnInit {
   currentUser$: Observable<User | null>;
   loading = true;
@@ -754,9 +211,10 @@ export class ClientDashboardComponent implements OnInit {
     });
     this.missionService.getMyMissions('client').subscribe({
       next: (missions) => {
-        const active = missions.filter(m =>
-          ['accepted', 'in_progress', 'submitted'].includes(m.status)
-        );
+        const priority = ['submitted', 'in_progress', 'accepted'];
+        const active = missions
+          .filter(m => priority.includes(m.status))
+          .sort((a, b) => priority.indexOf(a.status) - priority.indexOf(b.status));
         this.activeMissions = active.slice(0, 5).map(m => this.mapMission(m));
         this.loading = false;
       },
@@ -782,13 +240,13 @@ export class ClientDashboardComponent implements OnInit {
     };
   }
 
-  getStatusColor(status: string): string {
-    const colors: { [key: string]: string } = {
-      'in_progress': 'accent',
-      'submitted': 'primary',
-      'accepted': 'warn'
+  statusClass(status: string): string {
+    const map: Record<string, string> = {
+      in_progress: 'dash-status--progress',
+      submitted: 'dash-status--validate',
+      accepted: 'dash-status--accepted'
     };
-    return colors[status] || 'primary';
+    return map[status] || '';
   }
 
   getStatusLabel(status: string): string {
@@ -798,10 +256,6 @@ export class ClientDashboardComponent implements OnInit {
       'accepted': 'Acceptée'
     };
     return labels[status] || status;
-  }
-
-  formatXOF(value: string): string {
-    return value;
   }
 
   validateMission(mission: { id: string; title: string }): void {

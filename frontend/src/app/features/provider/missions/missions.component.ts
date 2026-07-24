@@ -9,14 +9,10 @@ import { BlockchainService } from '../../../core/services/blockchain.service';
 import { Web3Service } from '../../../core/services/web3.service';
 import { lastValueFrom } from 'rxjs';
 
-import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatChipsModule } from '@angular/material/chips';
-import { MatTabsModule } from '@angular/material/tabs';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
-import { MatBadgeModule } from '@angular/material/badge';
 
 interface Mission {
   id: string;
@@ -51,385 +47,301 @@ interface Mission {
   standalone: true,
   imports: [
     CommonModule, RouterModule,
-    MatCardModule, MatButtonModule, MatIconModule,
-    MatChipsModule, MatTabsModule, MatProgressBarModule,
-    MatSnackBarModule, MatBadgeModule
+    MatButtonModule, MatIconModule,
+    MatProgressBarModule, MatSnackBarModule,
   ],
   template: `
-    <div class="my-missions-container">
-      <div class="page-header">
-        <div>
+    <div class="dash-page">
+      <header class="dash-header">
+        <div class="dash-header__text">
           <h1>Mes missions assignées</h1>
           <p>Missions où vous êtes prestataire retenu</p>
         </div>
-        <a mat-stroked-button routerLink="/provider/missions/solicitations" class="solicitations-link">
-          <mat-icon>mail</mat-icon> Mes sollicitations
-        </a>
-      </div>
-      <!-- Header avec stats -->
-      <div class="stats-bar">
-        <div class="stat-item">
-          <mat-icon>assignment</mat-icon>
-          <div>
-            <span class="value">{{ stats.total }}</span>
-            <span class="label">Total missions</span>
-          </div>
+        <div class="dash-header__actions">
+          <a mat-stroked-button routerLink="/provider/missions/solicitations">
+            <mat-icon>mail</mat-icon>
+            Sollicitations
+          </a>
         </div>
-        <div class="stat-item active">
-          <mat-icon>play_circle</mat-icon>
-          <div>
-            <span class="value">{{ stats.active }}</span>
-            <span class="label">En cours</span>
-          </div>
+      </header>
+
+      <div class="dash-metrics">
+        <div class="dash-metric">
+          <span class="dash-metric__value">{{ stats.total }}</span>
+          <span class="dash-metric__label">Total missions</span>
         </div>
-        <div class="stat-item completed">
-          <mat-icon>check_circle</mat-icon>
-          <div>
-            <span class="value">{{ stats.completed }}</span>
-            <span class="label">Terminées</span>
-          </div>
+        <div class="dash-metric">
+          <span class="dash-metric__value">{{ stats.active }}</span>
+          <span class="dash-metric__label">En cours</span>
         </div>
-        <div class="stat-item earnings">
-          <mat-icon>payments</mat-icon>
-          <div>
-            <span class="value">{{ stats.earnings | number }} FCFA</span>
-            <span class="label">Gagnés ce mois</span>
-          </div>
+        <div class="dash-metric">
+          <span class="dash-metric__value">{{ stats.completed }}</span>
+          <span class="dash-metric__label">Terminées</span>
+        </div>
+        <div class="dash-metric">
+          <span class="dash-metric__value">{{ stats.earnings | number }} FCFA</span>
+          <span class="dash-metric__label">Gagnés ce mois</span>
         </div>
       </div>
 
-      <!-- Tabs -->
-      <mat-tab-group animationDuration="200ms" [selectedIndex]="selectedTab" (selectedIndexChange)="onTabChange($event)">
-        <mat-tab>
-          <ng-template mat-tab-label>
-            <mat-icon>play_circle</mat-icon>
-            En cours
-            <span class="tab-badge" *ngIf="activeMissions.length > 0">{{ activeMissions.length }}</span>
-          </ng-template>
-          <div class="tab-content">
-            <div class="empty-state" *ngIf="activeMissions.length === 0">
-              <mat-icon>inbox</mat-icon>
-              <h3>Aucune mission en cours</h3>
-              <p>Postulez à des missions disponibles pour commencer à travailler.</p>
-              <button mat-raised-button color="primary" routerLink="/provider/missions/available">
-                <mat-icon>search</mat-icon> Trouver des missions
-              </button>
-            </div>
-            <div class="missions-list" *ngIf="activeMissions.length > 0">
-              <mat-card class="mission-item" [class.highlight-deposit]="highlightMissionId === mission.id" [id]="'mission-' + mission.id" *ngFor="let mission of activeMissions">
-                <div class="mission-status-bar">
-                  <mat-chip-listbox>
-                    <mat-chip-option [class]="'status-' + mission.status" selected disabled>
-                      {{ getStatusLabel(mission.status) }}
-                    </mat-chip-option>
-                  </mat-chip-listbox>
-                  <span class="deadline" *ngIf="getTimeRemaining(mission) as remaining">⏰ {{ remaining }}</span>
+      <nav class="pm-tabs" aria-label="Filtres missions">
+        <button type="button" class="pm-tab" [class.active]="selectedTab === 0" (click)="onTabChange(0)">
+          En cours
+          <span class="pm-count" *ngIf="activeMissions.length">{{ activeMissions.length }}</span>
+        </button>
+        <button type="button" class="pm-tab" [class.active]="selectedTab === 1" (click)="onTabChange(1)">
+          Historique
+        </button>
+        <button type="button" class="pm-tab" [class.active]="selectedTab === 2" (click)="onTabChange(2)">
+          En attente
+          <span class="pm-count" *ngIf="pendingApplications.length">{{ pendingApplications.length }}</span>
+        </button>
+      </nav>
+
+      <!-- En cours -->
+      <section class="dash-section" *ngIf="selectedTab === 0">
+        <div class="dash-empty" *ngIf="activeMissions.length === 0">
+          Aucune mission en cours.
+          <a routerLink="/provider/missions/available">Trouver des missions</a>
+        </div>
+
+        <div class="dash-list" *ngIf="activeMissions.length > 0">
+          <div
+            class="dash-row pm-row"
+            [class.pm-row--highlight]="highlightMissionId === mission.id"
+            [id]="'mission-' + mission.id"
+            *ngFor="let mission of activeMissions"
+          >
+            <div class="dash-row__main">
+              <div class="dash-row__title">
+                <h3>{{ mission.title }}</h3>
+                <span class="dash-status" [ngClass]="statusClass(mission.status)">
+                  {{ getStatusLabel(mission.status) }}
+                </span>
+                <span class="pm-deadline" *ngIf="getTimeRemaining(mission) as remaining"
+                      [class.pm-deadline--late]="remaining === 'En retard'">
+                  {{ remaining }}
+                </span>
+              </div>
+
+              <div class="dash-row__meta">
+                <span *ngIf="mission.pickup_address || mission.delivery_address">
+                  <mat-icon>location_on</mat-icon>
+                  {{ mission.pickup_address || '—' }} → {{ mission.delivery_address || '—' }}
+                </span>
+                <span>
+                  <mat-icon>person</mat-icon>
+                  {{ mission.client.first_name }} {{ mission.client.last_name }}
+                </span>
+              </div>
+
+              <div class="dash-progress" *ngIf="mission.status === 'in_progress'">
+                <div class="dash-progress__labels">
+                  <span>Progression</span>
+                  <span>{{ mission.progress || 0 }}%</span>
                 </div>
-                <mat-card-title>{{ mission.title }}</mat-card-title>
-                <mat-card-subtitle class="mission-budget">{{ mission.budget | number }} FCFA</mat-card-subtitle>
-                
-                <mat-card-content>
-                  <div class="client-row">
-                    <div class="client-info">
-                      <div class="avatar">
-                        <img *ngIf="mission.client.profile_picture" [src]="mission.client.profile_picture">
-                        <span *ngIf="!mission.client.profile_picture">
-                          {{ (mission.client.first_name[0] || '') + (mission.client.last_name[0] || '') }}
-                        </span>
-                      </div>
-                      <div>
-                        <span class="name">{{ mission.client.first_name }} {{ mission.client.last_name }}</span>
-                        <span class="phone" *ngIf="mission.client.phone_number">{{ mission.client.phone_number }}</span>
-                      </div>
-                    </div>
-                    <button mat-icon-button type="button" (click)="openMissionChat(mission)">
-                      <mat-icon>chat</mat-icon>
-                    </button>
-                  </div>
-                  
-                  <div class="route-info">
-                    <div class="route-point">
-                      <mat-icon class="pickup">location_on</mat-icon>
-                      <span>{{ mission.pickup_address }}</span>
-                    </div>
-                    <div class="route-line"></div>
-                    <div class="route-point">
-                      <mat-icon class="delivery">flag</mat-icon>
-                      <span>{{ mission.delivery_address }}</span>
-                    </div>
-                  </div>
+                <mat-progress-bar mode="determinate" [value]="mission.progress || 0"></mat-progress-bar>
+              </div>
 
-                  <div class="progress-section" *ngIf="mission.status === 'in_progress'">
-                    <span>Progression: {{ mission.progress || 0 }}%</span>
-                    <mat-progress-bar mode="determinate" [value]="mission.progress || 0"></mat-progress-bar>
-                  </div>
+              <div class="pm-alert" *ngIf="mission.status === 'accepted' && !mission.deposit_paid">
+                <strong>Caution requise</strong>
+                Déposez {{ mission.required_deposit | number:'1.0-0' }} {{ mission.currency || 'XOF' }}
+                <ng-container *ngIf="mission.deposit_deadline">
+                  avant {{ mission.deposit_deadline | date:'HH:mm' }}
+                </ng-container>
+                pour démarrer.
+              </div>
 
-                  <div class="deposit-alert" *ngIf="mission.status === 'accepted' && !mission.deposit_paid">
-                    <mat-icon>schedule</mat-icon>
-                    <div>
-                      <strong>Caution requise sous 4h</strong>
-                      <p>
-                        Déposez {{ mission.required_deposit | number:'1.0-0' }} {{ mission.currency || 'XOF' }}
-                        avant {{ mission.deposit_deadline | date:'HH:mm' }} pour démarrer.
-                      </p>
-                    </div>
-                  </div>
-                </mat-card-content>
-                
-                <mat-card-actions>
-                  <button mat-button type="button" (click)="viewMissionDetails(mission)">Détails</button>
-                  <button mat-raised-button color="warn" (click)="payDeposit(mission)"
-                          *ngIf="mission.status === 'accepted' && !mission.deposit_paid">
-                    <mat-icon>security</mat-icon> Déposer et démarrer
-                  </button>
-                  <button mat-raised-button color="accent" type="button" (click)="viewMissionProofs(mission)" *ngIf="mission.status === 'in_progress'">
-                    Preuves
-                  </button>
-                  <button mat-raised-button color="warn" (click)="completeMission(mission)" *ngIf="mission.status === 'submitted'">
-                    Finaliser
-                  </button>
-                </mat-card-actions>
-              </mat-card>
+              <div class="dash-row__actions">
+                <button mat-stroked-button type="button" (click)="viewMissionDetails(mission)">Détails</button>
+                <button mat-stroked-button type="button" (click)="openMissionChat(mission)">
+                  <mat-icon>chat</mat-icon>
+                  Chat
+                </button>
+                <button mat-flat-button color="primary" (click)="payDeposit(mission)"
+                        *ngIf="mission.status === 'accepted' && !mission.deposit_paid">
+                  Déposer et démarrer
+                </button>
+                <button mat-flat-button color="primary" type="button" (click)="viewMissionProofs(mission)"
+                        *ngIf="mission.status === 'in_progress'">
+                  Preuves
+                </button>
+                <button mat-flat-button color="primary" (click)="completeMission(mission)"
+                        *ngIf="mission.status === 'submitted'">
+                  Finaliser
+                </button>
+              </div>
+            </div>
+            <div class="dash-row__side">
+              <span class="dash-row__price">{{ mission.budget | number }} FCFA</span>
             </div>
           </div>
-        </mat-tab>
+        </div>
+      </section>
 
-        <mat-tab>
-          <ng-template mat-tab-label>
-            <mat-icon>history</mat-icon>
-            Historique
-          </ng-template>
-          <div class="tab-content">
-            <div class="empty-state" *ngIf="completedMissions.length === 0">
-              <mat-icon>history</mat-icon>
-              <h3>Aucun historique</h3>
-              <p>Vos missions terminées apparaîtront ici.</p>
+      <!-- Historique -->
+      <section class="dash-section" *ngIf="selectedTab === 1">
+        <div class="dash-empty" *ngIf="completedMissions.length === 0">
+          Aucun historique pour le moment.
+        </div>
+
+        <div class="dash-list" *ngIf="completedMissions.length > 0">
+          <div class="dash-row" *ngFor="let mission of completedMissions">
+            <div class="dash-row__main">
+              <div class="dash-row__title">
+                <h3>{{ mission.title }}</h3>
+                <span class="dash-status" [ngClass]="statusClass(mission.status)">
+                  {{ mission.status === 'completed' ? 'Terminée' : getStatusLabel(mission.status) }}
+                </span>
+              </div>
+              <div class="dash-row__meta">
+                <span>{{ mission.client.first_name }} {{ mission.client.last_name }}</span>
+                <span>{{ mission.completed_at || mission.created_at | date:'dd MMM yyyy' }}</span>
+              </div>
+              <div class="dash-row__actions">
+                <button mat-stroked-button type="button" (click)="viewMissionDetails(mission)">Détails</button>
+              </div>
             </div>
-            <div class="missions-list completed" *ngIf="completedMissions.length > 0">
-              <mat-card class="mission-item completed" *ngFor="let mission of completedMissions">
-                <div class="mission-header-row">
-                  <mat-chip-listbox>
-                    <mat-chip-option class="status-completed" selected disabled>
-                      {{ mission.status === 'completed' ? 'Terminée' : 'Annulée' }}
-                    </mat-chip-option>
-                  </mat-chip-listbox>
-                  <span class="date">{{ mission.completed_at || mission.created_at | date:'dd MMM yyyy' }}</span>
-                </div>
-                <mat-card-title>{{ mission.title }}</mat-card-title>
-                <mat-card-subtitle class="mission-budget">{{ mission.budget | number }} FCFA</mat-card-subtitle>
-                
-                <mat-card-content>
-                  <div class="client-row">
-                    <div class="client-info">
-                      <div class="avatar small">
-                        <span>{{ (mission.client.first_name[0] || '') + (mission.client.last_name[0] || '') }}</span>
-                      </div>
-                      <span class="name">{{ mission.client.first_name }} {{ mission.client.last_name }}</span>
-                    </div>
-                    <button mat-button color="primary" *ngIf="mission.status === 'completed' && !mission.rated">
-                      Noter le client
-                    </button>
-                  </div>
-                </mat-card-content>
-                <mat-card-actions>
-                  <button mat-button type="button" (click)="viewMissionDetails(mission)">Détails</button>
-                </mat-card-actions>
-              </mat-card>
+            <div class="dash-row__side">
+              <span class="dash-row__price">{{ mission.budget | number }} FCFA</span>
             </div>
           </div>
-        </mat-tab>
+        </div>
+      </section>
 
-        <mat-tab>
-          <ng-template mat-tab-label>
-            <mat-icon>pending</mat-icon>
-            En attente
-            <span class="tab-badge" *ngIf="pendingApplications.length > 0">{{ pendingApplications.length }}</span>
-          </ng-template>
-          <div class="tab-content">
-            <div class="empty-state" *ngIf="pendingApplications.length === 0">
-              <mat-icon>hourglass_empty</mat-icon>
-              <h3>Aucune candidature en attente</h3>
-              <p>Vos candidatures en cours de traitement apparaîtront ici.</p>
+      <!-- En attente -->
+      <section class="dash-section" *ngIf="selectedTab === 2">
+        <div class="dash-empty" *ngIf="pendingApplications.length === 0">
+          Aucune candidature en attente.
+        </div>
+
+        <div class="dash-list" *ngIf="pendingApplications.length > 0">
+          <div class="dash-row" *ngFor="let app of pendingApplications">
+            <div class="dash-row__main">
+              <div class="dash-row__title">
+                <h3>{{ app.mission_title }}</h3>
+                <span class="dash-status dash-status--accepted">En attente</span>
+              </div>
+              <div class="dash-row__meta">
+                <span>Postulé le {{ app.created_at | date:'dd MMM yyyy à HH:mm' }}</span>
+              </div>
+              <p class="pm-msg" *ngIf="app.message">« {{ app.message }} »</p>
+              <div class="dash-row__actions">
+                <button mat-button color="warn" (click)="cancelApplication(app.id)">Annuler</button>
+              </div>
             </div>
-            <div class="missions-list" *ngIf="pendingApplications.length > 0">
-              <mat-card class="mission-item pending" *ngFor="let app of pendingApplications">
-                <div class="pending-badge">
-                  <mat-icon>schedule</mat-icon>
-                  <span>En attente de réponse</span>
-                </div>
-                <mat-card-title>{{ app.mission_title }}</mat-card-title>
-                <mat-card-subtitle class="mission-budget">{{ app.mission_budget | number }} {{ app.mission_currency || 'XOF' }}</mat-card-subtitle>
-                <mat-card-content>
-                  <p class="application-message">Votre message: "{{ app.message }}"</p>
-                  <p class="date">Postulé le {{ app.created_at | date:'dd MMM yyyy à HH:mm' }}</p>
-                </mat-card-content>
-                <mat-card-actions>
-                  <button mat-button color="warn" (click)="cancelApplication(app.id)">Annuler</button>
-                </mat-card-actions>
-              </mat-card>
+            <div class="dash-row__side">
+              <span class="dash-row__price">{{ app.mission_budget | number }} {{ app.mission_currency || 'XOF' }}</span>
             </div>
           </div>
-        </mat-tab>
-      </mat-tab-group>
+        </div>
+      </section>
     </div>
   `,
   styles: [`
-    .my-missions-container { padding: 24px; max-width: 1000px; margin: 0 auto; }
-    .page-header {
+    :host { display: block; }
+
+    .pm-tabs {
       display: flex;
-      justify-content: space-between;
-      align-items: flex-start;
-      gap: 16px;
-      margin-bottom: 20px;
-      flex-wrap: wrap;
-      h1 { margin: 0 0 4px; font-size: 22px; }
-      p { margin: 0; color: #6b7280; font-size: 14px; }
+      gap: 0;
+      border-bottom: 1px solid var(--bt-border, #e5e7eb);
     }
-    .solicitations-link mat-icon { margin-right: 6px; }
-    
-    .stats-bar {
-      display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
-      .stat-item {
-        background: #fff; border-radius: 12px; padding: 20px;
-        display: flex; align-items: center; gap: 12px;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        mat-icon { font-size: 32px; width: 32px; height: 32px; color: #9ca3af; }
-        .value { display: block; font-size: 24px; font-weight: 700; color: #1f2937; }
-        .label { font-size: 13px; color: #6b7280; }
-        &.active mat-icon { color: #3b82f6; }
-        &.completed mat-icon { color: #10b981; }
-        &.earnings mat-icon { color: #f59e0b; }
-      }
-    }
-    
-    .tab-content { padding: 24px 0; }
-    .tab-badge {
-      background: #ef4444; color: #fff; font-size: 11px; font-weight: 600;
-      padding: 2px 8px; border-radius: 10px; margin-left: 8px;
-    }
-    
-    .empty-state {
-      text-align: center; padding: 60px;
-      mat-icon { font-size: 64px; width: 64px; height: 64px; color: #d1d5db; margin-bottom: 16px; }
-      h3 { margin: 0 0 8px; font-size: 20px; color: #374151; }
-      p { margin: 0 0 24px; color: #6b7280; }
-    }
-    
-    .missions-list {
-      display: flex; flex-direction: column; gap: 16px;
-    }
-    
-    .mission-item {
-      border-radius: 16px;
-      &.completed { opacity: 0.8; }
-      &.pending { border-left: 4px solid #f59e0b; }
-      &.highlight-deposit {
-        box-shadow: 0 0 0 2px #3CB371;
-        animation: depositPulse 1.5s ease-in-out 2;
-      }
-      
-      @keyframes depositPulse {
-        0%, 100% { box-shadow: 0 0 0 2px #3CB371; }
-        50% { box-shadow: 0 0 0 4px rgba(60, 179, 113, 0.45); }
-      }
-      
-      .mission-status-bar {
-        display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
-        .deadline { font-size: 13px; color: #ef4444; font-weight: 500; }
-      }
-      
-      mat-card-title { font-size: 18px; font-weight: 700; margin: 0 0 4px; }
-      .mission-budget { color: #3CB371; font-size: 18px; font-weight: 700; }
-      
-      .client-row {
-        display: flex; justify-content: space-between; align-items: center;
-        margin: 16px 0; padding: 12px; background: #f9fafb; border-radius: 8px;
-        .client-info {
-          display: flex; align-items: center; gap: 10px;
-          .avatar {
-            width: 40px; height: 40px; border-radius: 50%; background: #3CB371;
-            display: flex; align-items: center; justify-content: center; color: #fff; font-weight: 600;
-            overflow: hidden;
-            img { width: 100%; height: 100%; object-fit: cover; }
-            &.small { width: 28px; height: 28px; font-size: 12px; }
-          }
-          .name { display: block; font-weight: 600; font-size: 14px; }
-          .phone { display: block; font-size: 12px; color: #6b7280; }
-        }
-      }
-      
-      .route-info {
-        margin: 16px 0;
-        .route-point {
-          display: flex; align-items: center; gap: 8px;
-          mat-icon { font-size: 20px; &.pickup { color: #3b82f6; } &.delivery { color: #10b981; } }
-          span { font-size: 14px; color: #374151; }
-        }
-        .route-line { width: 2px; height: 20px; background: #e5e7eb; margin-left: 9px; }
-      }
-      
-      .progress-section {
-        margin-top: 12px;
-        span { font-size: 13px; color: #6b7280; }
-        mat-progress-bar { margin-top: 8px; }
+
+    .pm-tab {
+      appearance: none;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      padding: 0.625rem 1rem;
+      font-size: 0.875rem;
+      font-weight: 500;
+      color: var(--bt-muted, #6b7280);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+
+      &.active {
+        color: var(--bt-ink, #111827);
+        border-bottom-color: var(--bt-brand, #16a34a);
       }
 
-      .deposit-alert {
-        display: flex;
-        gap: 12px;
-        align-items: flex-start;
-        margin-top: 12px;
-        padding: 12px;
-        background: #fef3c7;
-        border: 1px solid #fcd34d;
-        border-radius: 10px;
-        mat-icon { color: #d97706; flex-shrink: 0; }
-        p { margin: 4px 0 0; font-size: 13px; color: #92400e; }
-        strong { font-size: 14px; color: #78350f; }
-      }
-      
-      mat-card-actions {
-        display: flex; gap: 8px; padding: 16px;
-        button { flex: 1; }
-      }
-      
-      .pending-badge {
-        display: flex; align-items: center; gap: 8px;
-        background: #fef3c7; color: #92400e; padding: 8px 12px; border-radius: 8px;
-        margin-bottom: 12px; font-size: 13px; font-weight: 500;
-      }
-      .application-message {
-        font-style: italic; color: #6b7280; margin: 8px 0;
-        padding: 12px; background: #f9fafb; border-radius: 8px;
-      }
-      .date { font-size: 12px; color: #9ca3af; margin: 0; }
+      &:hover { color: var(--bt-ink, #111827); }
     }
-    
-    .status-accepted { background: #dbeafe !important; color: #1e40af !important; }
-    .status-in_progress { background: #fef3c7 !important; color: #92400e !important; }
-    .status-submitted { background: #d1fae5 !important; color: #065f46 !important; }
-    .status-completed { background: #d1fae5 !important; color: #065f46 !important; }
-    .status-cancelled { background: #fee2e2 !important; color: #991b1b !important; }
-    
-    @media (max-width: 768px) {
-      .stats-bar { grid-template-columns: repeat(2, 1fr); }
+
+    .pm-count {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      background: var(--gray-100, #f3f4f6);
+      color: var(--gray-600, #4b5563);
+      padding: 0.1rem 0.4rem;
+      border-radius: 999px;
+      min-width: 1.25rem;
+      text-align: center;
+    }
+
+    .pm-tab.active .pm-count {
+      background: var(--bt-brand-soft, #dcfce7);
+      color: var(--primary-700, #15803d);
+    }
+
+    .pm-deadline {
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--bt-muted, #6b7280);
+
+      &--late { color: #dc2626; }
+    }
+
+    .pm-alert {
+      font-size: 0.8125rem;
+      color: #92400e;
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-radius: 0.5rem;
+      padding: 0.625rem 0.75rem;
+      line-height: 1.4;
+
+      strong {
+        display: block;
+        margin-bottom: 0.15rem;
+        color: #78350f;
+      }
+    }
+
+    .pm-msg {
+      margin: 0;
+      font-size: 0.8125rem;
+      color: var(--bt-muted, #6b7280);
+      font-style: italic;
+    }
+
+    .pm-row--highlight {
+      box-shadow: inset 3px 0 0 var(--bt-brand, #16a34a);
+      background: #f0fdf4;
+    }
+
+    .dash-empty a {
+      margin-left: 0.25rem;
+      font-weight: 500;
     }
   `]
 })
 export class ProviderMissionsComponent implements OnInit {
   private apiUrl = environment.apiUrl;
-  
+
   activeMissions: Mission[] = [];
   completedMissions: Mission[] = [];
   pendingApplications: any[] = [];
   selectedTab = 0;
   highlightMissionId = '';
-  
+
   private pendingDepositMissionId = '';
   private depositRedirectHandled = false;
-  
+
   stats = { total: 0, active: 0, completed: 0, earnings: 0 };
-  
+
   constructor(
     private http: HttpClient,
     private authService: AuthService,
@@ -515,7 +427,7 @@ export class ProviderMissionsComponent implements OnInit {
       error: () => {},
     });
   }
-  
+
   loadStats(): void {
     this.http.get<any>(`${this.apiUrl}/users/stats/`, { headers: this.h() }).subscribe({
       next: (res) => {
@@ -537,6 +449,18 @@ export class ProviderMissionsComponent implements OnInit {
         next: (apps) => { this.pendingApplications = apps.filter(a => a.status === 'pending'); },
       });
     }
+  }
+
+  statusClass(status: string): string {
+    const map: Record<string, string> = {
+      in_progress: 'dash-status--progress',
+      submitted: 'dash-status--validate',
+      accepted: 'dash-status--accepted',
+      completed: 'dash-status--progress',
+      cancelled: '',
+      disputed: '',
+    };
+    return map[status] || '';
   }
 
   getStatusLabel(status: string): string {
@@ -572,10 +496,6 @@ export class ProviderMissionsComponent implements OnInit {
     if (hours < 24) return `${hours}h restantes`;
     const days = Math.floor(hours / 24);
     return `${days}j restants`;
-  }
-
-  submitProof(mission: Mission): void {
-    this.viewMissionProofs(mission);
   }
 
   viewMissionDetails(mission: Mission): void {
@@ -652,24 +572,6 @@ export class ProviderMissionsComponent implements OnInit {
     } catch (err) {
       console.warn('Ancrage caution blockchain optionnel:', err);
     }
-  }
-
-  startMission(mission: Mission): void {
-    this.missionService.startMission(mission.id).subscribe({
-      next: () => {
-        mission.status = 'in_progress';
-        this.snackBar.open('Mission démarrée', 'Fermer', { duration: 3000 });
-        this.loadMissions();
-      },
-      error: (e) => {
-        const body = e.error;
-        if (body?.deposit_required) {
-          this.snackBar.open('Déposez la caution avant de démarrer', 'Fermer', { duration: 5000 });
-        } else {
-          this.snackBar.open(body?.error || 'Erreur', 'Fermer', { duration: 4000 });
-        }
-      }
-    });
   }
 
   completeMission(mission: Mission): void {

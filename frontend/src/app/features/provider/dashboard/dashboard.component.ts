@@ -1,18 +1,16 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router, RouterModule } from '@angular/router';
-import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressBarModule } from '@angular/material/progress-bar';
-import { MatSliderModule } from '@angular/material/slider';
+import { MatSlideToggleModule } from '@angular/material/slide-toggle';
 import { Observable } from 'rxjs';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { AuthService, User } from '../../../core/services/auth.service';
-import { MissionService, Mission } from '../../../core/services/mission.service';
+import { MissionService } from '../../../core/services/mission.service';
 import { PaymentMethodFlowService } from '../../../core/services/payment-method-flow.service';
 import { formatXOF, DEFAULT_MAP_CENTER } from '../../../core/constants/africa.constants';
 import { environment } from '../../../../environments/environment';
@@ -23,625 +21,218 @@ import { environment } from '../../../../environments/environment';
   imports: [
     CommonModule,
     RouterModule,
-    MatCardModule,
     MatButtonModule,
     MatIconModule,
-    MatChipsModule,
     MatProgressBarModule,
-    MatSliderModule,
+    MatSlideToggleModule,
     MatSnackBarModule,
     MatDialogModule,
   ],
   template: `
-    <div class="dashboard-container">
-      <!-- Welcome Section -->
-      <div class="welcome-section">
-        <h1>Bonjour {{ (currentUser$ | async)?.first_name || 'Prestataire' }} !</h1>
-        <p>Prêt à trouver de nouvelles missions sur BlockTask ?</p>
+    <div class="dash-page">
+      <header class="dash-header">
+        <div class="dash-header__text">
+          <h1>Bonjour {{ (currentUser$ | async)?.first_name || 'Prestataire' }}</h1>
+          <p>Mission en cours, revenus et opportunités proches</p>
+        </div>
+        <div class="dash-header__actions">
+          <label class="dash-header__avail">
+            <mat-slide-toggle
+              color="primary"
+              [checked]="isAvailable"
+              (change)="onAvailabilityChange($event.checked)"
+            ></mat-slide-toggle>
+            {{ isAvailable ? 'Disponible' : 'Indisponible' }}
+          </label>
+          <button mat-flat-button color="primary" routerLink="/provider/missions/available">
+            <mat-icon>search</mat-icon>
+            Trouver des missions
+          </button>
+        </div>
+      </header>
+
+      <div class="dash-metrics">
+        <div class="dash-metric">
+          <span class="dash-metric__value">{{ totalEarnings }}</span>
+          <span class="dash-metric__label">Total gagné</span>
+          <span class="dash-metric__hint" *ngIf="earnedThisMonthLabel">
+            dont {{ earnedThisMonthLabel }} ce mois
+          </span>
+        </div>
+        <div class="dash-metric">
+          <span class="dash-metric__value">{{ completedMissions }}</span>
+          <span class="dash-metric__label">Missions terminées</span>
+        </div>
+        <div class="dash-metric">
+          <span class="dash-metric__value">{{ averageRating }}</span>
+          <span class="dash-metric__label">Note moyenne</span>
+        </div>
+        <div class="dash-metric">
+          <span class="dash-metric__value">{{ reputationScore }}/100</span>
+          <span class="dash-metric__label">Réputation · {{ reputationLevel }}</span>
+        </div>
       </div>
-      
-      <!-- Earnings Card -->
-      <mat-card class="earnings-card">
-        <div class="earnings-header">
-          <div class="earnings-info">
-            <h2>Mes revenus</h2>
-            <div class="balance">
-              <span class="amount">{{ totalEarnings }}</span>
-              <span class="label">Total gagné</span>
-            </div>
-            <div class="month-hint" *ngIf="earnedThisMonthLabel">
-              dont {{ earnedThisMonthLabel }} ce mois
-              <span *ngIf="completedThisMonth">({{ completedThisMonth }} mission{{ completedThisMonth > 1 ? 's' : '' }})</span>
-            </div>
-            <div class="stats-row">
-              <div class="stat">
-                <span class="value">{{ completedMissions }}</span>
-                <span class="label">Missions terminées</span>
-              </div>
-              <div class="stat">
-                <span class="value">{{ averageRating }}</span>
-                <span class="label">Note moyenne</span>
-              </div>
-              <div class="stat">
-                <span class="value">{{ responseTime }}h</span>
-                <span class="label">Temps réponse</span>
-              </div>
-            </div>
-          </div>
-          <div class="reputation-badge" [class]="reputationLevel.toLowerCase()">
-            <mat-icon>verified</mat-icon>
-            <span>{{ reputationLevel }}</span>
-            <span class="score">{{ reputationScore }}/100</span>
-          </div>
-        </div>
-      </mat-card>
 
-      <!-- Availability Toggle -->
-      <mat-card class="availability-card">
-        <div class="availability-content">
-          <div class="availability-info">
-            <h3>Disponibilité</h3>
-            <p>Activez pour recevoir des missions automatiquement</p>
-          </div>
-          <div class="toggle-container">
-            <mat-chip-listbox>
-              <mat-chip-option 
-                [selected]="isAvailable" 
-                (selectionChange)="toggleAvailability($event)"
-                color="primary"
-              >
-                {{ isAvailable ? 'Disponible' : 'Indisponible' }}
-              </mat-chip-option>
-            </mat-chip-listbox>
-          </div>
-        </div>
-      </mat-card>
-
-      <!-- Quick Actions -->
-      <div class="quick-actions">
-        <button mat-raised-button color="primary" routerLink="/provider/missions/available">
-          <mat-icon>search</mat-icon>
-          Trouver des missions
-        </button>
-        <button mat-stroked-button routerLink="/provider/deposit">
+      <nav class="dash-links" aria-label="Accès rapides">
+        <a routerLink="/provider/deposit">
           <mat-icon>security</mat-icon>
-          Ma caution ({{ depositAmount }} {{ currency }})
-        </button>
-        <button mat-stroked-button routerLink="/provider/reputation">
+          Caution ({{ depositAmount }} {{ currency || 'XOF' }})
+        </a>
+        <a routerLink="/provider/reputation">
           <mat-icon>trending_up</mat-icon>
           Ma réputation
-        </button>
-      </div>
+        </a>
+        <a routerLink="/provider/missions/available">
+          <mat-icon>map</mat-icon>
+          Carte des missions
+        </a>
+      </nav>
 
-      <!-- Current Mission -->
-      <mat-card class="current-mission" *ngIf="currentMission">
-        <mat-card-header>
-          <mat-card-title>Mission en cours</mat-card-title>
-          <mat-chip-option color="accent" selected>En progression</mat-chip-option>
-        </mat-card-header>
-        
-        <mat-card-content>
-          <h3>{{ currentMission.title }}</h3>
-          <div class="mission-meta">
-            <span class="price">{{ currentMission.budget }} {{ currentMission.currency }}</span>
-            <span class="separator">•</span>
-            <span class="location">{{ currentMission.pickup }} → {{ currentMission.delivery }}</span>
-            <span class="separator">•</span>
-            <span class="deadline">⏰ {{ currentMission.deadline }}</span>
-          </div>
+      <section class="dash-section">
+        <div class="dash-section__head">
+          <h2>Mission en cours</h2>
+        </div>
 
-          <div class="progress-section">
-            <div class="progress-header">
-              <span>Progression</span>
-              <span>{{ currentMission.progress }}%</span>
-            </div>
-            <mat-progress-bar mode="determinate" [value]="currentMission.progress"></mat-progress-bar>
-          </div>
-
-          <div class="client-info" *ngIf="currentMission.client">
-            <img [src]="currentMission.client.avatar || ''" alt="Client" class="avatar">
-            <div class="client-details">
-              <span class="name">{{ currentMission.client.name }}</span>
-              <span class="rating"><mat-icon class="inline-star">star</mat-icon> {{ currentMission.client.rating }}</span>
-            </div>
-          </div>
-
-          <div class="action-buttons">
-            <button mat-raised-button color="primary" (click)="updateLocation()">
-              <mat-icon>gps_fixed</mat-icon>
-              Mettre à jour ma position
-            </button>
-            <button mat-stroked-button color="accent" (click)="submitProof()">
-              <mat-icon>photo_camera</mat-icon>
-              Soumettre des preuves
-            </button>
-            <button mat-button color="warn" (click)="completeMission()">
-              <mat-icon>check_circle</mat-icon>
-              Marquer comme terminée
-            </button>
-          </div>
-        </mat-card-content>
-      </mat-card>
-
-      <!-- Available Missions Preview -->
-      <mat-card class="available-preview">
-        <mat-card-header>
-          <mat-card-title>Missions disponibles à proximité</mat-card-title>
-          <button mat-button color="primary" routerLink="/provider/missions/available">
-            Voir la carte
-          </button>
-        </mat-card-header>
-        
-        <mat-card-content>
-          <div class="nearby-list">
-            <div class="nearby-item" *ngFor="let mission of nearbyMissions">
-              <div class="distance-badge">
-                <mat-icon>near_me</mat-icon>
-                <span>{{ mission.distance }} km</span>
+        <div class="dash-list" *ngIf="currentMission; else noCurrent">
+          <div class="dash-row">
+            <div class="dash-row__main">
+              <div class="dash-row__title">
+                <h3>{{ currentMission.title }}</h3>
+                <span class="dash-status dash-status--progress">En cours</span>
               </div>
-              <div class="mission-info">
-                <h4>{{ mission.title }}</h4>
-                <p class="location">{{ mission.pickup }} → {{ mission.delivery }}</p>
-                <div class="meta">
-                  <span class="price">{{ mission.budget }} {{ mission.currency }}</span>
-                  <span class="time">⏱️ {{ mission.estimatedTime }} min</span>
+              <div class="dash-row__meta">
+                <span>
+                  <mat-icon>location_on</mat-icon>
+                  {{ currentMission.pickup }} → {{ currentMission.delivery }}
+                </span>
+                <span *ngIf="currentMission.deadline">
+                  <mat-icon>schedule</mat-icon>
+                  {{ currentMission.deadline }}
+                </span>
+                <span *ngIf="currentMission.client">
+                  {{ currentMission.client.name }}
+                  · {{ currentMission.client.rating }}
+                </span>
+              </div>
+
+              <div class="dash-progress">
+                <div class="dash-progress__labels">
+                  <span>Progression</span>
+                  <span>{{ currentMission.progress }}%</span>
                 </div>
+                <mat-progress-bar mode="determinate" [value]="currentMission.progress"></mat-progress-bar>
               </div>
-              <button mat-raised-button color="primary" (click)="applyToMission(mission)">
-                Postuler
-              </button>
-            </div>
-          </div>
-        </mat-card-content>
-      </mat-card>
 
-      <!-- Performance Chart -->
-      <mat-card class="performance-card">
-        <mat-card-header>
-          <mat-card-title>Performance cette semaine</mat-card-title>
-        </mat-card-header>
-        <mat-card-content>
-          <div class="performance-grid">
-            <div class="perf-item">
-              <mat-icon>payments</mat-icon>
-              <span class="value">{{ weeklyEarnings }} {{ currency }}</span>
-              <span class="label">Revenus</span>
+              <div class="dash-row__actions">
+                <button mat-stroked-button (click)="updateLocation()">
+                  <mat-icon>gps_fixed</mat-icon>
+                  Position
+                </button>
+                <button mat-stroked-button (click)="submitProof()">
+                  <mat-icon>photo_camera</mat-icon>
+                  Preuves
+                </button>
+                <button mat-flat-button color="primary" (click)="completeMission()">
+                  <mat-icon>check_circle</mat-icon>
+                  Terminer
+                </button>
+              </div>
             </div>
-            <div class="perf-item">
-              <mat-icon>assignment_turned_in</mat-icon>
-              <span class="value">{{ weeklyMissions }}</span>
-              <span class="label">Missions</span>
-            </div>
-            <div class="perf-item">
-              <mat-icon>schedule</mat-icon>
-              <span class="value">{{ avgCompletionTime }}h</span>
-              <span class="label">Temps moyen</span>
-            </div>
-            <div class="perf-item">
-              <mat-icon>thumb_up</mat-icon>
-              <span class="value">{{ satisfactionRate }}%</span>
-              <span class="label">Satisfaction</span>
+            <div class="dash-row__side">
+              <span class="dash-row__price">{{ currentMission.budget }} {{ currentMission.currency }}</span>
             </div>
           </div>
-        </mat-card-content>
-      </mat-card>
+        </div>
+        <ng-template #noCurrent>
+          <div class="dash-empty">
+            Aucune mission en cours.
+            <a routerLink="/provider/missions/available">Parcourir les missions</a>
+          </div>
+        </ng-template>
+      </section>
+
+      <section class="dash-section">
+        <div class="dash-section__head">
+          <h2>À proximité</h2>
+          <a mat-button color="primary" routerLink="/provider/missions/available">Voir la carte</a>
+        </div>
+
+        <div class="dash-list" *ngIf="nearbyMissions.length; else noNearby">
+          <div class="dash-row" *ngFor="let mission of nearbyMissions">
+            <div class="dash-row__main">
+              <div class="dash-row__title">
+                <h3>{{ mission.title }}</h3>
+              </div>
+              <div class="dash-row__meta">
+                <span>
+                  <mat-icon>near_me</mat-icon>
+                  {{ mission.distance }} km
+                </span>
+                <span>
+                  <mat-icon>location_on</mat-icon>
+                  {{ mission.pickup }} → {{ mission.delivery }}
+                </span>
+                <span>
+                  <mat-icon>timer</mat-icon>
+                  ~{{ mission.estimatedTime }} min
+                </span>
+              </div>
+              <div class="dash-row__actions">
+                <button mat-flat-button color="primary" (click)="applyToMission(mission)">
+                  Postuler
+                </button>
+              </div>
+            </div>
+            <div class="dash-row__side">
+              <span class="dash-row__price">{{ mission.budget }} {{ mission.currency }}</span>
+            </div>
+          </div>
+        </div>
+        <ng-template #noNearby>
+          <div class="dash-empty">Aucune mission disponible à proximité.</div>
+        </ng-template>
+      </section>
+
+      <section class="dash-section">
+        <div class="dash-section__head">
+          <h2>Cette semaine</h2>
+        </div>
+        <div class="dash-metrics">
+          <div class="dash-metric">
+            <span class="dash-metric__value">{{ weeklyEarnings }} {{ currency || 'XOF' }}</span>
+            <span class="dash-metric__label">Revenus</span>
+          </div>
+          <div class="dash-metric">
+            <span class="dash-metric__value">{{ weeklyMissions }}</span>
+            <span class="dash-metric__label">Missions</span>
+          </div>
+          <div class="dash-metric">
+            <span class="dash-metric__value">{{ avgCompletionTime }}h</span>
+            <span class="dash-metric__label">Temps moyen</span>
+          </div>
+          <div class="dash-metric">
+            <span class="dash-metric__value">{{ satisfactionRate }}%</span>
+            <span class="dash-metric__label">Satisfaction</span>
+          </div>
+        </div>
+      </section>
     </div>
   `,
   styles: [`
-    .dashboard-container {
-      padding: 24px;
-      padding-bottom: 48px;
-      display: flex;
-      flex-direction: column;
-      gap: 24px;
-      max-width: 1400px;
-      margin: 0 auto;
+    :host {
+      display: block;
     }
 
-    .welcome-section {
-      background: linear-gradient(135deg, #3CB371 0%, #2E8B57 100%);
-      color: white;
-      padding: 32px;
-      border-radius: 16px;
-      margin-bottom: 8px;
-      
-      h1 {
-        margin: 0 0 8px 0;
-        font-size: 28px;
-        font-weight: 700;
-      }
-      
-      p {
-        margin: 0;
-        font-size: 16px;
-        opacity: 0.9;
-      }
-    }
-
-    .earnings-card {
-      border: 1px solid #e5e7eb;
-      border-radius: 1rem;
-      background: #ffffff;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-      transition: box-shadow 0.2s ease, transform 0.2s ease;
-
-      &:hover {
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
-        transform: translateY(-2px);
-      }
-
-      .earnings-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: flex-start;
-        padding: 24px;
-      }
-
-      h2 {
-        margin: 0 0 16px 0;
-        font-size: 20px;
-        color: #6b7280;
-      }
-
-      .balance {
-        margin-bottom: 12px;
-
-        .amount {
-          display: block;
-          font-size: 36px;
-          font-weight: 700;
-          color: #1f2937;
-        }
-
-        .label {
-          font-size: 14px;
-          color: #9ca3af;
-        }
-      }
-
-      .month-hint {
-        font-size: 13px;
-        color: #6b7280;
-        margin-bottom: 20px;
-      }
-
-      .stats-row {
-        display: flex;
-        gap: 32px;
-
-        .stat {
-          display: flex;
-          flex-direction: column;
-
-          .value {
-            font-size: 20px;
-            font-weight: 600;
-            color: #1f2937;
-          }
-
-          .label {
-            font-size: 12px;
-            color: #9ca3af;
-          }
-        }
-      }
-
-      .reputation-badge {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        gap: 8px;
-        padding: 20px 32px;
-        border-radius: 16px;
-
-        mat-icon {
-          font-size: 32px;
-          width: 32px;
-          height: 32px;
-        }
-
-        span {
-          font-weight: 600;
-          font-size: 14px;
-        }
-
-        .score {
-          font-size: 24px;
-          font-weight: 700;
-        }
-      }
-
-      .reputation-badge.platinum {
-        background: linear-gradient(135deg, #e0e7ff 0%, #c7d2fe 100%);
-        color: #3730a3;
-      }
-
-      .reputation-badge.gold {
-        background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
-        color: #92400e;
-      }
-
-      .reputation-badge.silver {
-        background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
-        color: #4b5563;
-      }
-    }
-
-    .availability-card {
-      border: 1px solid #e5e7eb;
-      border-radius: 1rem;
-      background: #ffffff;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-      transition: box-shadow 0.2s ease, transform 0.2s ease;
-
-      &:hover {
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08);
-        transform: translateY(-2px);
-      }
-
-      .availability-content {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 20px 24px;
-      }
-
-      h3 {
-        margin: 0 0 4px 0;
-        font-size: 18px;
-      }
-
-      p {
-        margin: 0;
-        font-size: 14px;
-        color: #6b7280;
-      }
-    }
-
-    .quick-actions {
-      display: flex;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-
-    .current-mission {
-      mat-card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 16px;
-      }
-
-      h3 {
-        margin: 0 0 12px 0;
-        font-size: 20px;
-      }
-
-      .mission-meta {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 20px;
-        flex-wrap: wrap;
-
-        .price {
-          font-size: 18px;
-          font-weight: 700;
-          color: #059669;
-        }
-
-        .location {
-          color: #6b7280;
-        }
-
-        .deadline {
-          color: #f59e0b;
-        }
-
-        .separator {
-          color: #d1d5db;
-        }
-      }
-
-      .progress-section {
-        background: #f9fafb;
-        padding: 16px;
-        border-radius: 8px;
-        margin-bottom: 20px;
-
-        .progress-header {
-          display: flex;
-          justify-content: space-between;
-          margin-bottom: 8px;
-          font-size: 14px;
-          font-weight: 500;
-        }
-      }
-
-      .client-info {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        margin-bottom: 20px;
-        padding: 12px;
-        background: #eff6ff;
-        border-radius: 8px;
-
-        .avatar {
-          width: 40px;
-          height: 40px;
-          border-radius: 50%;
-        }
-
-        .client-details {
-          display: flex;
-          flex-direction: column;
-
-          .name {
-            font-weight: 500;
-          }
-
-          .rating {
-            font-size: 14px;
-            color: #f59e0b;
-          }
-        }
-      }
-
-      .action-buttons {
-        display: flex;
-        gap: 12px;
-        flex-wrap: wrap;
-      }
-    }
-
-    .available-preview {
-      mat-card-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 16px;
-      }
-
-      .nearby-list {
-        display: flex;
-        flex-direction: column;
-        gap: 12px;
-      }
-
-      .nearby-item {
-        display: flex;
-        align-items: center;
-        gap: 16px;
-        padding: 16px;
-        border: 1px solid #e5e7eb;
-        border-radius: 12px;
-
-        .distance-badge {
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          padding: 8px 12px;
-          background: #dbeafe;
-          color: #2563eb;
-          border-radius: 20px;
-          font-size: 14px;
-          font-weight: 500;
-
-          mat-icon {
-            font-size: 16px;
-            width: 16px;
-            height: 16px;
-          }
-        }
-
-        .mission-info {
-          flex: 1;
-
-          h4 {
-            margin: 0 0 4px 0;
-            font-size: 16px;
-          }
-
-          .location {
-            margin: 0 0 8px 0;
-            font-size: 14px;
-            color: #6b7280;
-          }
-
-          .meta {
-            display: flex;
-            gap: 16px;
-            font-size: 14px;
-
-            .price {
-              font-weight: 600;
-              color: #059669;
-            }
-
-            .time {
-              color: #6b7280;
-            }
-          }
-        }
-      }
-    }
-
-    .performance-card {
-      .performance-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 24px;
-        padding: 16px;
-      }
-
-      .perf-item {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        text-align: center;
-        gap: 8px;
-
-        mat-icon {
-          font-size: 28px;
-          width: 28px;
-          height: 28px;
-          color: #3b82f6;
-        }
-
-        .value {
-          font-size: 24px;
-          font-weight: 700;
-          color: #1f2937;
-        }
-
-        .label {
-          font-size: 12px;
-          color: #9ca3af;
-        }
-      }
-    }
-
-    @media (max-width: 768px) {
-      .dashboard-container {
-        padding: 16px;
-        padding-bottom: 40px;
-      }
-
-      .earnings-card .earnings-header {
-        flex-direction: column;
-        gap: 24px;
-      }
-
-      .quick-actions {
-        flex-direction: column;
-      }
-
-      .current-mission .action-buttons {
-        flex-direction: column;
-      }
-
-      .nearby-item {
-        flex-direction: column;
-        text-align: center;
-      }
-
-      .performance-card .performance-grid {
-        grid-template-columns: repeat(2, 1fr);
-      }
-    }
-
-    @media (max-width: 480px) {
-      .performance-card .performance-grid {
-        grid-template-columns: 1fr;
-      }
+    .dash-empty a {
+      display: inline-block;
+      margin-left: 0.25rem;
+      font-weight: 500;
     }
   `]
 })
 export class ProviderDashboardComponent implements OnInit {
   currentUser$: Observable<User | null>;
-  
-  // Earnings
+
   totalEarnings = '0 FCFA';
   earnedThisMonthLabel = '';
   completedThisMonth = 0;
@@ -649,13 +240,13 @@ export class ProviderDashboardComponent implements OnInit {
   completedMissions = 0;
   averageRating = 4.5;
   responseTime = 1.5;
-  
+
   reputationLevel = 'Bronze';
   reputationScore = 50;
-  
+
   isAvailable = true;
   depositAmount = 25;
-  
+
   currentMission: {
     id: string;
     title: string;
@@ -667,7 +258,7 @@ export class ProviderDashboardComponent implements OnInit {
     progress: number;
     client?: { name: string; avatar?: string; rating: number };
   } | null = null;
-  
+
   nearbyMissions: Array<{
     id: string;
     title: string;
@@ -678,7 +269,7 @@ export class ProviderDashboardComponent implements OnInit {
     delivery: string;
     estimatedTime: number;
   }> = [];
-  
+
   weeklyEarnings = 0;
   weeklyMissions = 0;
   avgCompletionTime = 2.5;
@@ -770,14 +361,17 @@ export class ProviderDashboardComponent implements OnInit {
       });
     }
   }
-  
-  toggleAvailability(event: any): void {
-    this.isAvailable = event.selected;
+
+  onAvailabilityChange(available: boolean): void {
+    this.isAvailable = available;
     this.http.post(`${environment.apiUrl}/users/toggle-availability/`, {}, { headers: this.headers() }).subscribe({
-      error: () => this.snackBar.open('Erreur mise à jour disponibilité', 'Fermer', { duration: 3000 })
+      error: () => {
+        this.isAvailable = !available;
+        this.snackBar.open('Erreur mise à jour disponibilité', 'Fermer', { duration: 3000 });
+      }
     });
   }
-  
+
   updateLocation(): void {
     if (!this.currentMission) return;
     if (!navigator.geolocation) {
@@ -819,7 +413,7 @@ export class ProviderDashboardComponent implements OnInit {
       error: (err) => this.snackBar.open(err.error?.error || 'Erreur soumission', 'Fermer', { duration: 4000 }),
     });
   }
-  
+
   applyToMission(mission: { id: string; title?: string }): void {
     this.paymentMethodFlow.ensurePaymentMethod(this.dialog).subscribe({
       next: (ready) => {
