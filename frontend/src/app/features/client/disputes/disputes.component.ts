@@ -137,7 +137,7 @@ interface MissionOption { id: string; title: string; status: string; }
                 <mat-chip [class]="'st-' + d.status">{{ statusLabel(d.status) }}</mat-chip>
               </div>
               <p class="reason"><strong>Motif :</strong> {{ reasonLabel(d.reason) }}</p>
-              <p class="desc">{{ d.description | slice:0:140 }}{{ d.description?.length > 140 ? '…' : '' }}</p>
+              <p class="desc">{{ d.description | slice:0:140 }}{{ (d.description || '').length > 140 ? '…' : '' }}</p>
               <div class="card-footer">
                 <span class="meta" *ngIf="d.evidence_count">{{ d.evidence_count }} preuve(s)</span>
                 <button mat-button color="primary" type="button" (click)="openDispute(d); $event.stopPropagation()">

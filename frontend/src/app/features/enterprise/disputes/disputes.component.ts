@@ -99,7 +99,7 @@ interface DisputeDetail extends EnterpriseDispute {
                 <mat-chip [class]="'st-' + d.status">{{ statusLabel(d.status) }}</mat-chip>
               </div>
               <p class="reason">{{ reasonLabel(d.reason) }}</p>
-              <p class="desc">{{ d.description | slice:0:140 }}{{ d.description?.length > 140 ? '…' : '' }}</p>
+              <p class="desc">{{ d.description | slice:0:140 }}{{ (d.description || '').length > 140 ? '…' : '' }}</p>
               <div class="card-footer">
                 <span class="date">{{ d.created_at | date:'medium' }}</span>
                 <button mat-button color="primary" type="button" (click)="openDispute(d); $event.stopPropagation()">
