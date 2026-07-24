@@ -5,20 +5,21 @@ C4Context
     title Diagramme de contexte — Plateforme BlockTask (Mali)
 
     Person(client, "Client", "Publie des missions, paie en FCFA, valide l'exécution")
-    Person(provider, "Prestataire", "Postule, exécute les tâches physiques, dépose une caution")
-    Person(enterprise, "Entreprise", "Gère des employés-agents et suit la flotte")
+    Person(provider, "Prestataire", "Postule ou accepte une sollicitation, exécute, dépose une caution")
+    Person(enterprise, "Entreprise", "Invite des prestataires, affecte des employés, suit la flotte")
     Person(admin, "Administrateur", "KYC, litiges, supervision blockchain")
 
-    System(blocktask, "BlockTask", "Plateforme hybride de délégation de tâches sécurisées")
+    System(blocktask, "BlockTask", "Plateforme hybride web + mobile de délégation de tâches sécurisées")
 
-    System_Ext(mobilemoney, "Mobile Money", "Orange Money / Moov Money — paiements XOF")
-    System_Ext(ethereum, "Ethereum", "Sepolia ou Hardhat — smart contracts escrow")
-    System_Ext(metamask, "MetaMask", "Portefeuille Web3 dans le navigateur")
-    System_Ext(notify, "Notifications", "Email, SMS, Firebase Push")
+    System_Ext(mobilemoney, "Mobile Money", "Orange Money / Moov Money — paiements XOF (sandbox/prod)")
+    System_Ext(ethereum, "Ethereum Sepolia", "Smart contracts Escrow, Réputation, Litigation")
+    System_Ext(metamask, "MetaMask", "Portefeuille Web3 — ancrage optionnel")
+    System_Ext(notify, "Notifications", "Email, in-app, push (optionnel)")
+    System_Ext(maps, "Cartographie", "GPS / cartes (suivi terrain)")
 
-    Rel(client, blocktask, "Utilise", "HTTPS / REST")
-    Rel(provider, blocktask, "Utilise", "HTTPS / REST")
-    Rel(enterprise, blocktask, "Utilise", "HTTPS / REST")
+    Rel(client, blocktask, "Utilise web ou mobile", "HTTPS / REST")
+    Rel(provider, blocktask, "Utilise web ou mobile", "HTTPS / REST")
+    Rel(enterprise, blocktask, "Utilise web ou mobile", "HTTPS / REST")
     Rel(admin, blocktask, "Administre", "HTTPS / REST")
 
     Rel(blocktask, mobilemoney, "Initie paiements escrow", "API")
@@ -27,3 +28,4 @@ C4Context
     Rel(metamask, ethereum, "RPC JSON")
     Rel(blocktask, ethereum, "Sync événements, relayer", "Web3.py")
     Rel(blocktask, notify, "Alertes utilisateurs")
+    Rel(blocktask, maps, "Positions / itinéraires")

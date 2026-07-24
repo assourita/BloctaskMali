@@ -1,73 +1,29 @@
 ---
 title: Figure 3.9 — Diagramme d'activité — Processus global mission
 ---
-flowchart TB
-    subgraph R1["① Flux nominal — 9 étapes"]
-        direction TB
-        Start([Début]) --> A["1️⃣ Création mission<br/>Titre, description, budget,<br/>catégorie, priorité, options"]
-        A --> B["2️⃣ Financement escrow<br/>Mobile Money (Orange/Moov)<br/>100% budget bloqué<br/>Commission 5%"]
-        B --> C["3️⃣ Candidatures<br/>Postulation avec message<br/>Prix proposé<br/>Sollicitation directe"]
-        C --> D["4️⃣ Acceptation<br/>Sélection prestataire<br/>Déclenchement délai caution<br/>4h par défaut"]
-        D --> E["5️⃣ Dépôt caution<br/>2000-5000 XOF<br/>Blocage solde prestataire<br/>Ancrage on-chain optionnel"]
-        E --> F["6️⃣ Exécution mission<br/>Démarrage prestataire<br/>Suivi GPS temps réel<br/>Chat intégré"]
-        F --> G["7️⃣ Soumission preuves<br/>Photos/vidéos avec EXIF<br/>Signatures numériques<br/>QR code validation"]
-        G --> H["8️⃣ Validation client<br/>Vérification preuves<br/>Validation manuelle<br/>Auto-validation (24h)"]
-        H --> I["9️⃣ Paiement final<br/>Libération 95% prestataire<br/>5% commission plateforme<br/>Mise à jour réputation"]
-        I --> EndOK([Fin ✅])
-    end
-
-    subgraph R2["② Sorties anticipées"]
-        direction TB
-        Z1["❌ Annulation client<br/>(étapes 1-2)"] --> E1([Fin])
-        Z2["⏰ Expiration caution<br/>(étape 5)"] --> E2([Fin])
-        Z3["🚫 Annulation en cours<br/>(étape 6)"] --> E3([Fin])
-    end
-
-    subgraph R3["③ Résolution litige"]
-        direction TB
-        Q["⚖️ Litige ouvert<br/>(étape 8)"] --> R["📋 Arbitrage admin<br/>Preuves supplémentaires"]
-        R --> S{"Décision"}
-        S --> T["💰 Remboursement client"]
-        S --> U["💸 Paiement prestataire"]
-        S --> V["🔄 Montants partagés"]
-        T --> E4([Fin])
-        U --> E4
-        V --> E4
-    end
-
-    subgraph R4["④ Actions parallèles"]
-        direction TB
-        KYC["🆔 Validation KYC<br/>NINA + pièces"] --> KYC2["✅ Vérifié admin"]
-        GPS["📍 Tracking GPS<br/>WebSocket temps réel"] --> GPS2["📊 Historique trajectoire"]
-        CHAT["💬 Chat mission<br/>Messages temps réel"] --> CHAT2["📝 Historique conversation"]
-        NOTIF["🔔 Notifications<br/>Email/SMS/Push"] --> NOTIF2["📲 Livrés utilisateur"]
-    end
-
-    -- Liens sorties anticipées --
-    A --> Z1
-    B --> Z1
-    E --> Z2
-    F --> Z3
-
-    -- Lien litige --
-    H --> Q
-
-    -- Intégration actions parallèles --
-    A -.-> KYC
-    F -.-> GPS
-    F -.-> CHAT
-    B -.-> NOTIF
-    E -.-> NOTIF
-    H -.-> NOTIF
-    I -.-> NOTIF
-
-    -- Styles --
-    style A fill:#e3f2fd
-    style B fill:#e8f5e9
-    style E fill:#fff3e0
-    style F fill:#fce4ec
-    style I fill:#c8e6c9
-    style Q fill:#ffecb3
-    style KYC fill:#f3e5f5
-    style GPS fill:#e0f2f1
-    style CHAT fill:#fff8e1
+flowchart TD
+    Start([Début]) --> Create[Client crée mission<br/>formulaire adaptatif]
+    Create --> Pay{Paiement MM OK?}
+    Pay -->|Non| Cancel1[Annulation / pending]
+    Pay -->|Oui| Funded[Funded — publiée]
+    Funded --> Assign{Candidature ou<br/>sollicitation?}
+    Assign --> Accept[Accepted + délai caution 4h]
+    Accept --> Deposit{Caution payée?}
+    Deposit -->|Non sous 4h| Back[Retour funded]
+    Back --> Assign
+    Deposit -->|Oui| AutoStart[Auto-start in_progress]
+    AutoStart --> Exec[GPS + chat + preuves]
+    Exec --> Submit[Submitted]
+    Submit --> Wait{Client valide<br/>sous 48h?}
+    Wait -->|Oui| Complete[Completed — 95/5]
+    Wait -->|Non| AutoVal[Auto-validation Celery]
+    AutoVal --> Complete
+    Submit --> Dispute{Litige?}
+    Dispute -->|Oui| Arb[Arbitrage admin]
+    Arb --> Complete
+    Arb --> Refund[Cancelled / remboursement]
+    Complete --> Retain[Conservation 30 jours]
+    Retain --> Purge[Purge si pas de litige ouvert]
+    Purge --> End([Fin])
+    Refund --> End
+    Cancel1 --> End

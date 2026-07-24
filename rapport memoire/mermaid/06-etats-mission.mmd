@@ -1,44 +1,51 @@
 ---
-title: Figure 3.1 — Diagramme d'états
+title: Figure 3.1 — Diagramme d'états — Cycle de vie mission
 ---
 stateDiagram-v2
-    [*] --> pending : Création mission
+    [*] --> pending : Création mission<br/>(formulaire adaptatif)
 
-    pending --> funded : Paiement Mobile Money confirmé
+    pending --> funded : Paiement Mobile Money
     pending --> cancelled : Annulation client
 
-    funded --> accepted : Client accepte candidature
+    funded --> accepted : Acceptation candidature<br/>ou sollicitation acceptée
     funded --> cancelled : Annulation
+    funded --> expired : Échéance sans prestataire
 
-    accepted --> in_progress : Caution payée + start()
-    accepted --> funded : Délai caution expiré (4h)
+    accepted --> in_progress : Caution déposée<br/>(auto-start)
+    accepted --> funded : Délai caution 4h expiré
 
-    in_progress --> submitted : submit_proof()
+    in_progress --> submitted : Soumission preuves
     in_progress --> disputed : Ouverture litige
-    in_progress --> cancelled : Annulation
+    in_progress --> cancelled : Annulation / décision échéance
 
-    submitted --> completed : validate() client
+    submitted --> completed : Validation client
+    submitted --> completed : Auto-validation 48h
     submitted --> disputed : Ouverture litige
 
-    completed --> disputed : Litige post-mission
+    disputed --> completed : Arbitrage → prestataire
+    disputed --> cancelled : Arbitrage → remboursement
 
-    disputed --> completed : Arbitrage admin (paiement prestataire)
-    disputed --> cancelled : Arbitrage admin (remboursement client)
-
-    completed --> [*]
+    completed --> [*] : Conservée 30j puis purge<br/>si aucun litige ouvert
     cancelled --> [*]
+    expired --> [*]
 
     note right of pending
-        Statut initial après
-        POST /api/missions/
+        Champs & caution estimée
+        selon category_rules
     end note
 
     note right of accepted
-        deposit_deadline = +4 heures
-        Caution : 2000–5000 XOF
+        deposit_deadline = +4 h
+        Estimation selon catégorie
+        + réputation
+    end note
+
+    note right of submitted
+        Timer auto-validation
+        Celery (48 h)
     end note
 
     note right of completed
-        Libération 95% prestataire
-        Commission plateforme 5%
+        Libération 95 % / 5 %
+        Compte à rebours arrêté
     end note

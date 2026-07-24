@@ -2,60 +2,65 @@
 title: Figure 3.4 — Diagramme de composants — Backend Django
 ---
 flowchart TB
-    subgraph Frontend["Couche présentation"]
-        SPA["Angular 17 SPA"]
+    subgraph Presentation["Couche présentation"]
+        SPA["Angular 17 — Web"]
+        MOB["Expo / React Native — Mobile"]
     end
 
-    subgraph API["API Django REST"]
-        GW["Routeur DRF / JWT"]
+    subgraph API["API Django REST + Channels"]
+        GW["Routeur DRF / JWT / 2FA"]
+        WS["WebSocket GPS + Chat"]
     end
 
     subgraph Apps["Apps Django — apps/"]
-        users["users<br/>Auth, KYC, profils"]
-        missions["missions<br/>Cycle de vie"]
+        users["users<br/>Auth, KYC, email, 2FA,<br/>invites multi-entreprises"]
+        missions["missions<br/>Cycle, candidatures,<br/>sollicitations, category_rules"]
         payments["payments<br/>Mobile Money"]
-        escrow["escrow<br/>Caution, blockchain"]
-        proofs["proofs<br/>Preuves, GPS"]
-        tracking["tracking<br/>WebSocket live"]
+        escrow["escrow<br/>Caution, Web3, sync"]
+        proofs["proofs<br/>Médias + analyse heuristique"]
+        tracking["tracking<br/>GPS live"]
         disputes["disputes<br/>Litiges"]
         reputation["reputation<br/>Scores"]
-        enterprises["enterprises<br/>B2B"]
+        enterprises["enterprises<br/>B2B / affectations"]
         notifications["notifications<br/>Alertes"]
+        chat["chat<br/>Messagerie mission"]
         analytics["analytics<br/>Statistiques"]
-        common["common<br/>Config Mali"]
-        chat["chat<br/>Messages mission"]
-        totp["totp<br/>2FA authentification"]
-        analysis["analysis<br/>Analyse preuves IA"]
-        solicitations["solicitations<br/>Sollicitations directes"]
-        reviews["reviews<br/>Évaluations missions"]
-        bookmarks["bookmarks<br/>Missions sauvegardées"]
+        common["common<br/>Config Mali, Celery tasks"]
+    end
+
+    subgraph Async["Tâches planifiées"]
+        CEL["Celery Beat<br/>expire / auto-validate 48h<br/>sync blockchain / purge 30j"]
     end
 
     subgraph External["Externe"]
         MM["Orange / Moov Money"]
-        ETH["Ethereum RPC"]
+        ETH["Ethereum Sepolia RPC"]
         PG[("PostgreSQL")]
+        RD[("Redis")]
     end
 
     SPA --> GW
-    GW --> users & missions & payments & escrow & proofs & tracking
-    GW --> disputes & reputation & enterprises & notifications & analytics & common
-    GW --> chat & totp & analysis & solicitations & reviews & bookmarks
+    MOB --> GW
+    SPA --> WS
+    MOB --> WS
+    GW --> users & missions & payments & escrow & proofs
+    GW --> tracking & disputes & reputation & enterprises
+    GW --> notifications & chat & analytics & common
+    WS --> tracking
+    WS --> chat
 
     missions --> payments
     missions --> escrow
     payments --> escrow
     proofs --> missions
-    tracking --> proofs
     disputes --> missions
     reputation --> users
+    enterprises --> users
+    users --> enterprises
     escrow --> ETH
     payments --> MM
-    users & missions & payments --> PG
-    missions --> chat
-    proofs --> analysis
-    users --> totp
-    missions --> solicitations
-    missions --> reviews
-    missions --> bookmarks
-    users --> bookmarks
+    users & missions & payments & escrow --> PG
+    GW --> RD
+    CEL --> missions
+    CEL --> escrow
+    CEL --> RD

@@ -1,114 +1,71 @@
 ---
-title: Figure 3.8 — Diagramme de séquence — Caution, exécution et validation
+title: Figure 3.8 — Diagramme de séquence — Exécution, preuves et validation
 ---
 sequenceDiagram
     autonumber
     actor Prestataire
     actor Client
-    participant FE as Angular
+    participant FE as Web / Mobile
     participant API as Django REST
-    participant ESC as EscrowService
     participant Chat as ChatService
     participant Track as TrackingService
     participant Proof as ProofService
-    participant AI as AnalysisService
-    participant WS as WebSocket<br/>Channels
+    participant AI as analysis_service
+    participant WS as WebSocket
+    participant Celery as Celery Beat
+    participant ESC as EscrowService
     participant Notif as NotificationService
     participant MM as MetaMask
     participant SC as EscrowContract
 
-    Note over Prestataire,SC: Étape 6: Exécution mission
+    Note over Prestataire,SC: Exécution (souvent déjà in_progress après caution)
 
-    Prestataire->>FE: 6️⃣ Démarrer la mission
-    FE->>API: POST /api/missions/{id}/start/
-    API-->>FE: status=in_progress
-    API->>Notif: send_notification(mission_started)
-    
-    Prestataire->>Chat: Envoyer message initial
-    Chat->>WS: Broadcast message
-    WS-->>Client: Message reçu en temps réel
+    Prestataire->>Chat: Messages mission
+    Chat->>WS: broadcast
+    WS-->>Client: chat live
 
-    loop Suivi GPS continu
-        Prestataire->>Track: Envoyer position GPS
-        Track->>WS: gps_location_update
-        WS-->>Client: Mise à jour carte temps réel
-        Note right of Client: Suivi trajectoire<br/>Points de contrôle<br/>ETA estimé
+    loop GPS
+        Prestataire->>Track: position
+        Track->>WS: gps_update
+        WS-->>Client: carte live
     end
 
-    Prestataire->>Chat: Communications ongoing
-    Chat->>WS: message_exchange
-    WS-->>Client: Notifications chat
+    Note over Prestataire,SC: Preuves
 
-    Note over Prestataire,SC: Étape 7: Soumission preuves
-
-    Prestataire->>FE: 7️⃣ Capturer preuves
-    FE->>Proof: upload_proof(photo_before)
-    Proof->>AI: analyze_photo_quality()
-    AI-->>Proof: blur_score, brightness, fraud_detection
-    Proof-->>FE: proof_uploaded + analysis_results
-    
-    Prestataire->>FE: Capturer photo pendant
-    FE->>Proof: upload_proof(photo_during)
-    
-    Prestataire->>FE: Capturer photo après
-    FE->>Proof: upload_proof(photo_after)
-    Proof->>AI: verify_mission_completion()
-    
-    Prestataire->>FE: Ajouter signature numérique
-    FE->>Proof: upload_signature()
-    
-    Prestataire->>FE: Scanner QR code (si requis)
-    FE->>Proof: validate_qr_code()
-    
-    Prestataire->>FE: 7️⃣ Finaliser soumission
-    FE->>API: POST /api/missions/{id}/submit_proof/
-    API->>Proof: validate_checklist_complete()
+    Prestataire->>FE: Upload photo / signature / QR
+    FE->>Proof: POST /api/proofs/
+    Proof->>AI: flou, luminosité, EXIF, géo
+    AI-->>Proof: indicateurs
+    Prestataire->>FE: submit_proof
+    FE->>API: POST .../submit_proof/
     API-->>FE: status=submitted
-    API->>Notif: send_notification(proofs_submitted)
+    API->>Notif: proofs_submitted
+    API->>Celery: planifie auto-validation 48h
 
-    opt Ancrage preuves on-chain
-        FE->>MM: submitProof(missionId, proofHashes[])
-        MM->>SC: batchTransaction(proofs)
-        SC-->>MM: proofAnchored, txHash
-        FE->>API: POST /api/escrow/blockchain/record-proofs/
-        API-->>FE: blockchain_proofs=true
+    opt Ancrage preuves
+        FE->>MM: submitProof(missionId, proofHash)
+        MM->>SC: tx
+        FE->>API: record-proof
     end
 
-    Note over Prestataire,SC: Étape 8: Validation client
+    Note over Prestataire,SC: Validation
 
-    Client->>FE: 8️⃣ Vérifier preuves soumises
-    FE->>API: GET /api/missions/{id}/proofs/
-    API-->>FE: Liste preuves + analyses IA
-    
-    Client->>FE: Examiner photos et signatures
-    FE->>Proof: display_proof_details()
-    
-    alt Validation manuelle
-        Client->>FE: Approuver mission
-        FE->>API: POST /api/missions/{id}/validate/
-    else Auto-validation (24h)
-        API->>API: schedule_auto_validation(24h)
-        Note over API: Timer déclenché<br/>Validation automatique
+    alt Client valide
+        Client->>FE: validate
+        FE->>API: POST .../validate/
+    else Timeout 48h
+        Celery->>API: process_auto_validations
     end
 
-    Note over Prestataire,SC: Étape 9: Paiement final
+    API->>ESC: release 95% / 5%
+    API->>API: update reputation
+    API-->>FE: status=completed
+    Note over FE: Compte à rebours échéance arrêté
 
-    API->>ESC: release_payment_to_provider()
-    ESC->>ESC: calculate_commission(5%)
-    ESC->>ESC: transfer_95%_provider()
-    ESC->>ESC: transfer_5%_platform()
-    
-    API->>API: update_reputation_scores()
-    API->>Notif: send_notification(mission_completed)
-    API-->>FE: status=completed ✅
-    
-    opt Ancrage final on-chain
-        FE->>MM: completeMission(missionId, rating)
-        MM->>SC: finalizeMission()
-        FE->>API: POST /api/escrow/blockchain/record-completion/
+    opt Ancrage final
+        FE->>MM: validateMission
+        FE->>API: sync / record
     end
 
-    FE-->>Client: Mission terminée<br/>Paiement effectué
-    FE-->>Prestataire: Mission complétée<br/>Fonds reçus (95%)
-    
-    Note over Client,Notif: Cycle mission terminé ✅
+    FE-->>Client: Mission terminée
+    FE-->>Prestataire: Fonds libérés

@@ -24,7 +24,7 @@ interface Mission {
   description: string;
   budget: number;
   currency: string;
-  status: 'pending' | 'accepted' | 'in_progress' | 'submitted' | 'completed' | 'cancelled' | 'disputed';
+  status: 'pending' | 'funded' | 'accepted' | 'in_progress' | 'submitted' | 'completed' | 'cancelled' | 'disputed' | 'expired';
   pickup_address: string;
   delivery_address: string;
   deadline: string;
@@ -541,26 +541,31 @@ export class ProviderMissionsComponent implements OnInit {
 
   getStatusLabel(status: string): string {
     const labels: { [key: string]: string } = {
+      pending: 'En attente',
+      funded: 'Financée',
       accepted: 'Acceptée',
       in_progress: 'En cours',
       submitted: 'Preuves soumises',
       completed: 'Terminée',
       cancelled: 'Annulée',
+      expired: 'Expirée',
       disputed: 'Litige'
     };
     return labels[status] || status;
   }
 
   getTimeRemaining(mission: Mission | string | null | undefined): string {
-    const m = typeof mission === 'string' || !mission
-      ? null
-      : mission;
+    const m = typeof mission === 'string' || !mission ? null : mission;
     const deadline = typeof mission === 'string' ? mission : mission?.deadline;
     if (!deadline) return '';
-    const status = m?.status || '';
-    if (['completed', 'cancelled', 'expired', 'disputed'].includes(status)) {
-      return status === 'completed' ? 'Terminée' : status === 'cancelled' ? 'Annulée' : status === 'expired' ? 'Expirée' : 'Litige';
-    }
+    const status = (m?.status || '') as string;
+    const terminalLabels: Record<string, string> = {
+      completed: 'Terminée',
+      cancelled: 'Annulée',
+      expired: 'Expirée',
+      disputed: 'Litige',
+    };
+    if (status in terminalLabels) return terminalLabels[status];
     const diff = new Date(deadline).getTime() - Date.now();
     if (diff < 0) return 'En retard';
     const hours = Math.floor(diff / (1000 * 60 * 60));

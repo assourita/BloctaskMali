@@ -2,19 +2,19 @@
 title: Figure 3.11 — Modèle hybride BlockTask (FCFA + Blockchain)
 ---
 flowchart TB
-    subgraph OffChain["Couche OFF-CHAIN — Métier & paiements réels"]
-        direction TB
-        UI["Angular 17<br/>Interfaces par rôle"]
-        API["Django REST API"]
+    subgraph OffChain["OFF-CHAIN — Métier & paiements réels"]
+        UI["Angular 17 + Expo Mobile"]
+        API["Django REST + Channels"]
+        CEL["Celery Beat<br/>expire / auto-validate / purge / sync"]
         DB[("PostgreSQL")]
-        MM["Mobile Money<br/>Orange / Moov — XOF"]
-        KYC["KYC NINA<br/>Validation admin"]
-        GPS["Suivi GPS<br/>WebSocket"]
-        PROOFS["Preuves photos<br/>Stockage média"]
+        MM["Mobile Money XOF"]
+        KYC["KYC NINA + vérif. email + 2FA"]
+        GPS["GPS + Chat WebSocket"]
+        PROOFS["Preuves + analyse heuristique"]
+        RULES["category_rules<br/>formulaire + caution"]
     end
 
-    subgraph OnChain["Couche ON-CHAIN — Confiance & traçabilité"]
-        direction TB
+    subgraph OnChain["ON-CHAIN — Confiance optionnelle Sepolia"]
         MM2["MetaMask"]
         ESC["EscrowContract"]
         REP["ReputationContract"]
@@ -27,13 +27,15 @@ flowchart TB
     API --> KYC
     API --> GPS
     API --> PROOFS
+    API --> RULES
+    CEL --> API
 
     UI -.->|Optionnel| MM2
     MM2 --> ESC & REP & LIT
-    API -.->|Sync / record / relayer| ESC
+    API -.->|record-* / sync / relayer| ESC
 
     MM -->|Paiement réel FCFA| API
-    ESC -.->|Ancrage symbolique ETH test| API
+    ESC -.->|Ancrage ETH test| API
 
     style OffChain fill:#e3f2fd
     style OnChain fill:#fff3e0

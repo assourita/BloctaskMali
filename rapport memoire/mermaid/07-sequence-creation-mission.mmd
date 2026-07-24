@@ -4,84 +4,74 @@ title: Figure 3.7 — Diagramme de séquence — Création mission et paiement F
 sequenceDiagram
     autonumber
     actor Client
-    participant FE as Angular<br/>create-mission
-    participant API as Django REST<br/>/api/missions/
+    participant FE as Web / Mobile<br/>create-mission
+    participant API as Django REST
+    participant Rules as category_rules
     participant KYC as KYCService
     participant Pay as PaymentService
-    participant MM as Mobile Money<br/>Orange / Moov
+    participant MM as Mobile Money
     participant ESC as EscrowService
     participant MetaMask as MetaMask
-    participant SC as EscrowContract<br/>Solidity
+    participant SC as EscrowContract
     participant Notif as NotificationService
 
-    Note over Client,Notif: Étape 1-2: Création et financement
+    Note over Client,Notif: Création adaptative + financement
 
-    Client->>FE: 1️⃣ Remplit formulaire complet<br/>titre, description, budget XOF,<br/>catégorie, priorité, options GPS
-    FE->>KYC: Vérifier statut KYC
-    KYC-->>FE: KYC verified ✅
-    
+    Client->>FE: Choisit catégorie mission
+    FE->>API: GET schéma / règles catégorie
+    API->>Rules: champs, deposit_mode, deposit_reason
+    Rules-->>API: schema + estimation caution
+    API-->>FE: Formulaire adapté + aperçu caution
+    Client->>FE: Remplit champs demandés<br/>(adresses, marchandise, custom…)
+
+    FE->>KYC: Vérifier KYC / email
+    KYC-->>FE: OK
     FE->>API: POST /api/missions/
-    API-->>FE: Mission status=pending + Payment créé
-    
-    Client->>FE: 2️⃣ Choisit opérateur Mobile Money
-    FE->>API: POST /api/payments/.../initiate/
-    API->>Pay: create_payment_escrow()
-    Pay->>MM: Demande paiement (OTP 1234)
-    MM-->>Client: SMS OTP
-    
-    Client->>FE: Saisit OTP validation
-    FE->>API: POST /api/payments/.../confirm_payment/
-    API->>MM: confirm_payment_with_otp()
-    MM-->>API: Paiement confirmé ✅
-    API->>ESC: lock_escrow_funds(100% budget)
-    API->>Notif: send_notification(payment_completed)
-    
+    API-->>FE: Mission pending + Payment
+
+    Client->>FE: Paiement Orange / Moov
+    FE->>API: initiate + confirm OTP
+    API->>Pay: escrow FCFA
+    Pay->>MM: paiement sandbox/prod
+    MM-->>API: confirmé
+    API->>ESC: lock_escrow_funds
+    API->>Notif: payment_completed
+
     opt Ancrage blockchain optionnel
-        Client->>FE: Activer MetaMask
-        FE->>MetaMask: request_accounts()
-        MetaMask-->>FE: Compte connecté
-        FE->>MetaMask: createMission(hash, deadline, value)
-        MetaMask->>SC: Transaction on-chain
-        SC-->>MetaMask: missionId, txHash, blockNumber
-        FE->>API: POST /api/escrow/blockchain/record-mission/
-        API-->>FE: blockchain_status=funded
+        Client->>FE: MetaMask Sepolia
+        FE->>MetaMask: createMission(hash, deadline)
+        MetaMask->>SC: tx on-chain
+        FE->>API: POST .../blockchain/record-mission/
     end
 
-    API-->>FE: Mission status=funded ✅
-    FE-->>Client: Mission financée et publiée<br/>visible aux prestataires
+    API-->>FE: status=funded
+    FE-->>Client: Mission publiée
 
-    Note over Client,Notif: Étape 3: Candidatures et acceptation
+    Note over Client,Notif: Affectation prestataire
 
-    loop Prestataires postulent
+    alt Candidature ouverte
         actor Prestataire
-        Prestataire->>FE: Consulter missions disponibles
-        FE->>API: GET /api/missions/?status=funded
-        Prestataire->>FE: Postuler avec message + prix
-        FE->>API: POST /api/missions/{id}/apply/
-        API-->>FE: Candidature enregistrée
-        API->>Notif: send_notification(new_application)
+        Prestataire->>FE: Consulte missions proches
+        Prestataire->>API: POST .../apply/
+        Client->>API: accept_application
+    else Sollicitation directe
+        Client->>API: POST sollicitation prestataire
+        Prestataire->>API: accept / reject
     end
 
-    Client->>FE: 4️⃣ Sélectionner prestataire
-    FE->>API: POST /api/missions/{id}/accept_application/
-    API->>ESC: set_deposit_deadline(+4h)
-    API->>Notif: send_notification(application_accepted)
-    API-->>FE: Mission status=accepted
+    API->>ESC: deposit_deadline = now+4h
+    API-->>FE: status=accepted
+    API->>Notif: application_accepted
 
-    Note over Client,Notif: Étape 5: Dépôt caution
+    Note over Client,Notif: Caution + auto-start
 
-    Prestataire->>FE: 5️⃣ Déposer caution (2000-5000 XOF)
-    FE->>API: POST /api/missions/{id}/pay_deposit/
-    API->>ESC: lock_provider_deposit()
-    
-    opt Ancrage caution on-chain
-        FE->>MetaMask: acceptMission(missionContractId)
-        MetaMask->>SC: Transaction deposit
-        FE->>API: POST .../record-provider-deposit/
+    Prestataire->>FE: Dépose caution
+    FE->>API: POST .../deposit/ ou pay_deposit
+    API->>ESC: lock_provider_deposit
+    opt Ancrage caution
+        FE->>MetaMask: acceptMission
+        FE->>API: record-provider-deposit
     end
-
-    API-->>FE: deposit_paid=true ✅
-    API->>Notif: send_notification(deposit_paid)
-    FE-->>Prestataire: Prêt à démarrer mission
-
-    Note over Client,Notif: Prêt pour étape 6: Exécution
+    API->>API: auto-start → in_progress
+    API-->>FE: status=in_progress
+    FE-->>Prestataire: Mission démarrée

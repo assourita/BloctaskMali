@@ -1,40 +1,48 @@
 ---
-title: Figure 3.10 — Diagramme de déploiement — Environnement prototype
+title: Figure 3.10 — Diagramme de déploiement — Prototype et production
 ---
 flowchart TB
-    subgraph ClientLayer["Poste utilisateur"]
-        Browser["Navigateur web"]
-        SPA["Angular SPA<br/>localhost:4200"]
-        MetaMask["Extension MetaMask"]
-        Browser --- SPA
-        Browser --- MetaMask
+    subgraph Users["Utilisateurs"]
+        Browser["Navigateur"]
+        Phone["App Expo<br/>iOS / Android"]
+        MetaMask["MetaMask"]
     end
 
-    subgraph ServerLayer["Serveur applicatif"]
-        Django["Django REST API<br/>localhost:8000"]
-        Channels["Django Channels<br/>WebSocket"]
-        Celery["Celery Worker"]
+    subgraph Render["Render — production démo"]
+        FE["Frontend statique<br/>Angular dist/"]
+        BE["Web Service Django<br/>bloctaskmali.onrender.com"]
+        WK["Celery Worker + Beat"]
+        PG[("PostgreSQL managé")]
+        RD[("Redis managé")]
     end
 
-    subgraph DataLayer["Couche données"]
-        PG[("PostgreSQL<br/>:5432")]
-        Redis[("Redis<br/>:6379")]
-        Media["Dossier media/<br/>KYC, preuves"]
+    subgraph Local["Développement local"]
+        SPA["ng serve :4200"]
+        API["Django :8000"]
+        DEVPG[("PostgreSQL / SQLite tests")]
     end
 
-    subgraph ExternalLayer["Services externes"]
-        MM_API["Orange / Moov Money<br/>sandbox API"]
-        ETH["Ethereum<br/>Sepolia ou Hardhat :8545"]
+    subgraph External["Externes"]
+        MM["Orange / Moov<br/>sandbox"]
+        ETH["Sepolia RPC<br/>publicnode / Infura"]
+        SC["Contrats déployés<br/>Escrow / Reputation / Litigation"]
     end
 
-    SPA -->|REST JSON JWT| Django
-    SPA -->|WebSocket| Channels
+    Browser --> FE
+    Browser --> SPA
+    Phone --> BE
+    Phone --> API
+    FE -->|HTTPS REST| BE
+    SPA -->|REST| API
     MetaMask -->|RPC| ETH
-    Django --> PG
-    Django --> Redis
-    Django --> Media
-    Django -->|Web3.py| ETH
-    Django -->|HTTP| MM_API
-    Channels --> Redis
-    Celery --> Redis
-    Celery --> Django
+    BE --> PG
+    BE --> RD
+    BE -->|Web3.py| ETH
+    BE --> MM
+    WK --> RD
+    WK --> PG
+    WK --> ETH
+    ETH --- SC
+    API --> DEVPG
+    API --> ETH
+    API --> MM
