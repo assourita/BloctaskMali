@@ -27,6 +27,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Check Python files are UTF-8
+        run: python scripts/check_utf8.py
+
       - name: Run migrations check
         env:
           DJANGO_SECRET_KEY: ci-test-secret-key

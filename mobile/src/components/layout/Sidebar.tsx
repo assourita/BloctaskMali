@@ -36,6 +36,7 @@ const CLIENT_NAV: NavItem[] = [
 
 const PROVIDER_NAV: NavItem[] = [
   { label: 'Mes missions assignées', href: '/(tabs)/missions', match: '/missions' },
+  { label: 'Mes entreprises', href: '/my-enterprises', match: '/my-enterprises' },
   { label: 'Mes sollicitations', href: '/solicitations', match: '/solicitations' },
   { label: 'Missions disponibles', href: '/(tabs)/available', match: '/available' },
   { label: 'Suivi GPS', href: '/tracking', match: '/tracking' },
