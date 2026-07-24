@@ -66,6 +66,17 @@ class DisputeViewSet(viewsets.ModelViewSet):
             return DisputeCreateSerializer
         return DisputeListSerializer
 
+    def retrieve(self, request, *args, **kwargs):
+        """Détail litige — masque les notes internes admin pour les parties."""
+        instance = self.get_object()
+        data = DisputeDetailSerializer(instance, context={'request': request}).data
+        if not is_admin(request.user):
+            data['messages'] = [
+                m for m in (data.get('messages') or [])
+                if not m.get('is_internal')
+            ]
+        return Response(data)
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)

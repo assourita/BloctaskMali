@@ -149,6 +149,10 @@ export const routes: Routes = [
         path: 'profile',
         loadComponent: () => import('./features/provider/profile/profile.component').then(m => m.ProviderProfileComponent)
       },
+      {
+        path: 'disputes',
+        loadComponent: () => import('./features/client/disputes/disputes.component').then(m => m.ClientDisputesComponent)
+      },
       { path: '', redirectTo: 'dashboard', pathMatch: 'full' }
     ]
   },

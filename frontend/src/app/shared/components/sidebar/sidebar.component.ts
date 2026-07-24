@@ -276,6 +276,7 @@ export class SidebarComponent implements OnInit {
         { path: '/provider/tracking', label: 'Suivi GPS', icon: 'my_location' },
         { path: '/provider/earnings', label: 'Mes revenus', icon: 'attach_money' },
         { path: '/provider/reputation', label: 'Réputation', icon: 'verified' },
+        { path: '/provider/disputes', label: 'Litiges', icon: 'gavel' },
         { path: '/provider/deposit', label: 'Caution', icon: 'security' },
         { path: '/provider/profile', label: 'Mon profil', icon: 'person' },
       ],

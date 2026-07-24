@@ -21,10 +21,23 @@ class MissionBasicSerializer(serializers.Serializer):
 
 class DisputeEvidenceSerializer(serializers.ModelSerializer):
     submitted_by = UserBasicSerializer(read_only=True)
+    file = serializers.SerializerMethodField()
 
     class Meta:
         model = DisputeEvidence
-        fields = ['id', 'evidence_type', 'title', 'description', 'file', 'is_accepted', 'submitted_by', 'created_at']
+        fields = [
+            'id', 'evidence_type', 'title', 'description', 'file',
+            'is_accepted', 'submitted_by', 'created_at',
+        ]
+
+    def get_file(self, obj):
+        if not obj.file:
+            return None
+        request = self.context.get('request')
+        url = obj.file.url
+        if request:
+            return request.build_absolute_uri(url)
+        return url
 
 
 class DisputeMessageSerializer(serializers.ModelSerializer):
