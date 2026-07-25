@@ -6,7 +6,6 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatChipsModule } from '@angular/material/chips';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import {
   EnterpriseService,
   EnterpriseInvite,
@@ -33,95 +32,34 @@ const ROLE_LABELS: Record<string, string> = {
     MatIconModule,
     MatChipsModule,
     MatProgressSpinnerModule,
-    MatSnackBarModule,
   ],
   template: `
     <div class="page">
       <div class="page-header">
         <div>
           <h1><mat-icon>business</mat-icon> Mes entreprises</h1>
-          <p>Consultez les invitations et le profil des entreprises avant d'accepter.</p>
+          <p>Consultez les entreprises auxquelles vous êtes lié.</p>
         </div>
-        <a mat-stroked-button routerLink="/provider/missions">
-          <mat-icon>assignment</mat-icon> Mes missions
-        </a>
+        <div class="header-actions">
+          <a mat-stroked-button routerLink="/provider/invitations">
+            <mat-icon>inbox</mat-icon> Invitations
+          </a>
+          <a mat-stroked-button routerLink="/provider/missions">
+            <mat-icon>assignment</mat-icon> Mes missions
+          </a>
+        </div>
       </div>
 
-      <section *ngIf="pendingInvites.length" class="invites-section">
-        <h2>Invitations en attente ({{ pendingInvites.length }})</h2>
-
-        <mat-card *ngFor="let inv of pendingInvites" class="invite-card" [class.open]="expandedInviteId === inv.id">
-          <div class="invite-top">
-            <div class="invite-identity">
-              <div class="logo" *ngIf="!enterpriseOf(inv)?.logo"><mat-icon>domain</mat-icon></div>
-              <img *ngIf="enterpriseOf(inv)?.logo" class="logo-img" [src]="enterpriseOf(inv)?.logo!" [alt]="inv.enterprise_name" />
-              <div class="invite-summary">
-                <h3>
-                  {{ inv.enterprise_name }}
-                  <mat-icon class="verified" *ngIf="enterpriseOf(inv)?.is_verified" title="Vérifiée">verified</mat-icon>
-                </h3>
-                <p>
-                  {{ roleLabel(inv.role) }}
-                  <span *ngIf="inv.position"> · {{ inv.position }}</span>
-                  <span *ngIf="enterpriseOf(inv)?.city"> · {{ enterpriseOf(inv)?.city }}</span>
-                </p>
-                <p class="message" *ngIf="inv.message">« {{ inv.message }} »</p>
-              </div>
-            </div>
-            <div class="invite-actions">
-              <button mat-stroked-button (click)="toggleInviteDetails(inv)">
-                <mat-icon>{{ expandedInviteId === inv.id ? 'expand_less' : 'info' }}</mat-icon>
-                {{ expandedInviteId === inv.id ? 'Masquer' : 'Voir le profil' }}
-              </button>
-              <button mat-raised-button class="accept-btn" (click)="acceptInvite(inv)" [disabled]="actionId === inv.id">
-                Accepter
-              </button>
-              <button mat-stroked-button color="warn" (click)="rejectInvite(inv)" [disabled]="actionId === inv.id">
-                Refuser
-              </button>
-            </div>
+      <mat-card *ngIf="pendingInvites.length" class="invite-banner" routerLink="/provider/invitations">
+        <div class="invite-banner-content">
+          <mat-icon>mail_outline</mat-icon>
+          <div>
+            <strong>{{ pendingInvites.length }} invitation(s) en attente</strong>
+            <span class="invite-meta"> — ouvrez la page Invitations pour accepter ou refuser</span>
           </div>
-
-          <div class="invite-details" *ngIf="expandedInviteId === inv.id">
-            <ng-container *ngIf="enterpriseOf(inv) as ent; else noProfile">
-              <div class="detail-grid">
-                <div class="detail-block" *ngIf="ent.description">
-                  <h4><mat-icon>info</mat-icon> Présentation</h4>
-                  <p>{{ ent.description }}</p>
-                </div>
-                <div class="detail-block">
-                  <h4><mat-icon>place</mat-icon> Localisation</h4>
-                  <p *ngIf="ent.address">{{ ent.address }}</p>
-                  <p>{{ ent.city }}{{ ent.country ? ', ' + ent.country : '' }}</p>
-                </div>
-                <div class="detail-block">
-                  <h4><mat-icon>call</mat-icon> Contact</h4>
-                  <p *ngIf="ent.company_phone">Tél. {{ ent.company_phone }}</p>
-                  <p *ngIf="ent.company_email">{{ ent.company_email }}</p>
-                  <a *ngIf="ent.website" [href]="ent.website" target="_blank" rel="noopener">{{ ent.website }}</a>
-                  <p *ngIf="!ent.company_phone && !ent.company_email && !ent.website">Non renseigné</p>
-                </div>
-                <div class="detail-block">
-                  <h4><mat-icon>insights</mat-icon> Activité</h4>
-                  <p>Réputation : {{ ent.reputation_score | number:'1.0-0' }}/100</p>
-                  <p>{{ ent.total_employees || 0 }} employé(s) · {{ ent.total_missions_posted || 0 }} mission(s)</p>
-                  <p *ngIf="ent.member_since">Membre depuis {{ ent.member_since | date:'mediumDate' }}</p>
-                </div>
-                <div class="detail-block">
-                  <h4><mat-icon>mail_outline</mat-icon> Invitation</h4>
-                  <p>Poste proposé : {{ inv.position || roleLabel(inv.role) }}</p>
-                  <p *ngIf="inv.invited_by_name">Invité par {{ inv.invited_by_name }}</p>
-                  <p *ngIf="inv.created_at">Reçue le {{ inv.created_at | date:'short' }}</p>
-                  <p *ngIf="inv.expires_at">Expire le {{ inv.expires_at | date:'short' }}</p>
-                </div>
-              </div>
-            </ng-container>
-            <ng-template #noProfile>
-              <p class="empty-detail">Profil entreprise indisponible pour le moment.</p>
-            </ng-template>
-          </div>
-        </mat-card>
-      </section>
+        </div>
+        <mat-icon>chevron_right</mat-icon>
+      </mat-card>
 
       <p class="hint">
         <mat-icon>info</mat-icon>
@@ -218,7 +156,28 @@ const ROLE_LABELS: Record<string, string> = {
       font-size: 14px;
     }
 
-    .invites-section h2,
+    .header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+    .invite-banner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      border-left: 4px solid #16a34a;
+      background: #f0fdf4;
+      cursor: pointer;
+      text-decoration: none;
+      color: inherit;
+    }
+    .invite-banner-content {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      mat-icon { color: #16a34a; }
+    }
+    .invite-meta { font-size: 13px; color: #6b7280; }
+
     .list h2 {
       margin: 0 0 10px;
       font-size: 15px;
@@ -425,29 +384,20 @@ export class ProviderEnterprisesComponent implements OnInit {
   pendingInvites: EnterpriseInvite[] = [];
   memberships: ProviderEnterpriseMembership[] = [];
   loading = true;
-  actionId: string | null = null;
-  expandedInviteId: string | null = null;
   expandedMembershipId: string | null = null;
 
-  constructor(
-    private enterpriseService: EnterpriseService,
-    private snackBar: MatSnackBar,
-  ) {}
+  constructor(private enterpriseService: EnterpriseService) {}
 
   ngOnInit(): void {
     this.load();
   }
 
-  enterpriseOf(item: EnterpriseInvite | ProviderEnterpriseMembership): EnterpriseInviteSummary | null {
+  enterpriseOf(item: ProviderEnterpriseMembership): EnterpriseInviteSummary | null {
     return item.enterprise || null;
   }
 
   roleLabel(role: string): string {
     return ROLE_LABELS[role] || role;
-  }
-
-  toggleInviteDetails(inv: EnterpriseInvite): void {
-    this.expandedInviteId = this.expandedInviteId === inv.id ? null : inv.id;
   }
 
   toggleMembershipDetails(m: ProviderEnterpriseMembership): void {
@@ -456,9 +406,9 @@ export class ProviderEnterprisesComponent implements OnInit {
 
   load(): void {
     this.loading = true;
-    this.enterpriseService.getMyEnterpriseInvites().subscribe({
+    this.enterpriseService.getMyEnterpriseInvites('pending').subscribe({
       next: (invites) => {
-        this.pendingInvites = invites.filter((i) => i.status === 'pending');
+        this.pendingInvites = invites || [];
       },
     });
     this.enterpriseService.getMyEnterprises().subscribe({
@@ -467,38 +417,6 @@ export class ProviderEnterprisesComponent implements OnInit {
         this.loading = false;
       },
       error: () => { this.loading = false; },
-    });
-  }
-
-  acceptInvite(inv: EnterpriseInvite): void {
-    this.actionId = inv.id;
-    this.enterpriseService.acceptEnterpriseInvite(inv.id).subscribe({
-      next: () => {
-        this.actionId = null;
-        this.expandedInviteId = null;
-        this.snackBar.open(`Vous avez rejoint ${inv.enterprise_name}`, 'Fermer', { duration: 4000 });
-        this.load();
-      },
-      error: (err) => {
-        this.actionId = null;
-        this.snackBar.open(err.error?.detail || err.error?.error || 'Erreur acceptation', 'Fermer', { duration: 4000 });
-      },
-    });
-  }
-
-  rejectInvite(inv: EnterpriseInvite): void {
-    this.actionId = inv.id;
-    this.enterpriseService.rejectEnterpriseInvite(inv.id).subscribe({
-      next: () => {
-        this.actionId = null;
-        this.expandedInviteId = null;
-        this.snackBar.open('Invitation refusée', 'Fermer', { duration: 3000 });
-        this.load();
-      },
-      error: (err) => {
-        this.actionId = null;
-        this.snackBar.open(err.error?.detail || err.error?.error || 'Erreur', 'Fermer', { duration: 4000 });
-      },
     });
   }
 }

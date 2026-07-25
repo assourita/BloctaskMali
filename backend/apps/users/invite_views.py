@@ -124,9 +124,19 @@ def enterprise_list_invites(request):
         'enterprise', 'enterprise__user', 'user', 'invited_by'
     )
     if status_filter and status_filter != 'all':
-        qs = qs.filter(status=status_filter)
         if status_filter == 'pending':
-            qs = qs.filter(expires_at__gt=timezone.now())
+            qs = qs.filter(
+                status=EnterpriseInvite.Status.PENDING,
+                expires_at__gt=timezone.now(),
+            )
+        elif status_filter == 'expired':
+            from django.db.models import Q
+            qs = qs.filter(
+                Q(status=EnterpriseInvite.Status.EXPIRED)
+                | Q(status=EnterpriseInvite.Status.PENDING, expires_at__lte=timezone.now())
+            )
+        else:
+            qs = qs.filter(status=status_filter)
 
     return Response([_serialize_invite(i, request) for i in qs[:100]])
 
@@ -151,19 +161,33 @@ def enterprise_cancel_invite(request, invite_id):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def my_enterprise_invites(request):
-    """GET /users/me/enterprise-invites/ — invitations reçues (prestataire)."""
+    """GET /users/me/enterprise-invites/?status=pending|accepted|rejected|cancelled|expired|all"""
     from django.db.models import Q
 
     email = (request.user.email or '').strip().lower()
+    status_filter = (request.query_params.get('status') or 'pending').strip().lower()
+
     qs = (
-        EnterpriseInvite.objects.filter(
-            status=EnterpriseInvite.Status.PENDING,
-            expires_at__gt=timezone.now(),
-        )
-        .filter(Q(user=request.user) | Q(email__iexact=email))
+        EnterpriseInvite.objects.filter(Q(user=request.user) | Q(email__iexact=email))
         .select_related('enterprise', 'enterprise__user', 'invited_by')
+        .order_by('-created_at')
     )
-    return Response([_serialize_invite(i, request) for i in qs[:50]])
+
+    if status_filter and status_filter != 'all':
+        if status_filter == 'pending':
+            qs = qs.filter(
+                status=EnterpriseInvite.Status.PENDING,
+                expires_at__gt=timezone.now(),
+            )
+        elif status_filter == 'expired':
+            qs = qs.filter(
+                Q(status=EnterpriseInvite.Status.EXPIRED)
+                | Q(status=EnterpriseInvite.Status.PENDING, expires_at__lte=timezone.now())
+            )
+        else:
+            qs = qs.filter(status=status_filter)
+
+    return Response([_serialize_invite(i, request) for i in qs[:100]])
 
 
 @api_view(['POST'])

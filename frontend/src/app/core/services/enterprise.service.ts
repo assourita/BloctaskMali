@@ -339,8 +339,9 @@ export class EnterpriseService {
     );
   }
 
-  getMyEnterpriseInvites(): Observable<EnterpriseInvite[]> {
-    return this.http.get<EnterpriseInvite[]>(`${this.apiUrl}/users/me/enterprise-invites/`);
+  getMyEnterpriseInvites(status: string = 'pending'): Observable<EnterpriseInvite[]> {
+    const params = new HttpParams().set('status', status);
+    return this.http.get<EnterpriseInvite[]>(`${this.apiUrl}/users/me/enterprise-invites/`, { params });
   }
 
   acceptEnterpriseInvite(id: string): Observable<{ invite: EnterpriseInvite; membership: ProviderEnterpriseMembership }> {
@@ -390,6 +391,7 @@ export interface EnterpriseInvite {
   message?: string;
   expires_at?: string;
   created_at?: string;
+  responded_at?: string;
   enterprise_id: string;
   enterprise_name: string;
   enterprise?: EnterpriseInviteSummary | null;

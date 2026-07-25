@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { MatCardModule } from '@angular/material/card';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -34,7 +35,7 @@ type PageTab = 'employees' | 'assignments';
   selector: 'app-enterprise-employees',
   standalone: true,
   imports: [
-    CommonModule, FormsModule,
+    CommonModule, FormsModule, RouterModule,
     MatCardModule, MatButtonModule, MatIconModule, MatChipsModule,
     MatProgressSpinnerModule, MatSnackBarModule, MatDialogModule,
   ],
@@ -49,6 +50,9 @@ type PageTab = 'employees' | 'assignments';
           <button mat-stroked-button (click)="openInviteForm()">
             <mat-icon>mail_outline</mat-icon> Inviter un prestataire
           </button>
+          <a mat-stroked-button routerLink="/enterprise/invitations">
+            <mat-icon>history</mat-icon> Historique invitations
+          </a>
           <button mat-raised-button color="primary" (click)="openCreateForm()">
             <mat-icon>person_add</mat-icon> Nouvel employé
           </button>

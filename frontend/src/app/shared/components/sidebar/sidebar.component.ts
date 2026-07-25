@@ -271,6 +271,7 @@ export class SidebarComponent implements OnInit {
         { path: '/provider/dashboard', label: 'Tableau de bord', icon: 'dashboard' },
         { path: '/provider/missions', label: 'Mes missions assignées', icon: 'assignment' },
         { path: '/provider/enterprises', label: 'Mes entreprises', icon: 'business' },
+        { path: '/provider/invitations', label: 'Invitations', icon: 'inbox' },
         { path: '/provider/missions/solicitations', label: 'Mes sollicitations', icon: 'mail' },
         { path: '/provider/missions/available', label: 'Opportunités & appels', icon: 'campaign' },
         { path: '/provider/tracking', label: 'Suivi GPS', icon: 'my_location' },
@@ -288,6 +289,7 @@ export class SidebarComponent implements OnInit {
       items: [
         { path: '/enterprise/dashboard', label: 'Tableau de bord', icon: 'dashboard' },
         { path: '/enterprise/employees', label: 'Employés', icon: 'people' },
+        { path: '/enterprise/invitations', label: 'Invitations', icon: 'mail_outline' },
         { path: '/enterprise/appels', label: 'Appels à prestataires', icon: 'campaign' },
         { path: '/enterprise/missions', label: 'Missions', icon: 'assignment' },
         { path: '/enterprise/missions/available', label: 'Missions disponibles', icon: 'search' },

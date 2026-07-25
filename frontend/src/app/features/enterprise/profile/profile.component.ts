@@ -27,7 +27,16 @@ import { environment } from '../../../../environments/environment';
     <div class="profile-container" *ngIf="user" [class.has-onboarding-bar]="showOnboarding">
 
       <div class="profile-header">
-        <div class="avatar-initials">{{ initials }}</div>
+        <div class="avatar-section">
+          <div class="avatar-wrap">
+            <img *ngIf="user?.profile_picture" [src]="user.profile_picture" class="avatar-img" alt="logo entreprise"/>
+            <div *ngIf="!user?.profile_picture" class="avatar-initials">{{ initials }}</div>
+            <button mat-mini-fab type="button" class="avatar-edit-btn" (click)="fileInput.click()" title="Changer la photo">
+              <mat-icon>camera_alt</mat-icon>
+            </button>
+            <input #fileInput type="file" accept="image/*" hidden (change)="onAvatarChange($event)"/>
+          </div>
+        </div>
         <div class="header-info">
           <h1>{{ enterpriseProfile?.company_name || user.first_name }}</h1>
           <span class="user-type-badge">ENTREPRISE</span>
@@ -176,11 +185,23 @@ import { environment } from '../../../../environments/environment';
       color: #fff; border-radius: 16px; padding: 28px 32px;
       display: flex; align-items: center; gap: 24px; flex-wrap: wrap;
     }
+    .avatar-section { flex-shrink: 0; }
+    .avatar-wrap { position: relative; width: 72px; height: 72px; }
+    .avatar-img {
+      width: 72px; height: 72px; border-radius: 16px; object-fit: cover;
+      border: 2px solid rgba(255,255,255,0.35);
+    }
     .avatar-initials {
       width: 72px; height: 72px; border-radius: 16px;
       background: linear-gradient(135deg, #f59e0b, #d97706);
       display: flex; align-items: center; justify-content: center;
       font-size: 24px; font-weight: 700;
+    }
+    .avatar-edit-btn {
+      position: absolute; right: -6px; bottom: -6px;
+      width: 32px !important; height: 32px !important;
+      background: #f59e0b !important; color: #fff !important;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; }
     }
     .header-info { flex: 1; h1 { margin: 0 0 6px; font-size: 22px; } }
     .user-type-badge {
@@ -358,6 +379,27 @@ export class EnterpriseProfileComponent implements OnInit {
         this.savingAccount = false;
         this.snack.open('Erreur enregistrement', 'Fermer', { duration: 3000 });
       },
+    });
+  }
+
+  onAvatarChange(event: Event): void {
+    const file = (event.target as HTMLInputElement).files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      this.snack.open('Image trop lourde (max 5 Mo)', 'Fermer', { duration: 3000 });
+      return;
+    }
+    const fd = new FormData();
+    fd.append('profile_picture', file);
+    this.http.patch<any>(`${this.apiUrl}/users/me/`, fd, {
+      headers: new HttpHeaders({ Authorization: `Bearer ${localStorage.getItem('access_token')}` }),
+    }).subscribe({
+      next: (u) => {
+        this.user = { ...this.user, profile_picture: u.profile_picture };
+        this.authService.refreshUserProfile().subscribe({ error: () => {} });
+        this.snack.open('Photo entreprise mise à jour', 'Fermer', { duration: 2500 });
+      },
+      error: () => this.snack.open('Erreur upload photo', 'Fermer', { duration: 3000 }),
     });
   }
 
