@@ -22,7 +22,37 @@ def _enterprise_profile(user):
         return None
 
 
-def _serialize_invite(invite: EnterpriseInvite) -> dict:
+def _serialize_enterprise_summary(enterprise: EnterpriseProfile, request=None) -> dict:
+    user = enterprise.user
+    logo = None
+    if user.profile_picture:
+        try:
+            url = user.profile_picture.url
+            logo = request.build_absolute_uri(url) if request else url
+        except Exception:
+            logo = None
+    return {
+        'id': str(enterprise.id),
+        'user_id': str(user.id),
+        'company_name': enterprise.company_name or '',
+        'city': enterprise.city or getattr(user, 'city', '') or '',
+        'country': getattr(user, 'country', None) or 'Mali',
+        'address': enterprise.address or '',
+        'website': enterprise.website or '',
+        'description': getattr(user, 'bio', '') or '',
+        'company_email': enterprise.company_email or '',
+        'company_phone': enterprise.company_phone or getattr(user, 'phone_number', '') or '',
+        'logo': logo,
+        'is_verified': bool(enterprise.is_verified),
+        'reputation_score': float(enterprise.reputation_score or 0),
+        'total_employees': int(enterprise.total_employees or 0),
+        'total_missions_posted': int(enterprise.total_missions_posted or 0),
+        'member_since': enterprise.created_at.isoformat() if enterprise.created_at else None,
+    }
+
+
+def _serialize_invite(invite: EnterpriseInvite, request=None) -> dict:
+    enterprise = invite.enterprise if invite.enterprise_id else None
     return {
         'id': str(invite.id),
         'email': invite.email,
@@ -34,7 +64,8 @@ def _serialize_invite(invite: EnterpriseInvite) -> dict:
         'created_at': invite.created_at.isoformat() if invite.created_at else None,
         'responded_at': invite.responded_at.isoformat() if invite.responded_at else None,
         'enterprise_id': str(invite.enterprise_id),
-        'enterprise_name': invite.enterprise.company_name if invite.enterprise_id else '',
+        'enterprise_name': enterprise.company_name if enterprise else '',
+        'enterprise': _serialize_enterprise_summary(enterprise, request) if enterprise else None,
         'user_id': str(invite.user_id) if invite.user_id else None,
         'user_exists': bool(invite.user_id),
         'invited_by_name': (
@@ -43,11 +74,12 @@ def _serialize_invite(invite: EnterpriseInvite) -> dict:
     }
 
 
-def _serialize_membership(emp: Employee) -> dict:
+def _serialize_membership(emp: Employee, request=None) -> dict:
     return {
         'id': str(emp.id),
         'enterprise_id': str(emp.enterprise_id),
         'enterprise_name': emp.enterprise.company_name,
+        'enterprise': _serialize_enterprise_summary(emp.enterprise, request) if emp.enterprise_id else None,
         'role': emp.role,
         'position': emp.position,
         'is_active': emp.is_active,
@@ -76,7 +108,7 @@ def enterprise_invite_provider(request):
     except ValueError as exc:
         return Response({'error': str(exc)}, status=400)
 
-    return Response(_serialize_invite(invite), status=201)
+    return Response(_serialize_invite(invite, request), status=201)
 
 
 @api_view(['GET'])
@@ -89,14 +121,14 @@ def enterprise_list_invites(request):
 
     status_filter = request.query_params.get('status', 'pending')
     qs = EnterpriseInvite.objects.filter(enterprise=profile).select_related(
-        'enterprise', 'user', 'invited_by'
+        'enterprise', 'enterprise__user', 'user', 'invited_by'
     )
     if status_filter and status_filter != 'all':
         qs = qs.filter(status=status_filter)
         if status_filter == 'pending':
             qs = qs.filter(expires_at__gt=timezone.now())
 
-    return Response([_serialize_invite(i) for i in qs[:100]])
+    return Response([_serialize_invite(i, request) for i in qs[:100]])
 
 
 @api_view(['POST'])
@@ -113,7 +145,7 @@ def enterprise_cancel_invite(request, invite_id):
         cancel_enterprise_invite(invite=invite, enterprise=profile)
     except ValueError as exc:
         return Response({'error': str(exc)}, status=400)
-    return Response(_serialize_invite(invite))
+    return Response(_serialize_invite(invite, request))
 
 
 @api_view(['GET'])
@@ -129,15 +161,17 @@ def my_enterprise_invites(request):
             expires_at__gt=timezone.now(),
         )
         .filter(Q(user=request.user) | Q(email__iexact=email))
-        .select_related('enterprise', 'invited_by')
+        .select_related('enterprise', 'enterprise__user', 'invited_by')
     )
-    return Response([_serialize_invite(i) for i in qs[:50]])
+    return Response([_serialize_invite(i, request) for i in qs[:50]])
 
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated])
 def accept_my_enterprise_invite(request, invite_id):
-    invite = EnterpriseInvite.objects.filter(id=invite_id).select_related('enterprise').first()
+    invite = EnterpriseInvite.objects.filter(id=invite_id).select_related(
+        'enterprise', 'enterprise__user'
+    ).first()
     if not invite:
         return Response({'error': 'Invitation introuvable'}, status=404)
     try:
@@ -145,8 +179,8 @@ def accept_my_enterprise_invite(request, invite_id):
     except ValueError as exc:
         return Response({'error': str(exc)}, status=400)
     return Response({
-        'invite': _serialize_invite(invite),
-        'membership': _serialize_membership(employee),
+        'invite': _serialize_invite(invite, request),
+        'membership': _serialize_membership(employee, request),
     })
 
 
@@ -160,12 +194,14 @@ def reject_my_enterprise_invite(request, invite_id):
         reject_enterprise_invite(invite=invite, user=request.user)
     except ValueError as exc:
         return Response({'error': str(exc)}, status=400)
-    return Response(_serialize_invite(invite))
+    return Response(_serialize_invite(invite, request))
 
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated])
 def my_enterprises(request):
     """GET /users/me/enterprises/ — entreprises liées (actives)."""
-    links = employee_links_qs(request.user, active_only=True).select_related('enterprise')
-    return Response([_serialize_membership(e) for e in links])
+    links = employee_links_qs(request.user, active_only=True).select_related(
+        'enterprise', 'enterprise__user'
+    )
+    return Response([_serialize_membership(e, request) for e in links])

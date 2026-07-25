@@ -104,7 +104,7 @@ type PageTab = 'employees' | 'assignments';
           <div class="form-actions">
             <button mat-button (click)="cancelInviteForm()">Annuler</button>
             <button mat-raised-button color="primary" (click)="submitInvite()" [disabled]="inviting">
-              {{ inviting ? 'Envoi...' : 'Envoyer l\'invitation' }}
+              {{ inviting ? 'Envoi...' : "Envoyer l'invitation" }}
             </button>
           </div>
         </mat-card>

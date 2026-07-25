@@ -127,7 +127,7 @@ def invite_provider_to_enterprise(
                 f'{enterprise.company_name} vous invite à rejoindre son équipe '
                 f'en tant que {invite.position or "agent"}.'
             ),
-            action_url='/provider/dashboard',
+            action_url='/provider/enterprises',
         )
 
     return invite
