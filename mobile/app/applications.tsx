@@ -93,7 +93,6 @@ export default function ApplicationsScreen() {
 
       <FlatList
         style={{ flex: 1 }}
-        style={{ flex: 1 }}
         data={apps}
         keyExtractor={(item) => item.id}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); load(); }} />}

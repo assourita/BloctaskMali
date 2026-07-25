@@ -151,7 +151,7 @@ class MissionListSerializer(serializers.ModelSerializer):
         model = Mission
         fields = [
             'id', 'title', 'description', 'mission_hash', 'category', 'category_name', 'category_icon', 'category_slug',
-            'client', 'provider', 'status', 'priority', 'listing_mode',
+            'client', 'provider', 'status', 'status_before_dispute', 'priority', 'listing_mode',
             'budget', 'deposit_amount', 'required_deposit', 'deposit_paid', 'deposit_deadline', 'currency',
             'deposit_required', 'requirement_labels', 'requirements',
             'expiry_decision_pending', 'expiry_decision_due_at',
@@ -290,7 +290,7 @@ class MissionDetailSerializer(serializers.ModelSerializer):
         model = Mission
         fields = [
             'id', 'mission_hash', 'title', 'description', 'category',
-            'client', 'provider', 'status', 'priority', 'listing_mode',
+            'client', 'provider', 'status', 'status_before_dispute', 'priority', 'listing_mode',
             'pickup_address', 'pickup_latitude', 'pickup_longitude',
             'delivery_address', 'delivery_latitude', 'delivery_longitude',
             'budget', 'final_price', 'currency',

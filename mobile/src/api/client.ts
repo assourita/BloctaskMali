@@ -14,6 +14,23 @@ const REFRESH_KEY = 'refresh_token';
 
 let memoryToken: string | null | undefined;
 let refreshPromise: Promise<string | null> | null = null;
+const authExpiredListeners = new Set<() => void>();
+
+/** Notifie AuthContext quand la session JWT est invalide / expirée. */
+export function onAuthExpired(listener: () => void): () => void {
+  authExpiredListeners.add(listener);
+  return () => authExpiredListeners.delete(listener);
+}
+
+function notifyAuthExpired(): void {
+  authExpiredListeners.forEach((fn) => {
+    try {
+      fn();
+    } catch {
+      /* ignore */
+    }
+  });
+}
 
 export async function getAccessToken(): Promise<string | null> {
   if (memoryToken !== undefined) return memoryToken;
@@ -190,6 +207,7 @@ export async function apiRequest<T>(
       const newToken = await refreshAccessToken();
       if (newToken) return apiRequest<T>(path, options, false);
       await clearTokens();
+      notifyAuthExpired();
     }
 
     const data = await parseResponse(res);
@@ -229,6 +247,7 @@ export async function apiFormRequest<T>(
     const newToken = await refreshAccessToken();
     if (newToken) return apiFormRequest<T>(path, formData, false, method);
     await clearTokens();
+    notifyAuthExpired();
   }
 
   const data = await parseResponse(res);

@@ -17,6 +17,7 @@ import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
 import { MatDialogModule, MatDialog } from '@angular/material/dialog';
+import { MatMenuModule } from '@angular/material/menu';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 
@@ -42,6 +43,8 @@ interface Dispute {
   reason: string;
   description: string;
   requested_resolution: string;
+  defendant_response?: string;
+  defendant_responded_at?: string;
   status: string;
   decision: string;
   decision_reason?: string;
@@ -86,7 +89,7 @@ interface MissionDossier {
     MatTableModule, MatPaginatorModule, MatSortModule,
     MatProgressSpinnerModule, MatSelectModule, MatFormFieldModule,
     MatInputModule, MatSnackBarModule, MatTooltipModule, MatDividerModule,
-    MatDialogModule
+    MatDialogModule, MatMenuModule
   ],
   template: `
     <div class="disputes-container">
@@ -220,14 +223,30 @@ interface MissionDossier {
 
               <ng-container matColumnDef="actions">
                 <th mat-header-cell *matHeaderCellDef>Actions</th>
-                <td mat-cell *matCellDef="let d" (click)="$event.stopPropagation()">
-                  <button class="btn-view" (click)="openPanel(d)" matTooltip="Voir détails"><mat-icon>visibility</mat-icon></button>
-                  <button class="btn-resolve" (click)="openResolveModal(d)"
-                    *ngIf="!['resolved','closed'].includes(d.status)"
-                    matTooltip="Résoudre"><mat-icon>gavel</mat-icon></button>
-                  <button class="btn-close-btn" (click)="closeDispute(d)"
-                    *ngIf="d.status === 'resolved'"
-                    matTooltip="Fermer"><mat-icon>lock</mat-icon></button>
+                <td mat-cell *matCellDef="let d" (click)="$event.stopPropagation()" class="actions-cell">
+                  <button mat-icon-button type="button" [matMenuTriggerFor]="disputeMenu" class="btn-more" aria-label="Actions">
+                    <mat-icon>more_vert</mat-icon>
+                  </button>
+                  <mat-menu #disputeMenu="matMenu">
+                    <a mat-menu-item [routerLink]="['/admin/disputes', d.id]">
+                      <mat-icon>folder_open</mat-icon>
+                      <span>Dossier complet</span>
+                    </a>
+                    <button mat-menu-item type="button" (click)="openPanel(d)">
+                      <mat-icon>visibility</mat-icon>
+                      <span>Aperçu rapide</span>
+                    </button>
+                    <button mat-menu-item type="button" (click)="openResolveModal(d)"
+                      *ngIf="!['resolved','closed'].includes(d.status)">
+                      <mat-icon>gavel</mat-icon>
+                      <span>Résoudre</span>
+                    </button>
+                    <button mat-menu-item type="button" (click)="closeDispute(d)"
+                      *ngIf="d.status === 'resolved'">
+                      <mat-icon>lock</mat-icon>
+                      <span>Fermer le litige</span>
+                    </button>
+                  </mat-menu>
                 </td>
               </ng-container>
 
@@ -311,10 +330,17 @@ interface MissionDossier {
               <p class="info-label">Résolution demandée</p>
               <p class="desc-text">{{ selectedDispute.requested_resolution }}</p>
             </div>
+            <div class="description-box">
+              <p class="info-label">Défense du défendeur</p>
+              <p class="desc-text">{{ selectedDispute.defendant_response || 'Aucune défense soumise.' }}</p>
+            </div>
 
             <div class="panel-actions">
+              <a class="action-resolve-btn" [routerLink]="['/admin/disputes', selectedDispute.id]">
+                <mat-icon>folder_open</mat-icon> Ouvrir le dossier d'arbitrage
+              </a>
               <button class="action-resolve-btn" type="button" (click)="loadMissionDossier(selectedDispute)" [disabled]="dossierLoading">
-                <mat-icon>folder_open</mat-icon> {{ dossierLoading ? 'Chargement…' : 'Dossier mission complet' }}
+                <mat-icon>preview</mat-icon> {{ dossierLoading ? 'Chargement…' : 'Aperçu rapide dossier' }}
               </button>
             </div>
             <div class="dossier-box" *ngIf="missionDossier">
@@ -403,8 +429,9 @@ interface MissionDossier {
                 </select>
               </div>
               <div class="form-group">
-                <label>Motif de la décision *</label>
-                <textarea class="form-textarea" formControlName="decision_reason" rows="3" placeholder="Expliquez la décision..."></textarea>
+                <label>Justification du verdict *</label>
+                <textarea class="form-textarea" formControlName="decision_reason" rows="3"
+                  placeholder="Justifiez le verdict à partir des preuves et des défenses (pas un simple motif comme « inondations » sans lien avec la décision)..."></textarea>
               </div>
               <div class="amounts-row">
                 <div class="form-group">
@@ -525,8 +552,8 @@ interface MissionDossier {
     .d-partial_provider { background: #cffafe; color: #0891b2; }
     .no-decision { color: #94a3b8; font-size: 12px; }
 
-    .btn-view   { background: #f1f5f9; border: none; border-radius: 8px; width: 32px; height: 32px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; } &:hover { background: #dbeafe; } }
-    .btn-resolve { background: #fef3c7; border: none; border-radius: 8px; width: 32px; height: 32px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; mat-icon { font-size: 18px; width: 18px; height: 18px; color: #d97706; } &:hover { background: #fde68a; } }
+    .actions-cell { white-space: nowrap; width: 56px; }
+    .btn-more { color: #64748b; }
     .btn-close-btn { background: #f1f5f9; border: none; border-radius: 8px; width: 32px; height: 32px; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin-left: 4px; mat-icon { font-size: 18px; width: 18px; height: 18px; color: #6b7280; } &:hover { background: #e2e8f0; } }
 
     /* Detail panel */
@@ -566,7 +593,7 @@ interface MissionDossier {
 
     /* Panel actions */
     .panel-actions { margin-top: 8px; }
-    .action-resolve-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; background: #fef3c7; color: #d97706; border: none; border-radius: 10px; padding: 10px; cursor: pointer; font-weight: 600; font-size: 13px; mat-icon { font-size: 18px; width: 18px; height: 18px; } &:hover { background: #fde68a; } }
+    .action-resolve-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; background: #fef3c7; color: #d97706; border: none; border-radius: 10px; padding: 10px; cursor: pointer; font-weight: 600; font-size: 13px; text-decoration: none; box-sizing: border-box; margin-bottom: 8px; mat-icon { font-size: 18px; width: 18px; height: 18px; } &:hover { background: #fde68a; } }
     .action-close-btn { width: 100%; display: flex; align-items: center; justify-content: center; gap: 8px; background: #f1f5f9; color: #6b7280; border: none; border-radius: 10px; padding: 10px; cursor: pointer; font-weight: 600; font-size: 13px; mat-icon { font-size: 18px; width: 18px; height: 18px; } &:hover { background: #e2e8f0; } }
 
     /* Modal */
@@ -745,7 +772,7 @@ export class AdminDisputesComponent implements OnInit, AfterViewInit {
     const budget = Number(dispute.mission_budget) || 0;
     this.resolveForm = this.fb.group({
       decision: ['', Validators.required],
-      decision_reason: ['', [Validators.required, Validators.minLength(1)]],
+      decision_reason: ['', [Validators.required, Validators.minLength(10)]],
       client_refund_amount: [0],
       provider_payment_amount: [0],
       deposit_penalty: [0]

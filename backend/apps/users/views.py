@@ -1001,6 +1001,215 @@ def admin_enterprises_list(request):
     return Response({'results': results, 'count': len(results)})
 
 
+def _abs_media(request, field):
+    if not field:
+        return None
+    try:
+        url = field.url
+    except Exception:
+        return None
+    return request.build_absolute_uri(url) if request else url
+
+
+@api_view(['GET'])
+@permission_classes([permissions.IsAuthenticated])
+def admin_enterprise_detail(request, id):
+    """Dossier admin complet d'une entreprise (profil, employés, invitations, appels, missions)."""
+    if not _admin_only(request.user):
+        return Response({'error': 'Accès réservé aux administrateurs.'}, status=403)
+
+    profile = get_object_or_404(EnterpriseProfile.objects.select_related('user'), pk=id)
+    user = profile.user
+    defaults = enterprise_profile_defaults(user)
+
+    from apps.missions.models import Mission
+    from apps.enterprises.models import EmployeeAssignment, EnterpriseTeam
+    from apps.users.models import EnterpriseInvite, EnterpriseRecruitmentCall
+
+    employees = list(
+        Employee.objects.filter(enterprise=profile).select_related('user').order_by('-is_active', '-created_at')
+    )
+    invites = list(
+        EnterpriseInvite.objects.filter(enterprise=profile).select_related('user', 'invited_by').order_by('-created_at')[:100]
+    )
+    calls = list(
+        EnterpriseRecruitmentCall.objects.filter(enterprise=profile).order_by('-created_at')[:50]
+    )
+    teams = list(
+        EnterpriseTeam.objects.filter(enterprise=profile).prefetch_related('memberships__employee').order_by('name')
+    )
+
+    assignments = list(
+        EmployeeAssignment.objects.filter(employee__enterprise=profile)
+        .select_related('mission', 'employee', 'assigned_by')
+        .order_by('-assigned_at')[:100]
+    )
+
+    posted_missions = list(
+        Mission.objects.filter(client=user).select_related('category', 'provider').order_by('-created_at')[:80]
+    )
+    received_missions = list(
+        Mission.objects.filter(assigned_enterprise=profile)
+        .select_related('category', 'client', 'executing_employee')
+        .order_by('-created_at')[:80]
+    )
+    completed_missions = [
+        m for m in received_missions if m.status == Mission.Status.COMPLETED
+    ][:40]
+
+    def mission_brief(m):
+        return {
+            'id': str(m.id),
+            'title': m.title,
+            'status': m.status,
+            'budget': m.budget,
+            'currency': m.currency,
+            'category': getattr(m.category, 'name', None),
+            'client': (
+                f'{m.client.first_name} {m.client.last_name}'.strip()
+                if getattr(m, 'client_id', None) else None
+            ),
+            'provider': (
+                f'{m.provider.first_name} {m.provider.last_name}'.strip()
+                if getattr(m, 'provider_id', None) else None
+            ),
+            'deadline': m.deadline,
+            'created_at': m.created_at,
+            'completed_at': getattr(m, 'completed_at', None),
+        }
+
+    profile_payload = {
+        'id': str(profile.id),
+        'user_id': str(user.id),
+        'company_name': (profile.company_name or defaults.get('company_name') or '').strip(),
+        'rccm': profile.rccm or '',
+        'ifu': profile.ifu or '',
+        'company_email': profile.company_email or user.email,
+        'company_phone': profile.company_phone or user.phone_number or '',
+        'website': profile.website or '',
+        'address': profile.address or '',
+        'city': (profile.city or defaults.get('city') or user.city or '').strip(),
+        'is_verified': bool(profile.is_verified),
+        'verified_at': profile.verified_at,
+        'is_active': bool(user.is_active),
+        'reputation_score': profile.reputation_score,
+        'deposit_balance': profile.deposit_balance,
+        'deposit_locked': profile.deposit_locked,
+        'total_employees': Employee.objects.filter(enterprise=profile, is_active=True).count(),
+        'total_missions_posted': profile.total_missions_posted or 0,
+        'total_spent': profile.total_spent,
+        'trade_register_url': _abs_media(request, profile.trade_register),
+        'owner': {
+            'id': str(user.id),
+            'first_name': user.first_name,
+            'last_name': user.last_name,
+            'email': user.email,
+            'phone_number': user.phone_number or '',
+            'kyc_status': getattr(user, 'kyc_status', None),
+            'profile_picture': _abs_media(request, getattr(user, 'profile_picture', None)),
+        },
+        'created_at': profile.created_at,
+        'updated_at': profile.updated_at,
+    }
+
+    return Response({
+        'profile': profile_payload,
+        'stats': {
+            'employees_active': sum(1 for e in employees if e.is_active),
+            'employees_total': len(employees),
+            'invites_pending': sum(1 for i in invites if i.status == 'pending'),
+            'calls_open': sum(1 for c in calls if c.status == 'open'),
+            'assignments': len(assignments),
+            'missions_posted': len(posted_missions),
+            'missions_received': len(received_missions),
+            'missions_completed': len(completed_missions),
+            'teams': len(teams),
+        },
+        'employees': [
+            {
+                'id': str(e.id),
+                'first_name': e.first_name,
+                'last_name': e.last_name,
+                'email': e.email or (e.user.email if e.user_id else ''),
+                'phone': e.phone,
+                'position': e.position,
+                'role': e.role,
+                'is_active': e.is_active,
+                'missions_completed': e.missions_completed,
+                'missions_failed': e.missions_failed,
+                'user_id': str(e.user_id) if e.user_id else None,
+                'hired_at': e.hired_at,
+            }
+            for e in employees
+        ],
+        'invitations': [
+            {
+                'id': str(i.id),
+                'email': i.email,
+                'status': i.status,
+                'role': i.role,
+                'position': i.position,
+                'message': i.message,
+                'expires_at': i.expires_at,
+                'responded_at': i.responded_at,
+                'created_at': i.created_at,
+                'user': (
+                    f'{i.user.first_name} {i.user.last_name}'.strip()
+                    if i.user_id else None
+                ),
+            }
+            for i in invites
+        ],
+        'recruitment_calls': [
+            {
+                'id': str(c.id),
+                'title': c.title,
+                'description': (c.description or '')[:280],
+                'status': c.status,
+                'role': c.role,
+                'position': c.position,
+                'city': c.city,
+                'applications_count': c.applications.count(),
+                'created_at': c.created_at,
+            }
+            for c in calls
+        ],
+        'teams': [
+            {
+                'id': str(t.id),
+                'name': t.name,
+                'description': t.description,
+                'is_active': t.is_active,
+                'manager': (
+                    f'{t.manager.first_name} {t.manager.last_name}'.strip()
+                    if t.manager_id else None
+                ),
+                'members_count': t.memberships.count(),
+            }
+            for t in teams
+        ],
+        'assignments': [
+            {
+                'id': str(a.id),
+                'mission_id': str(a.mission_id),
+                'mission_title': a.mission.title if a.mission_id else '',
+                'mission_status': a.mission.status if a.mission_id else '',
+                'employee': f'{a.employee.first_name} {a.employee.last_name}'.strip(),
+                'is_lead': a.is_lead,
+                'assignment_type': a.assignment_type,
+                'assigned_at': a.assigned_at,
+                'accepted_at': a.accepted_at,
+                'rejected_at': a.rejected_at,
+                'completed_at': a.completed_at,
+            }
+            for a in assignments
+        ],
+        'missions_posted': [mission_brief(m) for m in posted_missions],
+        'missions_received': [mission_brief(m) for m in received_missions],
+        'missions_completed': [mission_brief(m) for m in completed_missions],
+    })
+
+
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def admin_enterprise_verify(request, id):
@@ -1008,12 +1217,17 @@ def admin_enterprise_verify(request, id):
     if not _admin_only(request.user):
         return Response({'error': 'Accès réservé aux administrateurs.'}, status=403)
 
-    profile = get_object_or_404(EnterpriseProfile, id=id)
+    profile = get_object_or_404(EnterpriseProfile, pk=id)
     verify = request.data.get('is_verified')
     if verify is None:
         verify = True
     profile.is_verified = bool(verify)
-    profile.save(update_fields=['is_verified', 'updated_at'])
+    from django.utils import timezone as dj_tz
+    update_fields = ['is_verified', 'updated_at']
+    if profile.is_verified and not profile.verified_at:
+        profile.verified_at = dj_tz.now()
+        update_fields.append('verified_at')
+    profile.save(update_fields=update_fields)
     return Response({
         'id': str(profile.id),
         'is_verified': profile.is_verified,

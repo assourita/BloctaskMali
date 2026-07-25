@@ -1,6 +1,7 @@
 """Authentification JWT et Google OAuth."""
 import logging
 
+from django.utils import timezone
 from rest_framework import serializers, status
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
@@ -11,9 +12,41 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 
 from .email_verification import email_verification_required
 from .google_auth import authenticate_or_register_google_user, verify_google_id_token
+from .models import LoginHistory
 from .serializers import UserSerializer
 
 logger = logging.getLogger(__name__)
+
+
+def _client_ip(request) -> str:
+    forwarded = (request.META.get('HTTP_X_FORWARDED_FOR') or '').split(',')[0].strip()
+    return forwarded or request.META.get('REMOTE_ADDR') or '0.0.0.0'
+
+
+def record_successful_login(user, request=None) -> None:
+    """Met à jour last_login + historique (JWT / Google n'appellent pas django.contrib.auth.login)."""
+    now = timezone.now()
+    user.last_login = now
+    update_fields = ['last_login']
+    ip = None
+    ua = ''
+    if request is not None:
+        ip = _client_ip(request)
+        ua = (request.META.get('HTTP_USER_AGENT') or '')[:500]
+        if hasattr(user, 'last_login_ip'):
+            user.last_login_ip = ip
+            update_fields.append('last_login_ip')
+    user.save(update_fields=update_fields)
+    try:
+        LoginHistory.objects.create(
+            user=user,
+            ip_address=ip or '0.0.0.0',
+            user_agent=ua,
+            device_type='',
+            is_successful=True,
+        )
+    except Exception as exc:
+        logger.warning('LoginHistory create failed: %s', exc)
 
 
 class GoogleAuthView(APIView):
@@ -39,6 +72,7 @@ class GoogleAuthView(APIView):
         if not user.is_active:
             return Response({'error': 'Compte désactivé.'}, status=status.HTTP_403_FORBIDDEN)
 
+        record_successful_login(user, request)
         refresh = RefreshToken.for_user(user)
         return Response({
             'user': UserSerializer(user).data,
@@ -92,4 +126,5 @@ class BlockTaskTokenObtainPairView(TokenObtainPairView):
                 status_code = status.HTTP_403_FORBIDDEN if detail.get('code') == 'email_not_verified' else status.HTTP_401_UNAUTHORIZED
                 return Response(detail, status=status_code)
             raise
+        record_successful_login(serializer.user, request)
         return Response(serializer.validated_data, status=status.HTTP_200_OK)

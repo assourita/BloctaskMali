@@ -34,6 +34,34 @@ const FILTERS = [
   { id: 'all', label: 'Tout' },
 ];
 
+function personName(first?: string | null, last?: string | null): string {
+  return [first, last]
+    .map((p) => (p || '').replace(/^[-–—\s]+|[-–—\s]+$/g, '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .trim() || 'Candidat';
+}
+
+function statusLabel(status: string): string {
+  const map: Record<string, string> = {
+    open: 'Ouvert',
+    closed: 'Clôturé',
+    cancelled: 'Annulé',
+    pending: 'En attente',
+    accepted: 'Acceptée',
+    rejected: 'Refusée',
+    withdrawn: 'Retirée',
+  };
+  return map[status] || status;
+}
+
+function badgeTone(status: string): { bg: string; fg: string } {
+  if (status === 'open' || status === 'pending') return { bg: '#FEF3C7', fg: '#92400E' };
+  if (status === 'closed' || status === 'accepted') return { bg: colors.successLight, fg: '#065f46' };
+  if (status === 'cancelled' || status === 'rejected') return { bg: colors.dangerLight, fg: '#991b1b' };
+  return { bg: colors.surfaceAlt, fg: colors.textMuted };
+}
+
 export default function EnterpriseAppelsScreen() {
   const { redirect: guardRedirect } = useEnterpriseGuard();
   const [status, setStatus] = useState('open');
@@ -91,8 +119,11 @@ export default function EnterpriseAppelsScreen() {
       return;
     }
     setExpandedId(call.id);
-    const list = await listRecruitmentApplications(call.id).catch(() => [] as RecruitmentApplication[]);
-    setApps(list);
+    try {
+      setApps(await listRecruitmentApplications(call.id));
+    } catch {
+      setApps([]);
+    }
   };
 
   const setCallStatus = (call: RecruitmentCall, next: 'closed' | 'cancelled') => {
@@ -121,7 +152,7 @@ export default function EnterpriseAppelsScreen() {
   };
 
   const review = (app: RecruitmentApplication, action: 'accept' | 'reject') => {
-    const name = `${app.provider?.first_name || ''} ${app.provider?.last_name || ''}`.trim() || 'ce candidat';
+    const name = personName(app.provider?.first_name, app.provider?.last_name);
     Alert.alert(
       action === 'accept' ? 'Accepter' : 'Refuser',
       action === 'accept' ? `Accepter ${name} dans l'entreprise ?` : `Refuser ${name} ?`,
@@ -158,7 +189,7 @@ export default function EnterpriseAppelsScreen() {
         subtitle="Tous les prestataires peuvent postuler — distinct des invitations ciblées"
       />
 
-      <Pressable onPress={() => router.push('/enterprise-invitations')}>
+      <Pressable onPress={() => router.push('/enterprise-invitations')} style={styles.linkWrap}>
         <Text style={styles.link}>Voir les invitations ciblées →</Text>
       </Pressable>
 
@@ -169,6 +200,7 @@ export default function EnterpriseAppelsScreen() {
 
       {showForm ? (
         <SoftCard style={styles.form}>
+          <Text style={styles.formTitle}>Publier un appel</Text>
           <TextInput
             style={styles.input}
             placeholder="Titre *"
@@ -205,90 +237,104 @@ export default function EnterpriseAppelsScreen() {
         </SoftCard>
       ) : null}
 
-      <TabBar tabs={FILTERS} value={status} onChange={setStatus} />
+      <View style={styles.filters}>
+        <TabBar tabs={FILTERS} value={status} onChange={setStatus} />
+      </View>
 
       {loading ? (
         <Loader />
       ) : calls.length === 0 ? (
         <Text style={styles.empty}>Aucun appel pour ce filtre.</Text>
       ) : (
-        calls.map((call) => (
-          <SoftCard key={call.id} style={styles.card}>
-            <Text style={styles.badge}>{statusLabel(call.status)}</Text>
-            <Text style={styles.title}>{call.title}</Text>
-            <Text style={styles.meta}>
-              {call.position || ROLE_LABELS[call.role] || call.role}
-              {call.city ? ` · ${call.city}` : ''}
-              {` · ${call.pending_applications_count || 0} en attente`}
-            </Text>
-            <Text style={styles.desc}>{call.description}</Text>
-            <View style={styles.actions}>
-              <SecondaryButton
-                label={expandedId === call.id ? 'Masquer' : 'Candidatures'}
-                onPress={() => toggleApps(call)}
-              />
-              {call.status === 'open' ? (
-                <>
-                  <SecondaryButton
-                    label={busyId === call.id ? '…' : 'Clôturer'}
-                    onPress={() => setCallStatus(call, 'closed')}
-                  />
-                  <SecondaryButton
-                    label="Annuler"
-                    onPress={() => setCallStatus(call, 'cancelled')}
-                  />
-                </>
-              ) : null}
-            </View>
-            {expandedId === call.id ? (
-              <View style={styles.apps}>
-                {apps.length === 0 ? (
-                  <Text style={styles.empty}>Aucune candidature.</Text>
-                ) : (
-                  apps.map((app) => (
-                    <View key={app.id} style={styles.appRow}>
-                      <Text style={styles.appName}>
-                        {app.provider?.first_name} {app.provider?.last_name}
-                      </Text>
-                      <Text style={styles.meta}>{app.provider?.email} · {statusLabel(app.status)}</Text>
-                      {!!app.message && <Text style={styles.message}>« {app.message} »</Text>}
-                      {app.status === 'pending' ? (
-                        <View style={styles.actions}>
-                          <PrimaryButton
-                            label={busyId === app.id ? '…' : 'Accepter'}
-                            onPress={() => review(app, 'accept')}
-                          />
-                          <SecondaryButton label="Refuser" onPress={() => review(app, 'reject')} />
-                        </View>
-                      ) : null}
-                    </View>
-                  ))
-                )}
+        calls.map((call) => {
+          const tone = badgeTone(call.status);
+          return (
+            <SoftCard key={call.id} style={styles.card}>
+              <View style={[styles.badge, { backgroundColor: tone.bg }]}>
+                <Text style={[styles.badgeText, { color: tone.fg }]}>{statusLabel(call.status)}</Text>
               </View>
-            ) : null}
-          </SoftCard>
-        ))
+              <Text style={styles.title}>{call.title}</Text>
+              <Text style={styles.meta}>
+                {call.position || ROLE_LABELS[call.role] || call.role}
+                {call.city ? ` · ${call.city}` : ''}
+                {` · ${call.pending_applications_count || 0} en attente`}
+              </Text>
+              {!!call.description?.trim() && (
+                <Text style={styles.desc} numberOfLines={4}>{call.description.trim()}</Text>
+              )}
+
+              <View style={styles.actions}>
+                <SecondaryButton
+                  compact
+                  label={expandedId === call.id ? 'Masquer' : 'Candidatures'}
+                  onPress={() => toggleApps(call)}
+                />
+                {call.status === 'open' ? (
+                  <>
+                    <SecondaryButton
+                      compact
+                      label={busyId === call.id ? '…' : 'Clôturer'}
+                      onPress={() => setCallStatus(call, 'closed')}
+                    />
+                    <SecondaryButton
+                      compact
+                      danger
+                      label="Annuler"
+                      onPress={() => setCallStatus(call, 'cancelled')}
+                    />
+                  </>
+                ) : null}
+              </View>
+
+              {expandedId === call.id ? (
+                <View style={styles.apps}>
+                  <Text style={styles.appsTitle}>Candidatures</Text>
+                  {apps.length === 0 ? (
+                    <Text style={styles.emptyInline}>Aucune candidature pour le moment.</Text>
+                  ) : (
+                    apps.map((app) => (
+                      <View key={app.id} style={styles.appRow}>
+                        <Text style={styles.appName}>
+                          {personName(app.provider?.first_name, app.provider?.last_name)}
+                        </Text>
+                        <Text style={styles.meta}>
+                          {app.provider?.email || '—'} · {statusLabel(app.status)}
+                        </Text>
+                        {!!app.message && <Text style={styles.message}>« {app.message} »</Text>}
+                        {app.status === 'pending' ? (
+                          <View style={styles.actions}>
+                            <PrimaryButton
+                              compact
+                              label={busyId === app.id ? '…' : 'Accepter'}
+                              onPress={() => review(app, 'accept')}
+                            />
+                            <SecondaryButton
+                              compact
+                              danger
+                              label="Refuser"
+                              onPress={() => review(app, 'reject')}
+                            />
+                          </View>
+                        ) : null}
+                      </View>
+                    ))
+                  )}
+                </View>
+              ) : null}
+            </SoftCard>
+          );
+        })
       )}
     </AppLayout>
   );
 }
 
-function statusLabel(status: string): string {
-  const map: Record<string, string> = {
-    open: 'Ouvert',
-    closed: 'Clôturé',
-    cancelled: 'Annulé',
-    pending: 'En attente',
-    accepted: 'Acceptée',
-    rejected: 'Refusée',
-    withdrawn: 'Retirée',
-  };
-  return map[status] || status;
-}
-
 const styles = StyleSheet.create({
-  link: { color: colors.primary, fontWeight: '600', marginBottom: spacing.md },
-  form: { marginBottom: spacing.md, gap: spacing.sm },
+  linkWrap: { marginBottom: spacing.md },
+  link: { color: colors.primary, fontWeight: '700', fontSize: 14 },
+  form: { marginTop: spacing.md, marginBottom: spacing.md },
+  formTitle: { fontWeight: '700', fontSize: 15, marginBottom: spacing.sm, color: colors.text },
+  filters: { marginTop: spacing.md },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -297,28 +343,42 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: '#fff',
     marginBottom: spacing.sm,
+    color: colors.text,
   },
   area: { minHeight: 72, textAlignVertical: 'top' },
-  card: { marginBottom: spacing.sm },
+  card: { marginTop: spacing.sm },
   badge: {
     alignSelf: 'flex-start',
-    backgroundColor: '#FEF3C7',
-    color: '#92400E',
-    fontSize: 11,
-    fontWeight: '700',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 999,
-    overflow: 'hidden',
-    marginBottom: 6,
+    marginBottom: 8,
   },
-  title: { fontSize: 16, fontWeight: '700', color: colors.text },
-  meta: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
-  desc: { color: colors.textMuted, marginTop: 8, fontSize: 13 },
-  message: { fontStyle: 'italic', color: colors.textMuted, marginTop: 4 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
-  apps: { marginTop: 12, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 },
-  appRow: { marginBottom: 12 },
-  appName: { fontWeight: '700', color: colors.text },
+  badgeText: { fontSize: 11, fontWeight: '700' },
+  title: { fontSize: 17, fontWeight: '700', color: colors.text },
+  meta: { color: colors.textMuted, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  desc: { color: colors.textMuted, marginTop: 10, fontSize: 13, lineHeight: 19 },
+  message: { fontStyle: 'italic', color: colors.textMuted, marginTop: 6, lineHeight: 18 },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: spacing.md,
+  },
+  apps: {
+    marginTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
+  },
+  appsTitle: { fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
+  appRow: {
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  appName: { fontWeight: '700', color: colors.text, fontSize: 15 },
   empty: { color: colors.textMuted, textAlign: 'center', marginVertical: spacing.lg },
+  emptyInline: { color: colors.textMuted, fontSize: 13 },
 });

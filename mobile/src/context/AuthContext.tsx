@@ -11,7 +11,7 @@ import {
 } from '../api/auth';
 import type { RegisterResponse } from '../api/notifications';
 import { registerDevicePushToken } from '../services/pushNotifications';
-import { getAccessToken } from '../api/client';
+import { getAccessToken, onAuthExpired } from '../api/client';
 import { invalidateCache } from '../api/cache';
 import type { AppRole } from '../utils/roles';
 import { resolveActiveRole } from '../utils/roles';
@@ -48,10 +48,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const profile = await fetchProfile();
         setUser(profile);
-      } catch {
+      } catch (err) {
+        // Session JWT morte : ne pas garder un user local sans token
+        const status = err && typeof err === 'object' && 'status' in err
+          ? Number((err as { status: number }).status)
+          : 0;
+        if (status === 401) {
+          setUser(null);
+          return;
+        }
         /* backend injoignable : conserver la session locale */
       }
-  void registerDevicePushToken().catch(() => {});
+      void registerDevicePushToken().catch(() => {});
     } catch {
       setUser(null);
     } finally {
@@ -62,6 +70,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     bootstrap();
   }, [bootstrap]);
+
+  useEffect(() => {
+    return onAuthExpired(() => {
+      invalidateCache();
+      setUser(null);
+    });
+  }, []);
 
   const login = useCallback(async (payload: LoginPayload) => {
     const profile = await apiLogin(payload);

@@ -46,6 +46,10 @@ function providerStep(status: string): number {
       return 3;
     case 'completed':
       return 4;
+    case 'disputed':
+    case 'cancelled':
+    case 'expired':
+      return -1;
     default:
       return 0;
   }
@@ -67,9 +71,33 @@ function clientStep(status: string): number {
       return 4;
     case 'completed':
       return 5;
+    case 'disputed':
+    case 'cancelled':
+    case 'expired':
+      return -1;
     default:
       return 1;
   }
+}
+
+/** Étape workflow : en litige on fige l'étape d'avant (pas de retour à « Publiée »). */
+function workflowStep(
+  status: string,
+  statusBeforeDispute: string | null | undefined,
+  isProviderSide: boolean,
+): number {
+  if (status === 'disputed' && statusBeforeDispute) {
+    const frozen = isProviderSide
+      ? providerStep(statusBeforeDispute)
+      : clientStep(statusBeforeDispute);
+    if (frozen >= 0) return frozen;
+  }
+  const step = isProviderSide ? providerStep(status) : clientStep(status);
+  if (step < 0) {
+    // Fallback: dernière étape métier connue
+    return isProviderSide ? 2 : 3;
+  }
+  return step;
 }
 
 function pad2(n: number): string {
@@ -456,7 +484,11 @@ export default function MissionDetailScreen() {
           <View style={{ marginTop: spacing.md }}>
             <ProgressStepper
               steps={isProvider || isEnterpriseReceived ? PROVIDER_STEPS : CLIENT_STEPS}
-              current={isProvider || isEnterpriseReceived ? providerStep(mission.status) : clientStep(mission.status)}
+              current={workflowStep(
+                mission.status,
+                mission.status_before_dispute,
+                isProvider || isEnterpriseReceived,
+              )}
             />
           </View>
         </Card>

@@ -1,10 +1,10 @@
 import { useCallback, useMemo, useState, useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import { getMyMissions, getStats, type MissionScope } from '../../src/api/missions';
 import { invalidateCache } from '../../src/api/cache';
-import { getMyApplications } from '../../src/api/applications';
+import { getMyApplications, withdrawApplication } from '../../src/api/applications';
 import { useScreenLoad, useFocusReload } from '../../src/utils/useScreenLoad';
 import { AppLayout } from '../../src/components/layout/AppLayout';
 import { EnterpriseMissionsNav } from '../../src/components/EnterpriseMissionsNav';
@@ -69,6 +69,33 @@ export default function MissionsScreen() {
 
   const { loading, refreshing, refresh, reload } = useScreenLoad(loadData, [loadData]);
   useFocusReload(reload);
+
+  const [withdrawing, setWithdrawing] = useState<string | null>(null);
+
+  const handleWithdraw = (app: MissionApplication) => {
+    Alert.alert(
+      'Retirer la candidature',
+      `Retirer votre candidature pour « ${app.mission_title || 'cette mission'} » ?`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Retirer',
+          style: 'destructive',
+          onPress: async () => {
+            setWithdrawing(app.id);
+            try {
+              await withdrawApplication(app.id);
+              await reload();
+            } catch (e) {
+              Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Retrait impossible');
+            } finally {
+              setWithdrawing(null);
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const activeMissions = useMemo(
     () => missions.filter((m) => IN_PROGRESS.includes(m.status)),
@@ -207,11 +234,22 @@ export default function MissionsScreen() {
           />
         ) : (
           pendingApps.map((a) => (
-            <Pressable key={a.id} style={styles.appCard} onPress={() => a.mission && router.push(`/mission/${a.mission}`)}>
-              <Text style={styles.appTitle}>{a.mission_title || 'Mission'}</Text>
-              <Text style={styles.appMeta}>En attente de réponse du client</Text>
-              {a.mission_budget ? <Text style={styles.appBudget}>{formatXOF(a.mission_budget)}</Text> : null}
-            </Pressable>
+            <View key={a.id} style={styles.appCard}>
+              <Pressable onPress={() => a.mission && router.push(`/mission/${a.mission}`)}>
+                <Text style={styles.appTitle}>{a.mission_title || 'Mission'}</Text>
+                <Text style={styles.appMeta}>En attente de réponse du client</Text>
+                {a.mission_budget ? <Text style={styles.appBudget}>{formatXOF(a.mission_budget)}</Text> : null}
+              </Pressable>
+              <Pressable
+                style={[styles.withdrawBtn, withdrawing === a.id && styles.withdrawBtnDisabled]}
+                disabled={withdrawing === a.id}
+                onPress={() => handleWithdraw(a)}
+              >
+                <Text style={styles.withdrawText}>
+                  {withdrawing === a.id ? 'Retrait…' : 'Retirer ma candidature'}
+                </Text>
+              </Pressable>
+            </View>
           ))
         )
       ) : displayList.length === 0 && !loadError ? (
@@ -273,4 +311,14 @@ const styles = StyleSheet.create({
   appTitle: { fontWeight: '700', fontSize: 15, color: colors.text },
   appMeta: { color: colors.warning, fontSize: 13, marginTop: 4 },
   appBudget: { color: colors.primary, fontWeight: '800', marginTop: 6, fontSize: 16 },
+  withdrawBtn: {
+    marginTop: spacing.sm,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.danger,
+    alignItems: 'center',
+  },
+  withdrawBtnDisabled: { opacity: 0.6 },
+  withdrawText: { color: colors.danger, fontWeight: '700', fontSize: 13 },
 });

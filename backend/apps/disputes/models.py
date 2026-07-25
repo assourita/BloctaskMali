@@ -65,6 +65,10 @@ class Dispute(models.Model):
     reason = models.CharField(max_length=30, choices=Reason.choices)
     description = models.TextField()
     requested_resolution = models.TextField()
+
+    # Défense du défendeur (avant décision admin)
+    defendant_response = models.TextField(blank=True)
+    defendant_responded_at = models.DateTimeField(blank=True, null=True)
     
     # Statut
     status = models.CharField(

@@ -13,7 +13,7 @@ import { MatDividerModule } from '@angular/material/divider';
 import { environment } from '../../../../environments/environment';
 import { MissionService } from '../../../core/services/mission.service';
 
-interface UserInfo { first_name: string; last_name: string; email?: string; }
+interface UserInfo { id?: string; first_name: string; last_name: string; email?: string; }
 
 interface DisputeEvidence {
   id: string;
@@ -46,6 +46,8 @@ interface Dispute {
   decision?: string;
   decision_reason?: string;
   requested_resolution: string;
+  defendant_response?: string;
+  defendant_responded_at?: string;
   created_at: string;
   resolved_at?: string;
   client_refund_amount?: number;
@@ -189,6 +191,20 @@ interface MissionOption { id: string; title: string; status: string; }
                 <p>{{ selected.requested_resolution }}</p>
               </div>
 
+              <div class="info-block defense-block">
+                <span class="lbl">Défense du défendeur</span>
+                <p *ngIf="selected.defendant_response">{{ selected.defendant_response }}</p>
+                <p *ngIf="!selected.defendant_response" class="empty-inline">Aucune défense pour le moment.</p>
+                <form class="evidence-form" *ngIf="canDefend" [formGroup]="defenseForm" (ngSubmit)="submitDefense()">
+                  <h4>{{ selected.defendant_response ? 'Mettre à jour votre défense' : 'Répondre à la plainte' }}</h4>
+                  <textarea class="field" formControlName="defendant_response" rows="4"
+                    placeholder="Expliquez votre version des faits (min. 20 caractères)…"></textarea>
+                  <button mat-stroked-button color="primary" type="submit" [disabled]="defenseForm.invalid || defenseSubmitting">
+                    {{ defenseSubmitting ? 'Envoi…' : 'Soumettre ma défense' }}
+                  </button>
+                </form>
+              </div>
+
               <div class="parties">
                 <div>
                   <span class="lbl">Plaignant</span>
@@ -201,9 +217,9 @@ interface MissionOption { id: string; title: string; status: string; }
               </div>
 
               <div class="decision-box" *ngIf="selected.decision && selected.decision !== 'pending'">
-                <span class="lbl">Décision</span>
+                <span class="lbl">Verdict</span>
                 <strong>{{ decisionLabel(selected.decision) }}</strong>
-                <p *ngIf="selected.decision_reason">{{ selected.decision_reason }}</p>
+                <p *ngIf="selected.decision_reason"><span class="lbl">Justification</span>{{ selected.decision_reason }}</p>
                 <div class="amounts" *ngIf="(selected.client_refund_amount || 0) > 0 || (selected.provider_payment_amount || 0) > 0">
                   <span *ngIf="(selected.client_refund_amount || 0) > 0">
                     Remboursement client : {{ selected.client_refund_amount | number:'1.0-0' }} {{ selected.mission_currency || 'XOF' }}
@@ -258,7 +274,7 @@ interface MissionOption { id: string; title: string; status: string; }
               <section class="section" *ngIf="selected.messages?.length">
                 <h3>Échanges</h3>
                 <div class="msg" *ngFor="let m of selected.messages">
-                  <strong>{{ m.sender?.first_name }} {{ m.sender?.last_name }}</strong>
+                  <strong>{{ m.sender.first_name }} {{ m.sender.last_name }}</strong>
                   <span class="sub">{{ m.created_at | date:'short' }}</span>
                   <p>{{ m.message }}</p>
                 </div>
@@ -342,9 +358,12 @@ export class ClientDisputesComponent implements OnInit {
   showForm = false;
   submitting = false;
   evidenceSubmitting = false;
+  defenseSubmitting = false;
   evidenceFile: File | null = null;
   form: FormGroup;
   evidenceForm: FormGroup;
+  defenseForm: FormGroup;
+  currentUserId = '';
   private missionRole: 'client' | 'provider' = 'client';
 
   constructor(
@@ -354,6 +373,13 @@ export class ClientDisputesComponent implements OnInit {
     private missionService: MissionService,
     private route: ActivatedRoute,
   ) {
+    try {
+      const raw = localStorage.getItem('user') || localStorage.getItem('current_user') || '';
+      const u = raw ? JSON.parse(raw) : null;
+      this.currentUserId = String(u?.id || '');
+    } catch {
+      this.currentUserId = '';
+    }
     this.form = this.fb.group({
       mission_id: ['', Validators.required],
       reason: ['non_delivery', Validators.required],
@@ -364,6 +390,9 @@ export class ClientDisputesComponent implements OnInit {
       evidence_type: ['photo', Validators.required],
       title: ['', Validators.required],
       description: [''],
+    });
+    this.defenseForm = this.fb.group({
+      defendant_response: ['', [Validators.required, Validators.minLength(20)]],
     });
   }
 
@@ -383,6 +412,12 @@ export class ClientDisputesComponent implements OnInit {
   get canAddEvidence(): boolean {
     if (!this.selected) return false;
     return !['resolved', 'closed'].includes(this.selected.status);
+  }
+
+  get canDefend(): boolean {
+    if (!this.selected || !this.currentUserId) return false;
+    if (['resolved', 'closed'].includes(this.selected.status)) return false;
+    return String(this.selected.defendant?.id || '') === this.currentUserId;
   }
 
   private h(): HttpHeaders {
@@ -459,6 +494,27 @@ export class ClientDisputesComponent implements OnInit {
       error: (e) => {
         this.evidenceSubmitting = false;
         this.snack.open(e.error?.error || e.error?.detail || 'Erreur envoi preuve', 'Fermer', { duration: 4000 });
+      },
+    });
+  }
+
+  submitDefense(): void {
+    if (!this.selected || this.defenseForm.invalid) return;
+    this.defenseSubmitting = true;
+    this.http.post<Dispute>(`${this.apiUrl}/disputes/${this.selected.id}/submit_defense/`, this.defenseForm.value, {
+      headers: this.h(),
+    }).subscribe({
+      next: (updated) => {
+        this.defenseSubmitting = false;
+        this.selected = updated;
+        this.defenseForm.reset({ defendant_response: '' });
+        this.snack.open('Défense enregistrée', 'Fermer', { duration: 3000 });
+        this.load();
+      },
+      error: (e) => {
+        this.defenseSubmitting = false;
+        const msg = e.error?.defendant_response?.[0] || e.error?.error || 'Erreur envoi défense';
+        this.snack.open(msg, 'Fermer', { duration: 4000 });
       },
     });
   }

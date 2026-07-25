@@ -25,6 +25,7 @@ export interface EnterpriseProfile {
 
 export interface EnterpriseEmployee {
   id: string;
+  user?: string | null;
   first_name: string;
   last_name: string;
   email: string;
@@ -93,9 +94,21 @@ export interface LiveGpsLocation {
   mission: string;
   mission_title?: string;
   user_name?: string;
+  user?: { id?: string; first_name?: string; last_name?: string; email?: string };
   latitude: number;
   longitude: number;
   timestamp: string;
+}
+
+export interface EmployeeAvailability {
+  employee: string;
+  employee_name?: string;
+  status: string;
+  current_latitude?: number | null;
+  current_longitude?: number | null;
+  location_updated_at?: string | null;
+  mission_title?: string | null;
+  current_mission?: string | null;
 }
 
 export async function getEnterpriseProfile(): Promise<EnterpriseProfile | null> {
@@ -136,7 +149,11 @@ export async function getEmployees(): Promise<EnterpriseEmployee[]> {
   const data = await apiRequest<EnterpriseEmployee[] | { results: EnterpriseEmployee[] }>(
     '/users/enterprise/employees/',
   );
-  return unwrap(data);
+  return unwrap(data).map((e) => ({
+    ...e,
+    first_name: (e.first_name || '').replace(/[-–—]+$/g, '').trim(),
+    last_name: (e.last_name || '').replace(/[-–—]+$/g, '').trim(),
+  }));
 }
 
 export async function getEmployee(id: string): Promise<EnterpriseEmployee> {
@@ -220,7 +237,19 @@ export async function getTeams(): Promise<EnterpriseTeam[]> {
   const data = await apiRequest<EnterpriseTeam[] | { results: EnterpriseTeam[] }>(
     '/enterprises/teams/',
   );
-  return unwrap(data);
+  return unwrap(data).map((team) => ({
+    ...team,
+    members: (team.members || []).map((m) => ({
+      ...m,
+      employee_id: String(
+        m.employee_id
+        || (m as { employee?: string }).employee
+        || '',
+      ),
+      first_name: (m.first_name || '').replace(/[-–—]+$/g, '').trim(),
+      last_name: (m.last_name || '').replace(/[-–—]+$/g, '').trim(),
+    })),
+  }));
 }
 
 export async function createTeam(payload: {
@@ -291,6 +320,13 @@ export async function getEnterpriseAnalytics(): Promise<EnterpriseAnalytics> {
 export async function getLiveGpsLocations(): Promise<LiveGpsLocation[]> {
   const data = await apiRequest<LiveGpsLocation[] | { results: LiveGpsLocation[] }>(
     '/tracking/locations/live/',
+  );
+  return unwrap(data);
+}
+
+export async function getAvailability(): Promise<EmployeeAvailability[]> {
+  const data = await apiRequest<EmployeeAvailability[] | { results: EmployeeAvailability[] }>(
+    '/enterprises/availability/',
   );
   return unwrap(data);
 }

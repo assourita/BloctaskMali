@@ -26,26 +26,33 @@ const STATUS: Record<string, { label: string; tone: 'success' | 'warning' | 'dan
 
 type ProviderTab = 'pending' | 'accepted' | 'declined';
 type ClientTab = 'all' | 'pending' | 'accepted' | 'declined';
+type EnterpriseMode = 'received' | 'sent';
 
 export default function SolicitationsScreen() {
   const { activeRole } = useAuth();
   const isProvider = activeRole === 'provider';
   const isEnterprise = activeRole === 'enterprise';
-  const isRecipient = isProvider || isEnterprise;
   const [items, setItems] = useState<MissionSolicitation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [acting, setActing] = useState<string | null>(null);
   const [providerTab, setProviderTab] = useState<ProviderTab>('pending');
   const [clientTab, setClientTab] = useState<ClientTab>('all');
+  const [enterpriseMode, setEnterpriseMode] = useState<EnterpriseMode>('received');
+
+  const isRecipient = isProvider || (isEnterprise && enterpriseMode === 'received');
+  const isSender = !isProvider && (!isEnterprise || enterpriseMode === 'sent');
 
   const load = useCallback(async () => {
     try {
-      const data = isProvider
-        ? await getMySolicitations('provider')
-        : isEnterprise
-          ? await getMySolicitations('enterprise')
-          : await getSentSolicitations();
+      let data: MissionSolicitation[];
+      if (isProvider) {
+        data = await getMySolicitations('provider');
+      } else if (isEnterprise && enterpriseMode === 'received') {
+        data = await getMySolicitations('enterprise');
+      } else {
+        data = await getSentSolicitations();
+      }
       setItems(data);
     } catch {
       setItems([]);
@@ -53,7 +60,7 @@ export default function SolicitationsScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [isProvider, isEnterprise]);
+  }, [isProvider, isEnterprise, enterpriseMode]);
 
   useEffect(() => {
     setLoading(true);
@@ -63,13 +70,17 @@ export default function SolicitationsScreen() {
   const pageTitle = isProvider
     ? 'Mes sollicitations'
     : isEnterprise
-      ? 'Sollicitations reçues'
+      ? enterpriseMode === 'received'
+        ? 'Sollicitations reçues'
+        : 'Sollicitations envoyées'
       : 'Sollicitations envoyées';
   const pageSubtitle = isProvider
     ? 'Missions pour lesquelles un client vous a sollicité directement'
-    : isEnterprise
+    : isEnterprise && enterpriseMode === 'received'
       ? 'Demandes clients adressées à votre entreprise'
-      : 'Suivez les missions proposées à des prestataires ou entreprises';
+      : isEnterprise
+        ? 'Missions que vous avez proposées à des prestataires'
+        : 'Suivez les missions proposées à des prestataires ou entreprises';
   const pending = useMemo(() => items.filter((i) => i.status === 'pending'), [items]);
   const accepted = useMemo(() => items.filter((i) => i.status === 'accepted'), [items]);
   const declined = useMemo(
@@ -116,6 +127,17 @@ export default function SolicitationsScreen() {
     <AppLayout scroll={false}>
       <PageHeader title={pageTitle} subtitle={pageSubtitle} />
 
+      {isEnterprise ? (
+        <TabBar
+          value={enterpriseMode}
+          onChange={(id) => setEnterpriseMode(id as EnterpriseMode)}
+          tabs={[
+            { id: 'received', label: 'Reçues' },
+            { id: 'sent', label: 'Envoyées' },
+          ]}
+        />
+      ) : null}
+
       {isRecipient ? (
         <TabBar
           value={providerTab}
@@ -147,6 +169,7 @@ export default function SolicitationsScreen() {
         ListEmptyComponent={<EmptyState message="Aucune sollicitation dans cette catégorie" />}
         renderItem={({ item }) => {
           const st = STATUS[item.status] || { label: item.status, tone: 'default' as const };
+          const enterpriseName = (item as MissionSolicitation & { enterprise_name?: string }).enterprise_name;
           return (
             <Pressable
               onPress={isRecipient ? () => router.push(`/solicitations/${item.id}`) : undefined}
@@ -157,14 +180,14 @@ export default function SolicitationsScreen() {
                   <Badge label={st.label} tone={st.tone} />
                 </View>
                 <Text style={styles.budget}>{formatXOF(item.mission_budget)}</Text>
-                {(isProvider || isEnterprise) && item.client ? (
+                {isRecipient && item.client ? (
                   <Text style={styles.meta}>De : {item.client.first_name} {item.client.last_name}</Text>
                 ) : null}
-                {!isRecipient && item.provider ? (
+                {isSender && item.provider ? (
                   <Text style={styles.meta}>Pour : {item.provider.first_name} {item.provider.last_name}</Text>
                 ) : null}
-                {!isRecipient && item.enterprise_name ? (
-                  <Text style={styles.meta}>Entreprise : {item.enterprise_name}</Text>
+                {isSender && enterpriseName ? (
+                  <Text style={styles.meta}>Entreprise : {enterpriseName}</Text>
                 ) : null}
                 {item.pickup_address ? (
                   <Text style={styles.meta} numberOfLines={1}>Départ : {item.pickup_address}</Text>
@@ -179,9 +202,12 @@ export default function SolicitationsScreen() {
                   </Pressable>
                 ) : null}
 
-                {!isRecipient && item.status === 'pending' ? (
+                {isSender && item.status === 'pending' ? (
                   <View style={styles.actions}>
-                    <SecondaryButton label="Annuler" onPress={() => cancelClient(item)} />
+                    <SecondaryButton
+                      label={acting === item.id ? '…' : 'Annuler'}
+                      onPress={() => cancelClient(item)}
+                    />
                   </View>
                 ) : null}
               </Card>

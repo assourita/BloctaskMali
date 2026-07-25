@@ -161,7 +161,7 @@ export class MissionService {
   }
 
   getAvailable(lat?: number, lng?: number, radius = 15): Observable<Mission[]> {
-    let params = new HttpParams();
+    let params = new HttpParams().set('role', 'provider');
     if (lat != null) params = params.set('lat', String(lat));
     if (lng != null) params = params.set('lng', String(lng));
     params = params.set('radius', String(radius));

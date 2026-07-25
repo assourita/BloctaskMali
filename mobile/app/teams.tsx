@@ -10,15 +10,28 @@ import {
   setTeamManager,
   type EnterpriseEmployee,
   type EnterpriseTeam,
+  type EnterpriseTeamMember,
 } from '../src/api/enterprise';
 import { PrimaryButton, SecondaryButton } from '../src/components/buttons';
 import { AppLayout } from '../src/components/layout/AppLayout';
 import { PageHeader, SoftCard } from '../src/components/widgets';
 import { Loader } from '../src/components/ui';
-import { colors, spacing } from '../src/constants/theme';
+import { colors, radius, spacing } from '../src/constants/theme';
 import { useScreenLoad } from '../src/utils/useScreenLoad';
 import { useEnterpriseGuard } from '../src/hooks/useEnterpriseGuard';
 import { ApiError } from '../src/api/client';
+
+function personName(first?: string | null, last?: string | null): string {
+  return [first, last]
+    .map((p) => (p || '').replace(/^[-–—\s]+|[-–—\s]+$/g, '').trim())
+    .filter(Boolean)
+    .join(' ')
+    .trim() || 'Sans nom';
+}
+
+function memberEmployeeId(m: EnterpriseTeamMember): string {
+  return String(m.employee_id || '').trim();
+}
 
 export default function TeamsScreen() {
   const { redirect: guardRedirect } = useEnterpriseGuard();
@@ -32,8 +45,7 @@ export default function TeamsScreen() {
   const [categories, setCategories] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
-  const [pickMember, setPickMember] = useState<Record<string, string>>({});
-  const [pickCategory, setPickCategory] = useState<Record<string, string>>({});
+  const [busyKey, setBusyKey] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [t, e] = await Promise.all([
@@ -110,15 +122,74 @@ export default function TeamsScreen() {
         text: 'Oui',
         style: 'destructive',
         onPress: async () => {
+          setBusyKey(`del-${team.id}`);
           try {
             await deleteTeam(team.id);
+            if (expandedId === team.id) setExpandedId(null);
             await load();
           } catch (e) {
             Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Suppression impossible');
+          } finally {
+            setBusyKey(null);
           }
         },
       },
     ]);
+  };
+
+  const makeChef = async (team: EnterpriseTeam, m: EnterpriseTeamMember) => {
+    const empId = memberEmployeeId(m);
+    if (!empId) {
+      Alert.alert('Erreur', 'Identifiant employé manquant.');
+      return;
+    }
+    setBusyKey(`chef-${m.id}`);
+    try {
+      await setTeamManager(team.id, empId);
+      await load();
+    } catch (e) {
+      Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Impossible de définir le chef');
+    } finally {
+      setBusyKey(null);
+    }
+  };
+
+  const retireMember = async (team: EnterpriseTeam, m: EnterpriseTeamMember) => {
+    const empId = memberEmployeeId(m);
+    if (!empId) {
+      Alert.alert('Erreur', 'Identifiant employé manquant.');
+      return;
+    }
+    Alert.alert('Retirer', `Retirer ${personName(m.first_name, m.last_name)} de l'équipe ?`, [
+      { text: 'Non', style: 'cancel' },
+      {
+        text: 'Retirer',
+        style: 'destructive',
+        onPress: async () => {
+          setBusyKey(`rm-${m.id}`);
+          try {
+            await removeTeamMember(team.id, empId);
+            await load();
+          } catch (e) {
+            Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Retrait impossible');
+          } finally {
+            setBusyKey(null);
+          }
+        },
+      },
+    ]);
+  };
+
+  const addMember = async (team: EnterpriseTeam, employee: EnterpriseEmployee) => {
+    setBusyKey(`add-${team.id}-${employee.id}`);
+    try {
+      await addTeamMember(team.id, employee.id);
+      await load();
+    } catch (e) {
+      Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Ajout impossible');
+    } finally {
+      setBusyKey(null);
+    }
   };
 
   if (guardRedirect) return null;
@@ -131,31 +202,35 @@ export default function TeamsScreen() {
       />
 
       <PrimaryButton
-        label={showForm ? 'Masquer' : 'Nouvelle équipe'}
+        label={showForm ? 'Masquer le formulaire' : 'Nouvelle équipe'}
         onPress={() => setShowForm((v) => !v)}
       />
 
       {showForm ? (
         <SoftCard style={styles.form}>
+          <Text style={styles.sectionLabel}>Nouvelle équipe</Text>
           <TextInput style={styles.input} placeholder="Nom *" value={name} onChangeText={setName} />
           <TextInput
             style={[styles.input, styles.area]}
-            placeholder="Description"
+            placeholder="Description (optionnel)"
             multiline
             value={description}
             onChangeText={setDescription}
           />
-          <Text style={styles.label}>Chef (optionnel)</Text>
+          <Text style={styles.label}>Chef d'équipe (optionnel)</Text>
           {employees.map((e) => (
             <Pressable
               key={`mgr-${e.id}`}
               style={[styles.pick, managerId === e.id && styles.pickActive]}
               onPress={() => setManagerId(managerId === e.id ? '' : e.id)}
             >
-              <Text>{e.first_name} {e.last_name}</Text>
+              <Text style={styles.pickText}>
+                {managerId === e.id ? '✓ ' : ''}
+                {personName(e.first_name, e.last_name)}
+              </Text>
             </Pressable>
           ))}
-          <Text style={[styles.label, { marginTop: 8 }]}>Membres</Text>
+          <Text style={[styles.label, { marginTop: spacing.md }]}>Membres</Text>
           <Text style={styles.hint}>Cochez les employés. Catégorie optionnelle.</Text>
           {employees.map((e) => {
             const selected = selectedIds.includes(e.id);
@@ -165,7 +240,10 @@ export default function TeamsScreen() {
                   style={[styles.pick, selected && styles.pickActive]}
                   onPress={() => toggleMember(e.id)}
                 >
-                  <Text>{selected ? '✓ ' : ''}{e.first_name} {e.last_name}</Text>
+                  <Text style={styles.pickText}>
+                    {selected ? '✓ ' : ''}
+                    {personName(e.first_name, e.last_name)}
+                  </Text>
                 </Pressable>
                 {selected ? (
                   <TextInput
@@ -178,7 +256,7 @@ export default function TeamsScreen() {
               </View>
             );
           })}
-          <PrimaryButton label={saving ? '…' : 'Créer'} onPress={create} disabled={saving} />
+          <PrimaryButton label={saving ? 'Création…' : 'Créer l\'équipe'} onPress={create} disabled={saving} />
         </SoftCard>
       ) : null}
 
@@ -188,83 +266,101 @@ export default function TeamsScreen() {
         <Text style={styles.empty}>Aucune équipe pour le moment.</Text>
       ) : (
         teams.map((team) => {
-          const memberIds = new Set((team.members || []).map((m) => m.employee_id));
+          const memberIds = new Set(
+            (team.members || []).map((m) => memberEmployeeId(m)).filter(Boolean),
+          );
           const available = employees.filter((e) => !memberIds.has(e.id));
+          const expanded = expandedId === team.id;
           return (
             <SoftCard key={team.id} style={styles.card}>
               <Text style={styles.title}>{team.name}</Text>
               <Text style={styles.meta}>
                 {team.members_count || team.members?.length || 0} membre(s)
-                {team.manager_name ? ` · chef ${team.manager_name}` : ''}
+                {team.manager_name
+                  ? ` · chef ${String(team.manager_name).replace(/[-–—]+$/g, '').trim()}`
+                  : ''}
               </Text>
-              {!!team.description && <Text style={styles.desc}>{team.description}</Text>}
+              {!!team.description?.trim() && (
+                <Text style={styles.desc}>{team.description.trim()}</Text>
+              )}
+
               <View style={styles.actions}>
                 <SecondaryButton
-                  label={expandedId === team.id ? 'Masquer' : 'Membres'}
-                  onPress={() => setExpandedId(expandedId === team.id ? null : team.id)}
+                  compact
+                  label={expanded ? 'Masquer' : 'Membres'}
+                  onPress={() => setExpandedId(expanded ? null : team.id)}
                 />
-                <SecondaryButton label="Supprimer" onPress={() => remove(team)} />
+                <SecondaryButton
+                  compact
+                  danger
+                  label={busyKey === `del-${team.id}` ? '…' : 'Supprimer'}
+                  onPress={() => remove(team)}
+                />
               </View>
-              {expandedId === team.id ? (
+
+              {expanded ? (
                 <View style={styles.members}>
-                  {(team.members || []).map((m) => (
-                    <View key={m.id} style={styles.memberRow}>
-                      <Text style={styles.memberName}>
-                        {m.first_name} {m.last_name}
-                        {(m.is_manager || team.manager === m.employee_id) ? ' · Chef' : ''}
-                      </Text>
-                      {!!m.category && <Text style={styles.meta}>Catégorie : {m.category}</Text>}
-                      <View style={styles.actions}>
-                        {team.manager !== m.employee_id ? (
-                          <SecondaryButton
-                            label="Chef"
-                            onPress={async () => {
-                              await setTeamManager(team.id, m.employee_id);
-                              await load();
-                            }}
-                          />
-                        ) : null}
-                        <SecondaryButton
-                          label="Retirer"
-                          onPress={async () => {
-                            await removeTeamMember(team.id, m.employee_id);
-                            await load();
-                          }}
-                        />
-                      </View>
-                    </View>
-                  ))}
+                  <Text style={styles.sectionLabel}>Membres de l'équipe</Text>
+                  {(team.members || []).length === 0 ? (
+                    <Text style={styles.hint}>Aucun membre pour l'instant.</Text>
+                  ) : (
+                    (team.members || []).map((m) => {
+                      const isChef = !!(m.is_manager || team.manager === memberEmployeeId(m));
+                      return (
+                        <View key={m.id} style={styles.memberRow}>
+                          <View style={styles.memberHead}>
+                            <Text style={styles.memberName}>
+                              {personName(m.first_name, m.last_name)}
+                            </Text>
+                            {isChef ? (
+                              <View style={styles.chefBadge}>
+                                <Text style={styles.chefBadgeText}>Chef</Text>
+                              </View>
+                            ) : null}
+                          </View>
+                          {!!m.category && (
+                            <Text style={styles.meta}>Catégorie : {m.category}</Text>
+                          )}
+                          <View style={styles.actions}>
+                            {!isChef ? (
+                              <SecondaryButton
+                                compact
+                                label={busyKey === `chef-${m.id}` ? '…' : 'Nommer chef'}
+                                onPress={() => makeChef(team, m)}
+                              />
+                            ) : null}
+                            <SecondaryButton
+                              compact
+                              danger
+                              label={busyKey === `rm-${m.id}` ? '…' : 'Retirer'}
+                              onPress={() => retireMember(team, m)}
+                            />
+                          </View>
+                        </View>
+                      );
+                    })
+                  )}
+
                   {available.length ? (
                     <View style={styles.addBlock}>
-                      <Text style={styles.label}>Ajouter</Text>
+                      <Text style={styles.sectionLabel}>Ajouter un membre</Text>
                       {available.map((e) => (
-                        <Pressable
-                          key={e.id}
-                          style={[styles.pick, pickMember[team.id] === e.id && styles.pickActive]}
-                          onPress={() => setPickMember((p) => ({ ...p, [team.id]: e.id }))}
-                        >
-                          <Text>{e.first_name} {e.last_name}</Text>
-                        </Pressable>
+                        <View key={e.id} style={styles.addRow}>
+                          <Text style={styles.addName} numberOfLines={1}>
+                            {personName(e.first_name, e.last_name)}
+                          </Text>
+                          <PrimaryButton
+                            compact
+                            label={busyKey === `add-${team.id}-${e.id}` ? '…' : '+ Ajouter'}
+                            onPress={() => addMember(team, e)}
+                            disabled={!!busyKey}
+                          />
+                        </View>
                       ))}
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Catégorie (optionnel)"
-                        value={pickCategory[team.id] || ''}
-                        onChangeText={(v) => setPickCategory((p) => ({ ...p, [team.id]: v }))}
-                      />
-                      <PrimaryButton
-                        label="Ajouter le membre"
-                        onPress={async () => {
-                          const id = pickMember[team.id];
-                          if (!id) return;
-                          await addTeamMember(team.id, id, pickCategory[team.id]);
-                          setPickMember((p) => ({ ...p, [team.id]: '' }));
-                          setPickCategory((p) => ({ ...p, [team.id]: '' }));
-                          await load();
-                        }}
-                      />
                     </View>
-                  ) : null}
+                  ) : (
+                    <Text style={styles.hint}>Tous les employés actifs sont déjà dans l'équipe.</Text>
+                  )}
                 </View>
               ) : null}
             </SoftCard>
@@ -276,7 +372,7 @@ export default function TeamsScreen() {
 }
 
 const styles = StyleSheet.create({
-  form: { marginBottom: spacing.md },
+  form: { marginTop: spacing.md, marginBottom: spacing.md },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -285,27 +381,83 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: '#fff',
     marginBottom: spacing.sm,
+    color: colors.text,
   },
   area: { minHeight: 64, textAlignVertical: 'top' },
+  sectionLabel: {
+    fontWeight: '700',
+    fontSize: 14,
+    color: colors.text,
+    marginBottom: spacing.sm,
+  },
   label: { fontWeight: '600', marginBottom: 6, color: colors.text },
-  hint: { color: colors.textMuted, fontSize: 12, marginBottom: 8 },
+  hint: { color: colors.textMuted, fontSize: 12, marginBottom: 8, lineHeight: 18 },
   pick: {
-    padding: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
-    marginBottom: 6,
+    borderRadius: radius.sm,
+    marginBottom: 8,
+    backgroundColor: '#fff',
   },
   pickActive: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+  pickText: { color: colors.text, fontSize: 14, fontWeight: '500' },
   memberPick: { marginBottom: 4 },
-  card: { marginBottom: spacing.sm },
-  title: { fontSize: 16, fontWeight: '700', color: colors.text },
-  meta: { color: colors.textMuted, marginTop: 2 },
-  desc: { color: colors.textMuted, marginTop: 6 },
-  actions: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 8 },
-  members: { marginTop: 12, borderTopWidth: 1, borderTopColor: colors.border, paddingTop: 10 },
-  memberRow: { marginBottom: 10 },
-  memberName: { fontWeight: '600', color: colors.text },
-  addBlock: { marginTop: 8 },
+  card: { marginTop: spacing.md },
+  title: { fontSize: 17, fontWeight: '700', color: colors.text },
+  meta: { color: colors.textMuted, marginTop: 4, fontSize: 13 },
+  desc: { color: colors.textMuted, marginTop: 8, fontSize: 13, lineHeight: 19 },
+  actions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: spacing.md,
+  },
+  members: {
+    marginTop: spacing.md,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingTop: spacing.md,
+  },
+  memberRow: {
+    marginBottom: spacing.md,
+    paddingBottom: spacing.sm,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  memberHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 4,
+  },
+  memberName: { fontWeight: '700', color: colors.text, fontSize: 15, flexShrink: 1 },
+  chefBadge: {
+    backgroundColor: colors.primaryLight,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  chefBadgeText: { color: colors.primaryDark, fontSize: 11, fontWeight: '700' },
+  addBlock: {
+    marginTop: spacing.sm,
+    backgroundColor: colors.surfaceAlt,
+    borderRadius: radius.sm,
+    padding: spacing.md,
+  },
+  addRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 10,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  addName: { flex: 1, fontWeight: '600', color: colors.text, fontSize: 14 },
   empty: { color: colors.textMuted, textAlign: 'center', marginVertical: spacing.lg },
 });

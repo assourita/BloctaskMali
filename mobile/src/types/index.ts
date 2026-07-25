@@ -34,6 +34,7 @@ export interface Mission {
   title: string;
   description?: string;
   status: string;
+  status_before_dispute?: string | null;
   budget: number;
   currency: string;
   pickup_address?: string;
@@ -235,9 +236,15 @@ export interface Dispute {
   reason: string;
   description: string;
   requested_resolution?: string;
+  defendant_response?: string;
+  defendant_responded_at?: string | null;
   status: DisputeStatus;
   decision?: string;
   decision_reason?: string;
+  client_refund_amount?: number;
+  provider_payment_amount?: number;
+  decided_by?: { id: string; first_name: string; last_name: string };
+  decided_at?: string | null;
   evidence_count?: number;
   message_count?: number;
   created_at: string;

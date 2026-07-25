@@ -5,13 +5,13 @@ import {
   getMyEnterpriseDetail,
   type ProviderEnterpriseDetail,
   type ProviderEnterpriseMission,
-} from '../src/api/enterprise';
-import { AppLayout } from '../src/components/layout/AppLayout';
-import { PageHeader, SoftCard } from '../src/components/widgets';
-import { Loader } from '../src/components/ui';
-import { colors, spacing } from '../src/constants/theme';
-import { useScreenLoad } from '../src/utils/useScreenLoad';
-import { useAuth } from '../src/context/AuthContext';
+} from '../../src/api/enterprise';
+import { AppLayout } from '../../src/components/layout/AppLayout';
+import { PageHeader, SoftCard } from '../../src/components/widgets';
+import { Loader } from '../../src/components/ui';
+import { colors, spacing } from '../../src/constants/theme';
+import { useScreenLoad } from '../../src/utils/useScreenLoad';
+import { useAuth } from '../../src/context/AuthContext';
 
 const ROLE_LABELS: Record<string, string> = {
   agent: 'Agent terrain',

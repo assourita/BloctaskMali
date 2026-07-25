@@ -1,6 +1,8 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from apps.missions.models import Mission
+from django.utils import timezone
+from datetime import timedelta
+from apps.missions.models import Mission, MissionStatusHistory
 from .models import Dispute, DisputeEvidence, DisputeMessage
 
 User = get_user_model()
@@ -56,6 +58,10 @@ class DisputeListSerializer(serializers.ModelSerializer):
     mission_id = serializers.UUIDField(source='mission.id', read_only=True)
     mission_budget = serializers.DecimalField(source='mission.budget', max_digits=15, decimal_places=2, read_only=True)
     mission_currency = serializers.CharField(source='mission.currency', read_only=True)
+    mission_status = serializers.CharField(source='mission.status', read_only=True)
+    mission_status_before_dispute = serializers.CharField(
+        source='mission.status_before_dispute', read_only=True, allow_null=True,
+    )
     evidence_count = serializers.IntegerField(source='evidence.count', read_only=True)
     message_count = serializers.IntegerField(source='messages.count', read_only=True)
 
@@ -64,8 +70,10 @@ class DisputeListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'dispute_hash',
             'mission_id', 'mission_title', 'mission_budget', 'mission_currency',
+            'mission_status', 'mission_status_before_dispute',
             'plaintiff', 'defendant',
             'reason', 'description', 'requested_resolution',
+            'defendant_response', 'defendant_responded_at',
             'status', 'decision', 'decision_reason',
             'decided_by', 'decided_at',
             'client_refund_amount', 'provider_payment_amount', 'deposit_penalty',
@@ -93,7 +101,7 @@ class DisputeResolveSerializer(serializers.Serializer):
     ]
 
     decision = serializers.ChoiceField(choices=RESOLVE_DECISIONS)
-    decision_reason = serializers.CharField(min_length=1, trim_whitespace=True)
+    decision_reason = serializers.CharField(min_length=10, trim_whitespace=True)
     client_refund_amount = serializers.DecimalField(
         max_digits=15, decimal_places=2, required=False, allow_null=True, default=0,
     )
@@ -132,6 +140,10 @@ class DisputeStatusSerializer(serializers.Serializer):
     status = serializers.ChoiceField(choices=Dispute.Status.choices)
 
 
+class DisputeDefenseSerializer(serializers.Serializer):
+    defendant_response = serializers.CharField(min_length=20, trim_whitespace=True)
+
+
 class DisputeCreateSerializer(serializers.ModelSerializer):
     mission_id = serializers.UUIDField(write_only=True)
 
@@ -154,6 +166,10 @@ class DisputeCreateSerializer(serializers.ModelSerializer):
             Mission.Status.DISPUTED,
         ]:
             raise serializers.ValidationError('Mission non éligible au litige')
+        if mission.disputes.filter(
+            status__in=['open', 'under_review', 'pending_evidence', 'arbitration']
+        ).exists():
+            raise serializers.ValidationError('Un litige est déjà ouvert pour cette mission')
         self.context['mission'] = mission
         return value
 
@@ -164,6 +180,7 @@ class DisputeCreateSerializer(serializers.ModelSerializer):
         if not defendant:
             raise serializers.ValidationError('Mission sans contrepartie')
 
+        deadline = timezone.now() + timedelta(hours=72)
         dispute = Dispute.objects.create(
             mission=mission,
             plaintiff=user,
@@ -171,11 +188,22 @@ class DisputeCreateSerializer(serializers.ModelSerializer):
             reason=validated_data['reason'],
             description=validated_data['description'],
             requested_resolution=validated_data.get('requested_resolution', ''),
+            status=Dispute.Status.PENDING_EVIDENCE,
+            evidence_deadline=deadline,
         )
 
         if mission.status != Mission.Status.DISPUTED:
+            old_status = mission.status
+            mission.status_before_dispute = old_status
             mission.status = Mission.Status.DISPUTED
-            mission.save(update_fields=['status'])
+            mission.save(update_fields=['status', 'status_before_dispute', 'updated_at'])
+            MissionStatusHistory.objects.create(
+                mission=mission,
+                old_status=old_status,
+                new_status=Mission.Status.DISPUTED,
+                changed_by=user,
+                reason='Litige ouvert',
+            )
 
         return dispute
 

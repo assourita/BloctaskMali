@@ -11,6 +11,7 @@ from .serializers import (
     DisputeResolveSerializer, DisputeStatusSerializer,
     DisputeMessageSerializer, DisputeCreateSerializer,
     DisputeEvidenceCreateSerializer, DisputeEvidenceSerializer,
+    DisputeDefenseSerializer,
 )
 
 
@@ -231,7 +232,7 @@ class DisputeViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='mission-dossier')
     def mission_dossier(self, request, pk=None):
-        """Dossier complet mission pour arbitrage admin (preuves, chat, GPS, médias)."""
+        """Dossier complet mission pour arbitrage admin (preuves, chat, GPS, médias, paiements)."""
         if not is_admin(request.user):
             return Response({'error': 'Accès non autorisé'}, status=403)
 
@@ -240,8 +241,10 @@ class DisputeViewSet(viewsets.ModelViewSet):
 
         from apps.proofs.models import MissionProof, GPSLocation
         from apps.missions.serializers import MissionDetailSerializer, MissionMediaSerializer
+        from apps.missions.models import MissionStatusHistory
         from apps.chat.models import Message
         from apps.chat.serializers import MessageSerializer
+        from apps.payments.models import Payment
 
         proofs = MissionProof.objects.filter(mission=mission).order_by('-created_at')
         gps = GPSLocation.objects.filter(mission=mission).order_by('timestamp')[:500]
@@ -253,10 +256,80 @@ class DisputeViewSet(viewsets.ModelViewSet):
             pass
 
         media = mission.media_files.all() if hasattr(mission, 'media_files') else []
+        status_history = MissionStatusHistory.objects.filter(mission=mission).order_by('-created_at')[:30]
+        payments = Payment.objects.filter(mission=mission).order_by('-created_at')
+
+        all_evidence = list(dispute.evidence.select_related('submitted_by').all())
+        plaintiff_id = str(dispute.plaintiff_id)
+        defendant_id = str(dispute.defendant_id)
+        plaintiff_evidence = [e for e in all_evidence if str(e.submitted_by_id) == plaintiff_id]
+        defendant_evidence = [e for e in all_evidence if str(e.submitted_by_id) == defendant_id]
 
         return Response({
             'dispute_id': str(dispute.id),
+            'dispute': DisputeDetailSerializer(dispute, context={'request': request}).data,
             'mission': MissionDetailSerializer(mission, context={'request': request}).data,
+            'status_history': [
+                {
+                    'old_status': h.old_status,
+                    'new_status': h.new_status,
+                    'reason': h.reason,
+                    'changed_by': (
+                        f'{h.changed_by.first_name} {h.changed_by.last_name}'.strip()
+                        if h.changed_by else None
+                    ),
+                    'created_at': h.created_at,
+                }
+                for h in status_history
+            ],
+            'payments': [
+                {
+                    'id': str(p.id),
+                    'amount': p.amount,
+                    'status': p.status,
+                    'payment_method': getattr(p, 'payment_method', None),
+                    'operator': getattr(p, 'operator', None),
+                    'escrow_amount': getattr(p, 'escrow_amount', None),
+                    'provider_amount': getattr(p, 'provider_amount', None),
+                    'platform_fee': getattr(p, 'platform_fee', None),
+                    'is_escrow_funded': bool(getattr(p, 'is_escrow_funded', False)),
+                    'escrow_tx_hash': getattr(p, 'escrow_tx_hash', None) or mission.escrow_tx_hash,
+                    'created_at': p.created_at,
+                }
+                for p in payments
+            ],
+            'escrow': {
+                'blockchain_status': mission.blockchain_status,
+                'escrow_tx_hash': mission.escrow_tx_hash,
+                'deposit_paid': mission.deposit_paid,
+                'deposit_amount': mission.deposit_amount,
+                'required_deposit': mission.required_deposit,
+                'status_before_dispute': mission.status_before_dispute,
+                'current_status': mission.status,
+            },
+            'parties': {
+                'plaintiff': {
+                    'id': str(dispute.plaintiff_id),
+                    'name': f'{dispute.plaintiff.first_name} {dispute.plaintiff.last_name}'.strip(),
+                    'claim': {
+                        'reason': dispute.reason,
+                        'description': dispute.description,
+                        'requested_resolution': dispute.requested_resolution,
+                    },
+                    'evidence': DisputeEvidenceSerializer(
+                        plaintiff_evidence, many=True, context={'request': request}
+                    ).data,
+                },
+                'defendant': {
+                    'id': str(dispute.defendant_id),
+                    'name': f'{dispute.defendant.first_name} {dispute.defendant.last_name}'.strip(),
+                    'defense': dispute.defendant_response,
+                    'defended_at': dispute.defendant_responded_at,
+                    'evidence': DisputeEvidenceSerializer(
+                        defendant_evidence, many=True, context={'request': request}
+                    ).data,
+                },
+            },
             'proofs': [
                 {
                     'id': str(p.id),
@@ -279,8 +352,43 @@ class DisputeViewSet(viewsets.ModelViewSet):
                 for g in gps
             ],
             'chat_messages': MessageSerializer(chat_messages, many=True, context={'request': request}).data,
-            'evidence': DisputeEvidenceSerializer(dispute.evidence.all(), many=True, context={'request': request}).data,
+            'evidence': DisputeEvidenceSerializer(all_evidence, many=True, context={'request': request}).data,
         })
+
+    @action(detail=True, methods=['post'])
+    def submit_defense(self, request, pk=None):
+        """Le défendeur soumet sa réponse écrite avant la décision admin."""
+        dispute = self.get_object()
+        user = request.user
+        if user != dispute.defendant and not is_admin(user):
+            return Response({'error': 'Seul le défendeur peut se défendre'}, status=403)
+        if dispute.status in ['resolved', 'closed']:
+            return Response({'error': 'Ce litige est déjà tranché'}, status=400)
+
+        serializer = DisputeDefenseSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=400)
+
+        dispute.defendant_response = serializer.validated_data['defendant_response']
+        dispute.defendant_responded_at = timezone.now()
+        if dispute.status in [Dispute.Status.OPEN, Dispute.Status.PENDING_EVIDENCE]:
+            dispute.status = Dispute.Status.UNDER_REVIEW
+        dispute.save(update_fields=[
+            'defendant_response', 'defendant_responded_at', 'status', 'updated_at',
+        ])
+
+        from apps.notifications.services import create_notification
+        create_notification(
+            dispute.plaintiff,
+            'dispute_updated',
+            'Réponse du défendeur',
+            f'Le défendeur a répondu au litige sur « {dispute.mission.title} ».',
+            mission=dispute.mission,
+            dispute=dispute,
+            priority='high',
+        )
+
+        return Response(DisputeDetailSerializer(dispute, context={'request': request}).data)
 
     @action(detail=True, methods=['patch'])
     def change_status(self, request, pk=None):
@@ -299,20 +407,30 @@ class DisputeViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def add_message(self, request, pk=None):
-        """Ajouter un message interne à un litige (admin)"""
-        if not is_admin(request.user):
-            return Response({'error': 'Accès non autorisé'}, status=403)
-
+        """Message sur un litige — admin (interne) ou parties (public)."""
         dispute = self.get_object()
+        user = request.user
+        is_party = user in (dispute.plaintiff, dispute.defendant)
+        if not is_admin(user) and not is_party:
+            return Response({'error': 'Non autorisé'}, status=403)
+        if dispute.status in ['resolved', 'closed'] and not is_admin(user):
+            return Response({'error': 'Litige déjà tranché'}, status=400)
+
         msg_text = request.data.get('message', '').strip()
         if not msg_text:
             return Response({'error': 'Message vide'}, status=400)
 
+        is_internal = bool(request.data.get('is_internal', False))
+        if is_internal and not is_admin(user):
+            is_internal = False
+        if is_admin(user) and 'is_internal' not in request.data:
+            is_internal = True
+
         msg = DisputeMessage.objects.create(
             dispute=dispute,
-            sender=request.user,
+            sender=user,
             message=msg_text,
-            is_internal=request.data.get('is_internal', True)
+            is_internal=is_internal,
         )
         return Response(DisputeMessageSerializer(msg).data, status=201)
 
@@ -323,6 +441,8 @@ class DisputeViewSet(viewsets.ModelViewSet):
         user = request.user
         if user not in (dispute.plaintiff, dispute.defendant) and not is_admin(user):
             return Response({'error': 'Non autorisé'}, status=403)
+        if dispute.status in ['resolved', 'closed'] and not is_admin(user):
+            return Response({'error': 'Litige déjà tranché'}, status=400)
 
         serializer = DisputeEvidenceCreateSerializer(
             data=request.data,

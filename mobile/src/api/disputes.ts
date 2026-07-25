@@ -28,6 +28,15 @@ export const DISPUTE_STATUS_LABELS: Record<string, string> = {
   closed: 'Fermé',
 };
 
+export const DISPUTE_DECISION_LABELS: Record<string, string> = {
+  pending: 'En attente',
+  client_wins: 'Client gagne — remboursement total',
+  provider_wins: 'Prestataire gagne — paiement total',
+  split: 'Partage 50/50',
+  partial_client: 'Remboursement partiel client',
+  partial_provider: 'Paiement partiel prestataire',
+};
+
 /** Litiges de l'utilisateur courant. */
 export async function getMyDisputes(): Promise<Dispute[]> {
   const data = await apiRequest<Dispute[] | { results: Dispute[] }>('/disputes/mine/');
@@ -49,6 +58,16 @@ export async function createDispute(payload: CreateDisputePayload): Promise<Disp
   return apiRequest<Dispute>('/disputes/', {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+}
+
+export async function submitDisputeDefense(
+  disputeId: string,
+  defendant_response: string,
+): Promise<Dispute> {
+  return apiRequest<Dispute>(`/disputes/${disputeId}/submit_defense/`, {
+    method: 'POST',
+    body: JSON.stringify({ defendant_response }),
   });
 }
 

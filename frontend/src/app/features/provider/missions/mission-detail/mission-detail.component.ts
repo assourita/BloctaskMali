@@ -817,7 +817,10 @@ export class ProviderMissionDetailComponent implements OnInit {
       submitted: 'Preuves',
       completed: 'Terminée',
     };
-    const current = this.mission?.status || 'funded';
+    let current = this.mission?.status || 'funded';
+    if (current === 'disputed') {
+      current = (this.mission as any)?.status_before_dispute || 'in_progress';
+    }
     const currentIdx = order.indexOf(current);
     this.timelineSteps.length = 0;
     for (let i = 0; i < order.length; i++) {
@@ -925,6 +928,7 @@ export class ProviderMissionDetailComponent implements OnInit {
     const labels: Record<string, string> = {
       funded: 'Disponible', accepted: 'Acceptée', in_progress: 'En cours',
       submitted: 'Preuves soumises', completed: 'Terminée', cancelled: 'Annulée',
+      disputed: 'En litige', expired: 'Expirée',
     };
     return labels[status] || status;
   }

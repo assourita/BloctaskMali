@@ -45,6 +45,7 @@ interface CategoryRules {
   min_reputation_score: number;
   requires_pickup: boolean;
   requires_delivery: boolean;
+  show_contacts?: boolean;
   requirement_labels: string[];
   location_label: string;
   date_label: string;

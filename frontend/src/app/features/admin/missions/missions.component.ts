@@ -16,6 +16,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { MatDividerModule } from '@angular/material/divider';
+import { MatMenuModule } from '@angular/material/menu';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 import { Chart, registerables } from 'chart.js';
@@ -55,7 +56,8 @@ interface Mission {
     MatCardModule, MatButtonModule, MatIconModule, MatChipsModule,
     MatTableModule, MatPaginatorModule, MatSortModule,
     MatProgressSpinnerModule, MatSelectModule, MatFormFieldModule,
-    MatInputModule, MatSnackBarModule, MatTooltipModule, MatDividerModule
+    MatInputModule, MatSnackBarModule, MatTooltipModule, MatDividerModule,
+    MatMenuModule,
   ],
   template: `
     <div class="missions-container">
@@ -198,15 +200,21 @@ interface Mission {
 
               <ng-container matColumnDef="actions">
                 <th mat-header-cell *matHeaderCellDef>Actions</th>
-                <td mat-cell *matCellDef="let m">
-                  <button class="btn-view" (click)="openPanel(m)" matTooltip="Voir détails">
-                    <mat-icon>visibility</mat-icon>
+                <td mat-cell *matCellDef="let m" (click)="$event.stopPropagation()" class="actions-cell">
+                  <button mat-icon-button type="button" [matMenuTriggerFor]="missionMenu" class="btn-more" aria-label="Actions">
+                    <mat-icon>more_vert</mat-icon>
                   </button>
-                  <button class="btn-cancel" (click)="cancelMission(m)"
-                    *ngIf="!['completed','cancelled'].includes(m.status)"
-                    matTooltip="Annuler">
-                    <mat-icon>cancel</mat-icon>
-                  </button>
+                  <mat-menu #missionMenu="matMenu">
+                    <button mat-menu-item type="button" (click)="openPanel(m)">
+                      <mat-icon>visibility</mat-icon>
+                      <span>Voir détails</span>
+                    </button>
+                    <button mat-menu-item type="button" (click)="cancelMission(m)"
+                      *ngIf="!['completed','cancelled'].includes(m.status)">
+                      <mat-icon color="warn">cancel</mat-icon>
+                      <span>Annuler</span>
+                    </button>
+                  </mat-menu>
                 </td>
               </ng-container>
 
@@ -484,21 +492,9 @@ interface Mission {
     .p-normal { background: #e0e7ff; color: #4f46e5; }
     .p-low    { background: #f1f5f9; color: #64748b; }
 
-    /* Action buttons */
-    .btn-view {
-      background: #f1f5f9; border: none; border-radius: 8px;
-      width: 32px; height: 32px; cursor: pointer;
-      display: inline-flex; align-items: center; justify-content: center;
-      mat-icon { font-size: 18px; width: 18px; height: 18px; color: #2563eb; }
-      &:hover { background: #dbeafe; }
-    }
-    .btn-cancel {
-      background: #fff0f0; border: none; border-radius: 8px;
-      width: 32px; height: 32px; cursor: pointer; margin-left: 4px;
-      display: inline-flex; align-items: center; justify-content: center;
-      mat-icon { font-size: 18px; width: 18px; height: 18px; color: #dc2626; }
-      &:hover { background: #fee2e2; }
-    }
+    /* Action menu */
+    .actions-cell { white-space: nowrap; width: 56px; }
+    .btn-more { color: #64748b; }
 
     /* Detail panel */
     .detail-panel {

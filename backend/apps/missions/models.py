@@ -161,6 +161,13 @@ class Mission(models.Model):
         choices=Status.choices,
         default=Status.DRAFT
     )
+    # Conservé à l'ouverture d'un litige pour le workflow UI (évite de « rétrograder » l'étape)
+    status_before_dispute = models.CharField(
+        max_length=20,
+        blank=True,
+        null=True,
+        help_text='Statut métier juste avant le passage en litige',
+    )
     priority = models.CharField(
         max_length=20,
         choices=Priority.choices,

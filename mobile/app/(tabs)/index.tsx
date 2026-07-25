@@ -3,9 +3,10 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../../src/context/AuthContext';
 import { getMyMissions, getStats } from '../../src/api/missions';
-import { getEnterpriseProfile } from '../../src/api/enterprise';
+import { getAvailability, getEnterpriseProfile } from '../../src/api/enterprise';
 import { getProviderProfile } from '../../src/api/deposits';
 import { getMyReputation } from '../../src/api/reputation';
+import { getMyApplications } from '../../src/api/applications';
 import { toggleAvailability } from '../../src/api/profile';
 import { useScreenLoad } from '../../src/utils/useScreenLoad';
 import { AppLayout } from '../../src/components/layout/AppLayout';
@@ -15,7 +16,7 @@ import { MissionCard } from '../../src/components/MissionCard';
 import { Loader } from '../../src/components/ui';
 import { formatXOF } from '../../src/constants/africa';
 import { colors, spacing } from '../../src/constants/theme';
-import type { Mission, MissionStats } from '../../src/types';
+import type { Mission, MissionApplication, MissionStats } from '../../src/types';
 
 const ACTIVE_STATUSES = ['funded', 'published', 'accepted', 'in_progress', 'submitted'];
 
@@ -29,6 +30,8 @@ export default function DashboardScreen() {
   const [avgRating, setAvgRating] = useState(0);
   const [enterpriseDeposit, setEnterpriseDeposit] = useState(0);
   const [employeeCount, setEmployeeCount] = useState(0);
+  const [agentsAvailable, setAgentsAvailable] = useState(0);
+  const [pendingApps, setPendingApps] = useState<MissionApplication[]>([]);
   const [togglingAvail, setTogglingAvail] = useState(false);
 
   const loadData = useCallback(async () => {
@@ -43,15 +46,26 @@ export default function DashboardScreen() {
         ]);
         setIsAvailable(profile?.is_available !== false);
         setAvgRating(rep?.average_rating ?? 0);
+        setPendingApps([]);
+      } else if (!isEnterprise) {
+        const apps = await getMyApplications('client').catch(() => [] as MissionApplication[]);
+        setPendingApps(apps.filter((a) => a.status === 'pending').slice(0, 5));
+      } else {
+        setPendingApps([]);
       }
       if (isEnterprise) {
-        const ep = await getEnterpriseProfile();
+        const [ep, avail] = await Promise.all([
+          getEnterpriseProfile(),
+          getAvailability().catch(() => []),
+        ]);
         setEnterpriseDeposit(Number(ep?.deposit_balance ?? 0));
         setEmployeeCount(ep?.total_employees ?? 0);
+        setAgentsAvailable(avail.filter((a) => a.status === 'available').length);
       }
     } catch {
       setStats(null);
       setMissions([]);
+      setPendingApps([]);
     }
   }, [activeRole, isProvider, isEnterprise]);
 
@@ -149,8 +163,12 @@ export default function DashboardScreen() {
             <SoftCard style={{ marginBottom: spacing.md }}>
               <Text style={styles.sectionTitle}>Entreprise</Text>
               <Text style={styles.enterpriseMeta}>
-                Caution disponible : {formatXOF(enterpriseDeposit)} · {employeeCount} employé(s)
+                Caution : {formatXOF(enterpriseDeposit)} · {employeeCount} employé(s)
+                {agentsAvailable > 0 ? ` · ${agentsAvailable} disponible(s)` : ''}
               </Text>
+              <Pressable style={styles.mapLink} onPress={() => router.push('/tracking')}>
+                <Text style={styles.link}>Voir la carte des agents ›</Text>
+              </Pressable>
             </SoftCard>
           )}
           <StatGrid
@@ -180,6 +198,32 @@ export default function DashboardScreen() {
               <ActionBtn label="Missions disponibles" onPress={() => router.push('/(tabs)/available')} primary />
               <ActionBtn label="Sollicitations" onPress={() => router.push('/solicitations')} />
             </View>
+          )}
+          {!isEnterprise && pendingApps.length > 0 && (
+            <SoftCard style={{ marginBottom: spacing.md }}>
+              <View style={styles.sectionHead}>
+                <Text style={styles.sectionTitle}>Candidatures reçues</Text>
+                <Text style={styles.pendingCount}>{pendingApps.length}</Text>
+              </View>
+              {pendingApps.map((a) => (
+                <Pressable
+                  key={a.id}
+                  style={styles.appRow}
+                  onPress={() => router.push(`/applications?missionId=${a.mission}`)}
+                >
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.appTitle} numberOfLines={1}>{a.mission_title || 'Mission'}</Text>
+                    <Text style={styles.appMeta} numberOfLines={1}>
+                      {a.provider
+                        ? `${a.provider.first_name} ${a.provider.last_name}`
+                        : 'Prestataire'}
+                      {a.proposed_price != null ? ` · ${formatXOF(a.proposed_price)}` : ''}
+                    </Text>
+                  </View>
+                  <Text style={styles.link}>Traiter ›</Text>
+                </Pressable>
+              ))}
+            </SoftCard>
           )}
           <SoftCard>
             <View style={styles.sectionHead}>
@@ -225,6 +269,27 @@ const styles = StyleSheet.create({
   cta: { marginTop: spacing.md, backgroundColor: colors.primary, paddingHorizontal: spacing.lg, paddingVertical: 12, borderRadius: 10 },
   ctaText: { color: '#fff', fontWeight: '700' },
   enterpriseMeta: { color: colors.textMuted, fontSize: 13, marginTop: 4 },
+  mapLink: { marginTop: spacing.sm },
+  pendingCount: {
+    backgroundColor: colors.warningLight,
+    color: '#92400e',
+    fontWeight: '800',
+    fontSize: 12,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  appRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+  },
+  appTitle: { fontWeight: '700', color: colors.text, fontSize: 14 },
+  appMeta: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   onboarding: {
     backgroundColor: colors.warningLight, borderRadius: 14, padding: spacing.md,
     marginBottom: spacing.md, borderWidth: 1, borderColor: '#f59e0b',

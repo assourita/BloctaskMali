@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Alert, ScrollView, StyleSheet, Text } from 'react-native';
 import { router } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import * as ImageManipulator from 'expo-image-manipulator';
 import { useAuth } from '../src/context/AuthContext';
 import { submitKyc } from '../src/api/profile';
 import { Input, PrimaryButton, SecondaryButton } from '../src/components/buttons';
@@ -12,6 +11,7 @@ import { PageHeader } from '../src/components/widgets';
 import { DEFAULT_ID_LABEL } from '../src/constants/africa';
 import { colors, spacing } from '../src/constants/theme';
 import { ApiError } from '../src/api/client';
+import { compressImageUri } from '../src/utils/compressImage';
 
 type PhotoSlot = 'idFront' | 'idBack' | 'selfie';
 
@@ -24,20 +24,6 @@ export default function KycScreen() {
     selfie: null,
   });
   const [loading, setLoading] = useState(false);
-
-  const compressImage = async (uri: string): Promise<string> => {
-    try {
-      const result = await ImageManipulator.manipulateAsync(
-        uri,
-        [{ resize: { width: 1024 } }], // Max width 1024px
-        { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
-      );
-      return result.uri;
-    } catch (e) {
-      console.error('Image compression error:', e);
-      return uri; // Fallback to original if compression fails
-    }
-  };
 
   const pickPhoto = async (slot: PhotoSlot, useCamera: boolean) => {
     const perm = useCamera
@@ -52,7 +38,7 @@ export default function KycScreen() {
       : await ImagePicker.launchImageLibraryAsync({ quality: 0.7 });
     if (result.canceled || !result.assets[0]) return;
     const asset = result.assets[0];
-    const compressedUri = await compressImage(asset.uri);
+    const compressedUri = await compressImageUri(asset.uri);
     setPhotos((p) => ({
       ...p,
       [slot]: {

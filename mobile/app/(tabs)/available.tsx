@@ -4,9 +4,10 @@ import { getAvailableMissions } from '../../src/api/missions';
 import { useAuth } from '../../src/context/AuthContext';
 import { useScreenLoad, useFocusReload } from '../../src/utils/useScreenLoad';
 import { AvailableMissionCard } from '../../src/components/AvailableMissionCard';
+import { EnterpriseMissionsNav } from '../../src/components/EnterpriseMissionsNav';
 import { AppLayout } from '../../src/components/layout/AppLayout';
 import { GreenBanner } from '../../src/components/providerWidgets';
-import { colors } from '../../src/constants/theme';
+import { colors, spacing } from '../../src/constants/theme';
 import type { Mission } from '../../src/types';
 
 export default function AvailableScreen() {
@@ -32,6 +33,12 @@ export default function AvailableScreen() {
           : `${missions.length} mission(s) ouverte(s)${pendingCount ? ` — ${pendingCount} candidature(s) en attente` : ''}`}
       />
 
+      {asEnterprise ? (
+        <View style={styles.navPad}>
+          <EnterpriseMissionsNav active="available" />
+        </View>
+      ) : null}
+
       {loading ? (
         <ActivityIndicator color={colors.primary} style={styles.loader} />
       ) : (
@@ -55,6 +62,7 @@ export default function AvailableScreen() {
 }
 
 const styles = StyleSheet.create({
+  navPad: { paddingHorizontal: spacing.md },
   loader: { marginTop: 40 },
   list: { paddingBottom: 24 },
   empty: { alignItems: 'center', paddingTop: 48 },

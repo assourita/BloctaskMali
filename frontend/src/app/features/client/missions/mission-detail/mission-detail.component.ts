@@ -661,7 +661,10 @@ export class MissionDetailComponent implements OnInit {
       pending: 'Paiement', funded: 'Publiée', accepted: 'Acceptée',
       in_progress: 'En cours', submitted: 'Validation', completed: 'Terminée',
     };
-    const current = this.mission?.status || 'pending';
+    let current = this.mission?.status || 'pending';
+    if (current === 'disputed') {
+      current = (this.mission as any)?.status_before_dispute || 'in_progress';
+    }
     const currentIdx = order.indexOf(current);
     this.timelineSteps = order.map((key, i) => ({
       key,
@@ -797,6 +800,7 @@ export class MissionDetailComponent implements OnInit {
     const labels: Record<string, string> = {
       pending: 'En attente paiement', funded: 'Financée', accepted: 'Acceptée',
       in_progress: 'En cours', submitted: 'Preuves soumises', completed: 'Terminée', cancelled: 'Annulée',
+      disputed: 'En litige', expired: 'Expirée',
     };
     return labels[status || ''] || status || 'Inconnu';
   }

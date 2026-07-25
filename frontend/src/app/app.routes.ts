@@ -302,12 +302,20 @@ export const routes: Routes = [
         loadComponent: () => import('./features/admin/enterprises/enterprises.component').then(m => m.AdminEnterprisesComponent)
       },
       {
+        path: 'enterprises/:id',
+        loadComponent: () => import('./features/admin/enterprises/enterprise-detail.component').then(m => m.AdminEnterpriseDetailComponent)
+      },
+      {
         path: 'categories',
         loadComponent: () => import('./features/admin/categories/categories.component').then(m => m.AdminCategoriesComponent)
       },
       {
         path: 'disputes',
         loadComponent: () => import('./features/admin/disputes/disputes.component').then(m => m.AdminDisputesComponent)
+      },
+      {
+        path: 'disputes/:id',
+        loadComponent: () => import('./features/admin/disputes/dispute-detail.component').then(m => m.AdminDisputeDetailComponent)
       },
       {
         path: 'kyc',

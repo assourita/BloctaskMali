@@ -51,7 +51,8 @@ const PROVIDER_NAV: NavItem[] = [
 
 const ENTERPRISE_NAV: NavItem[] = [
   { label: 'Missions', href: '/(tabs)/missions', match: '/missions' },
-  { label: 'Sollicitations reçues', href: '/solicitations', match: '/solicitations' },
+  { label: 'Sollicitations', href: '/solicitations', match: '/solicitations' },
+  { label: 'Attribuer un prestataire', href: '/providers', match: '/providers' },
   { label: 'Employés', href: '/employees', match: '/employees' },
   { label: 'Équipes', href: '/teams', match: '/teams' },
   { label: 'Appels à candidature', href: '/enterprise-appels', match: '/enterprise-appels' },

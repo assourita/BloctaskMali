@@ -9,6 +9,7 @@ import { MatInputModule } from '@angular/material/input';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
 import { MatChipsModule } from '@angular/material/chips';
+import { RouterModule } from '@angular/router';
 import { HttpClient, HttpHeaders, HttpParams } from '@angular/common/http';
 import { environment } from '../../../../environments/environment';
 
@@ -30,7 +31,7 @@ interface EnterpriseRow {
   selector: 'app-admin-enterprises',
   standalone: true,
   imports: [
-    CommonModule, FormsModule,
+    CommonModule, FormsModule, RouterModule,
     MatCardModule, MatButtonModule, MatIconModule,
     MatFormFieldModule, MatInputModule, MatProgressSpinnerModule,
     MatSnackBarModule, MatChipsModule,
@@ -62,7 +63,7 @@ interface EnterpriseRow {
 
       <div class="list" *ngIf="!loading">
         <mat-card class="row" *ngFor="let e of enterprises">
-          <div class="main">
+          <div class="main" [routerLink]="['/admin/enterprises', e.id]" role="link">
             <div class="logo"><mat-icon>business</mat-icon></div>
             <div class="info">
               <h3>
@@ -78,6 +79,9 @@ interface EnterpriseRow {
             </div>
           </div>
           <div class="actions">
+            <a mat-stroked-button [routerLink]="['/admin/enterprises', e.id]">
+              <mat-icon>folder_open</mat-icon> Gérer
+            </a>
             <button mat-raised-button color="primary" type="button" *ngIf="!e.is_verified" (click)="setVerified(e, true)" [disabled]="busyId === e.id">
               <mat-icon>verified</mat-icon> Vérifier
             </button>
@@ -105,15 +109,15 @@ interface EnterpriseRow {
     .loading { display: flex; justify-content: center; padding: 48px; }
     .list { display: flex; flex-direction: column; gap: 10px; }
     .row { display: flex; justify-content: space-between; gap: 16px; align-items: center; padding: 14px 16px; border-radius: 12px; }
-    .main { display: flex; gap: 14px; min-width: 0; }
-    .logo { width: 48px; height: 48px; border-radius: 12px; background: #ede9fe; color: #6d28d9; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .main { display: flex; gap: 14px; min-width: 0; cursor: pointer; text-decoration: none; color: inherit; flex: 1; }
+    .logo { width: 48px; height: 48px; border-radius: 12px; background: #d1fae5; color: #047857; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
     .info h3 { margin: 0 0 4px; display: flex; align-items: center; gap: 6px; font-size: 1rem; }
     .ok { color: #16a34a; font-size: 18px; width: 18px; height: 18px; }
     .info p { margin: 0 0 6px; color: #64748b; font-size: 0.85rem; }
     .meta { display: flex; flex-wrap: wrap; gap: 10px; font-size: 0.75rem; color: #64748b; }
     .chip { background: #dcfce7; color: #166534; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
     .chip.off { background: #fee2e2; color: #991b1b; }
-    .actions { flex-shrink: 0; }
+    .actions { flex-shrink: 0; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
     .empty { text-align: center; padding: 48px; color: #94a3b8; }
     .empty mat-icon { font-size: 48px; width: 48px; height: 48px; }
     @media (max-width: 640px) {

@@ -22,7 +22,7 @@ from .serializers import (
 from .permissions import IsMissionOwner, IsMissionProvider, CanApplyToMission
 from apps.users.permissions import HasKycPlatformAccess
 from apps.users.roles import get_effective_role
-from apps.users.employee_helpers import primary_employee, user_has_active_employee_link
+from apps.users.employee_helpers import primary_employee
 
 
 def _accept_application(mission, application, changed_by):
@@ -377,8 +377,7 @@ class MissionViewSet(viewsets.ModelViewSet):
             ).exclude(client=user).select_related(
                 'client', 'client__enterprise_profile', 'provider', 'category'
             ).prefetch_related('applications')
-            if user_has_active_employee_link(user):
-                return Response({'error': 'Les agents entreprise voient leurs missions assignées'}, status=403)
+            # Un prestataire lié à une entreprise peut toujours candidater en indépendant
         else:
             return Response({'error': 'Activez l\'espace prestataire ou entreprise'}, status=403)
 
@@ -465,11 +464,7 @@ class MissionViewSet(viewsets.ModelViewSet):
             from apps.users.roles import can_act_as_provider, get_effective_role
             if not can_act_as_provider(request.user) or get_effective_role(request.user) != 'provider':
                 return Response({'error': 'Activez l\'espace prestataire'}, status=status.HTTP_403_FORBIDDEN)
-            if user_has_active_employee_link(request.user):
-                return Response(
-                    {'error': 'Les agents entreprise ne postulent pas — le gérant postule pour l\'entreprise'},
-                    status=status.HTTP_403_FORBIDDEN,
-                )
+            # Lien employé entreprise n'empêche pas de postuler en tant que prestataire indépendant
 
         if mission.requires_verified_provider and request.user.kyc_status != User.KYCStatus.VERIFIED:
             return Response(
@@ -1288,8 +1283,9 @@ class MissionViewSet(viewsets.ModelViewSet):
             return Response({'error': 'Un litige est déjà ouvert pour cette mission'}, status=400)
         
         old_status = mission.status
+        mission.status_before_dispute = old_status
         mission.status = Mission.Status.DISPUTED
-        mission.save()
+        mission.save(update_fields=['status', 'status_before_dispute', 'updated_at'])
         
         MissionStatusHistory.objects.create(
             mission=mission,
@@ -1305,6 +1301,8 @@ class MissionViewSet(viewsets.ModelViewSet):
 
         from apps.disputes.models import Dispute
         from apps.notifications.services import create_notification
+        from django.utils import timezone as dj_tz
+        from datetime import timedelta
 
         dispute = Dispute.objects.create(
             mission=mission,
@@ -1313,7 +1311,8 @@ class MissionViewSet(viewsets.ModelViewSet):
             reason=request.data.get('reason', 'other'),
             description=request.data.get('description', ''),
             requested_resolution=request.data.get('requested_resolution', ''),
-            status=Dispute.Status.OPEN,
+            status=Dispute.Status.PENDING_EVIDENCE,
+            evidence_deadline=dj_tz.now() + timedelta(hours=72),
         )
 
         create_notification(

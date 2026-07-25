@@ -341,7 +341,8 @@ export class ProviderDashboardComponent implements OnInit {
               delivery: m.delivery_address || '—',
               estimatedTime: 30
             }));
-          }
+          },
+          error: () => { this.nearbyMissions = []; },
         });
       }, () => {
         this.missionService.getAvailable(DEFAULT_MAP_CENTER.lat, DEFAULT_MAP_CENTER.lng).subscribe({
@@ -356,7 +357,8 @@ export class ProviderDashboardComponent implements OnInit {
               delivery: m.delivery_address || '—',
               estimatedTime: 30
             }));
-          }
+          },
+          error: () => { this.nearbyMissions = []; },
         });
       });
     }

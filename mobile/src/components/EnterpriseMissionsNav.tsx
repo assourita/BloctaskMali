@@ -2,11 +2,12 @@ import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { router } from 'expo-router';
 import { colors, radius, spacing } from '../constants/theme';
 
-export type EnterpriseMissionsSection = 'ordered' | 'received' | 'create';
+export type EnterpriseMissionsSection = 'ordered' | 'received' | 'available' | 'create';
 
 const ITEMS: { id: EnterpriseMissionsSection; label: string; href: string }[] = [
   { id: 'ordered', label: 'Missions commandées', href: '/(tabs)/missions' },
   { id: 'received', label: 'Missions reçues', href: '/(tabs)/missions?tab=received' },
+  { id: 'available', label: 'Disponibles', href: '/(tabs)/available' },
   { id: 'create', label: 'Nouvelle mission', href: '/create-mission' },
 ];
 

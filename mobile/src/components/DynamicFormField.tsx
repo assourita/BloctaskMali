@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 import { FieldDefinition } from '../api/categorySchema';
 import { Input } from './buttons';
 import { ChipGroup } from './ui';
@@ -224,9 +225,21 @@ export function DynamicFormField({ field, value, onChange, error }: DynamicFormF
     }
   }
 
-  function handleGPS() {
-    // TODO: Implement GPS capture
-    Alert.alert('GPS', 'Fonctionnalité GPS à implémenter');
+  async function handleGPS() {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('GPS', 'Permission de localisation refusée.');
+        return;
+      }
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const coords = `${pos.coords.latitude.toFixed(6)},${pos.coords.longitude.toFixed(6)}`;
+      onChange(coords);
+    } catch {
+      Alert.alert('GPS', 'Impossible de récupérer la position.');
+    }
   }
 }
 
@@ -241,7 +254,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   required: {
-    color: colors.error,
+    color: colors.danger,
   },
   helpText: {
     fontSize: 12,
@@ -250,11 +263,11 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: 12,
-    color: colors.error,
+    color: colors.danger,
     marginTop: 4,
   },
   inputError: {
-    borderColor: colors.error,
+    borderColor: colors.danger,
   },
   textarea: {
     borderWidth: 1,
