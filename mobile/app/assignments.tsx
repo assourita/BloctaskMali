@@ -5,8 +5,10 @@ import {
   createAssignment,
   getAssignments,
   getEmployees,
+  getTeams,
   type EmployeeAssignment,
   type EnterpriseEmployee,
+  type EnterpriseTeam,
 } from '../src/api/enterprise';
 import { getMyMissions } from '../src/api/missions';
 import { PrimaryButton, SecondaryButton } from '../src/components/buttons';
@@ -24,23 +26,29 @@ export default function AssignmentsScreen() {
   const [assignments, setAssignments] = useState<EmployeeAssignment[]>([]);
   const [missions, setMissions] = useState<Mission[]>([]);
   const [employees, setEmployees] = useState<EnterpriseEmployee[]>([]);
+  const [teams, setTeams] = useState<EnterpriseTeam[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [mode, setMode] = useState<'employee' | 'team'>('employee');
   const [missionId, setMissionId] = useState('');
   const [employeeId, setEmployeeId] = useState('');
+  const [teamId, setTeamId] = useState('');
+  const [leadId, setLeadId] = useState('');
   const [saving, setSaving] = useState(false);
 
   const load = useCallback(async () => {
     try {
-      const [a, m, e] = await Promise.all([
+      const [a, m, e, t] = await Promise.all([
         getAssignments(),
         getMyMissions('enterprise', 'received'),
         getEmployees(),
+        getTeams(),
       ]);
       setAssignments(a);
       setMissions(m.filter((x) => x.deposit_paid && ['accepted', 'in_progress'].includes(x.status)));
       setEmployees(e.filter((x) => x.is_active));
+      setTeams(t.filter((x) => x.is_active !== false));
     } catch {
       setAssignments([]);
     } finally {
@@ -55,17 +63,35 @@ export default function AssignmentsScreen() {
   }, [load]);
 
   const submit = async () => {
-    if (!missionId || !employeeId) {
-      Alert.alert('Sélection', 'Choisissez une mission et un employé.');
+    if (!missionId) {
+      Alert.alert('Sélection', 'Choisissez une mission.');
+      return;
+    }
+    if (mode === 'employee' && !employeeId) {
+      Alert.alert('Sélection', 'Choisissez un employé.');
+      return;
+    }
+    if (mode === 'team' && !teamId) {
+      Alert.alert('Sélection', 'Choisissez une équipe.');
       return;
     }
     setSaving(true);
     try {
-      await createAssignment({ mission: missionId, employee: employeeId });
-      Alert.alert('Succès', 'Employé affecté à la mission.');
+      if (mode === 'team') {
+        await createAssignment({
+          mission: missionId,
+          team: teamId,
+          lead_employee: leadId || undefined,
+        });
+      } else {
+        await createAssignment({ mission: missionId, employee: employeeId, is_lead: true });
+      }
+      Alert.alert('Succès', mode === 'team' ? 'Équipe affectée.' : 'Employé affecté.');
       setShowForm(false);
       setMissionId('');
       setEmployeeId('');
+      setTeamId('');
+      setLeadId('');
       await load();
     } catch (e) {
       Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Affectation impossible');
@@ -85,12 +111,20 @@ export default function AssignmentsScreen() {
     >
       <PageHeader
         title="Affectations"
-        subtitle="Liez un employé à une mission reçue (caution déposée)"
+        subtitle="Liez un employé ou une équipe à une mission reçue"
         action={<PrimaryButton label={showForm ? 'Fermer' : '+ Affecter'} onPress={() => setShowForm((v) => !v)} />}
       />
 
       {showForm && (
         <SoftCard style={styles.form}>
+          <View style={styles.tabs}>
+            <Pressable style={[styles.tab, mode === 'employee' && styles.tabActive]} onPress={() => setMode('employee')}>
+              <Text style={styles.tabText}>Employé</Text>
+            </Pressable>
+            <Pressable style={[styles.tab, mode === 'team' && styles.tabActive]} onPress={() => setMode('team')}>
+              <Text style={styles.tabText}>Équipe</Text>
+            </Pressable>
+          </View>
           <Text style={styles.label}>Mission</Text>
           {missions.length === 0 ? (
             <Text style={styles.hint}>Aucune mission prête — déposez la caution d'abord.</Text>
@@ -105,16 +139,50 @@ export default function AssignmentsScreen() {
               </Pressable>
             ))
           )}
-          <Text style={styles.label}>Employé</Text>
-          {employees.map((e) => (
-            <Pressable
-              key={e.id}
-              style={[styles.pick, employeeId === e.id && styles.pickActive]}
-              onPress={() => setEmployeeId(e.id)}
-            >
-              <Text style={styles.pickText}>{e.first_name} {e.last_name}</Text>
-            </Pressable>
-          ))}
+          {mode === 'employee' ? (
+            <>
+              <Text style={styles.label}>Employé</Text>
+              {employees.map((e) => (
+                <Pressable
+                  key={e.id}
+                  style={[styles.pick, employeeId === e.id && styles.pickActive]}
+                  onPress={() => setEmployeeId(e.id)}
+                >
+                  <Text style={styles.pickText}>{e.first_name} {e.last_name}</Text>
+                </Pressable>
+              ))}
+            </>
+          ) : (
+            <>
+              <Text style={styles.label}>Équipe</Text>
+              {teams.map((t) => (
+                <Pressable
+                  key={t.id}
+                  style={[styles.pick, teamId === t.id && styles.pickActive]}
+                  onPress={() => {
+                    setTeamId(t.id);
+                    setLeadId(t.manager ? String(t.manager) : '');
+                  }}
+                >
+                  <Text style={styles.pickText}>{t.name}</Text>
+                </Pressable>
+              ))}
+              {teamId ? (
+                <>
+                  <Text style={styles.label}>Chef</Text>
+                  {(teams.find((t) => t.id === teamId)?.members || []).map((m) => (
+                    <Pressable
+                      key={m.employee_id}
+                      style={[styles.pick, leadId === m.employee_id && styles.pickActive]}
+                      onPress={() => setLeadId(m.employee_id)}
+                    >
+                      <Text style={styles.pickText}>{m.first_name} {m.last_name}</Text>
+                    </Pressable>
+                  ))}
+                </>
+              ) : null}
+            </>
+          )}
           <PrimaryButton label="Confirmer l'affectation" loading={saving} onPress={submit} />
         </SoftCard>
       )}
@@ -138,6 +206,7 @@ export default function AssignmentsScreen() {
         ))
       )}
 
+      <SecondaryButton label="Gérer les équipes" onPress={() => router.push('/teams')} />
       <SecondaryButton label="Gérer les employés" onPress={() => router.push('/employees')} />
     </AppLayout>
   );
@@ -145,6 +214,10 @@ export default function AssignmentsScreen() {
 
 const styles = StyleSheet.create({
   form: { marginBottom: spacing.md, gap: spacing.sm },
+  tabs: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  tab: { flex: 1, padding: 10, borderRadius: 999, borderWidth: 1, borderColor: colors.border, alignItems: 'center' },
+  tabActive: { backgroundColor: colors.primaryLight, borderColor: colors.primary },
+  tabText: { fontWeight: '700', color: colors.text },
   label: { fontWeight: '700', color: colors.text, marginTop: spacing.sm },
   hint: { color: colors.textMuted, fontSize: 13 },
   pick: { padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.border, marginTop: 6 },

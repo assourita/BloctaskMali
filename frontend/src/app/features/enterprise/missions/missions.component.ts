@@ -13,6 +13,7 @@ import { MatBadgeModule } from '@angular/material/badge';
 import {
   EnterpriseService,
   EnterpriseEmployee,
+  EnterpriseTeam,
   EmployeeAssignment,
 } from '../../../core/services/enterprise.service';
 import { Mission, MissionService } from '../../../core/services/mission.service';
@@ -67,18 +68,35 @@ import { EnterpriseMissionsNavComponent } from '../enterprise-missions-nav.compo
 
       <mat-card class="assign-card" *ngIf="showAssignForm && missionTab === 'received'">
         <div class="assign-header">
-          <mat-icon>person_add</mat-icon>
-          <h3>Affecter un employé</h3>
+          <mat-icon>groups</mat-icon>
+          <h3>Affecter un employé ou une équipe</h3>
+        </div>
+        <div class="mode-toggle">
+          <button type="button" [class.active]="assignMode === 'employee'" (click)="assignMode = 'employee'">Employé</button>
+          <button type="button" [class.active]="assignMode === 'team'" (click)="assignMode = 'team'">Équipe</button>
         </div>
         <div class="form-grid">
           <select class="field" [(ngModel)]="assignForm.mission">
             <option value="">Choisir une mission</option>
             <option *ngFor="let m of assignableMissions" [value]="m.id">{{ m.title }} ({{ statusLabel(m.status) }})</option>
           </select>
-          <select class="field" [(ngModel)]="assignForm.employee">
-            <option value="">Choisir un employé</option>
-            <option *ngFor="let e of employees" [value]="e.id">{{ e.first_name }} {{ e.last_name }}</option>
-          </select>
+          <ng-container *ngIf="assignMode === 'employee'">
+            <select class="field" [(ngModel)]="assignForm.employee">
+              <option value="">Choisir un employé</option>
+              <option *ngFor="let e of employees" [value]="e.id">{{ e.first_name }} {{ e.last_name }}</option>
+            </select>
+            <label class="check"><input type="checkbox" [(ngModel)]="assignForm.is_lead" /> Chef de mission</label>
+          </ng-container>
+          <ng-container *ngIf="assignMode === 'team'">
+            <select class="field" [(ngModel)]="assignForm.team" (ngModelChange)="onTeamPick($event)">
+              <option value="">Choisir une équipe</option>
+              <option *ngFor="let t of teams" [value]="t.id">{{ t.name }} ({{ t.members_count || t.members?.length || 0 }})</option>
+            </select>
+            <select class="field" [(ngModel)]="assignForm.lead_employee">
+              <option value="">Chef (défaut : manager équipe)</option>
+              <option *ngFor="let m of selectedTeamMembers" [value]="m.employee_id">{{ m.first_name }} {{ m.last_name }}</option>
+            </select>
+          </ng-container>
           <input class="field" [(ngModel)]="assignForm.notes" placeholder="Notes (optionnel)" />
         </div>
         <div class="form-actions">
@@ -90,9 +108,9 @@ import { EnterpriseMissionsNavComponent } from '../enterprise-missions-nav.compo
       </mat-card>
 
       <div class="toolbar" *ngIf="!loading && missionTab === 'received'">
-        <button mat-stroked-button (click)="showAssignForm = !showAssignForm" [disabled]="!assignableMissions.length || !employees.length">
+        <button mat-stroked-button (click)="showAssignForm = !showAssignForm" [disabled]="!assignableMissions.length || (!employees.length && !teams.length)">
           <mat-icon>person_add</mat-icon>
-          Affecter un employé
+          Affecter employé / équipe
         </button>
       </div>
 
@@ -568,6 +586,15 @@ import { EnterpriseMissionsNavComponent } from '../enterprise-missions-nav.compo
       .status-badge { position: static; margin-bottom: 10px; width: fit-content; }
       .form-grid { grid-template-columns: 1fr; }
     }
+    .mode-toggle {
+      display: flex; gap: 8px; margin-bottom: 12px;
+      button {
+        border: 1px solid #e2e8f0; background: #fff; border-radius: 999px;
+        padding: 6px 14px; font-weight: 600; cursor: pointer; color: #64748b;
+        &.active { background: #ecfdf5; border-color: #86efac; color: #166534; }
+      }
+    }
+    .check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #475569; }
     @media (max-width: 480px) {
       .page { padding: 16px; }
       .stats-grid { grid-template-columns: 1fr 1fr; }
@@ -579,12 +606,15 @@ export class EnterpriseMissionsComponent implements OnInit {
   missions: Mission[] = [];
   assignments: EmployeeAssignment[] = [];
   employees: EnterpriseEmployee[] = [];
+  teams: EnterpriseTeam[] = [];
   loading = true;
   missionTab: 'ordered' | 'received' = 'ordered';
   activeFilter = 'all';
   showAssignForm = false;
   assigning = false;
-  assignForm = { mission: '', employee: '', notes: '' };
+  assignMode: 'employee' | 'team' = 'employee';
+  assignForm = { mission: '', employee: '', team: '', lead_employee: '', notes: '', is_lead: true };
+  selectedTeamMembers: { employee_id: string; first_name: string; last_name: string }[] = [];
 
   stats = [
     { icon: 'assignment', label: 'Total', value: 0, color: '#047857', bg: '#ecfdf5', filter: 'all' },
@@ -661,12 +691,27 @@ export class EnterpriseMissionsComponent implements OnInit {
     this.enterpriseService.getEmployees().subscribe({
       next: (e) => { this.employees = e.filter((x) => x.is_active); },
     });
+    this.enterpriseService.getTeams().subscribe({
+      next: (t) => { this.teams = (t || []).filter((x) => x.is_active !== false); },
+    });
     if (this.missionTab === 'received') {
       this.enterpriseService.getAssignments().subscribe({
         next: (a) => { this.assignments = a; },
       });
     } else {
       this.assignments = [];
+    }
+  }
+
+  onTeamPick(teamId: string): void {
+    const team = this.teams.find((t) => t.id === teamId);
+    this.selectedTeamMembers = (team?.members || []).map((m) => ({
+      employee_id: m.employee_id,
+      first_name: m.first_name,
+      last_name: m.last_name,
+    }));
+    if (team?.manager) {
+      this.assignForm.lead_employee = String(team.manager);
     }
   }
 
@@ -691,17 +736,42 @@ export class EnterpriseMissionsComponent implements OnInit {
   }
 
   createAssignment(): void {
-    if (!this.assignForm.mission || !this.assignForm.employee) {
-      this.snack.open('Sélectionnez une mission et un employé', 'Fermer', { duration: 3000 });
+    if (!this.assignForm.mission) {
+      this.snack.open('Sélectionnez une mission', 'Fermer', { duration: 3000 });
+      return;
+    }
+    if (this.assignMode === 'employee' && !this.assignForm.employee) {
+      this.snack.open('Sélectionnez un employé', 'Fermer', { duration: 3000 });
+      return;
+    }
+    if (this.assignMode === 'team' && !this.assignForm.team) {
+      this.snack.open('Sélectionnez une équipe', 'Fermer', { duration: 3000 });
       return;
     }
     this.assigning = true;
-    this.enterpriseService.createAssignment(this.assignForm).subscribe({
+    const payload = this.assignMode === 'team'
+      ? {
+          mission: this.assignForm.mission,
+          team: this.assignForm.team,
+          lead_employee: this.assignForm.lead_employee || undefined,
+          notes: this.assignForm.notes,
+        }
+      : {
+          mission: this.assignForm.mission,
+          employee: this.assignForm.employee,
+          is_lead: this.assignForm.is_lead,
+          notes: this.assignForm.notes,
+        };
+    this.enterpriseService.createAssignment(payload).subscribe({
       next: () => {
         this.assigning = false;
         this.showAssignForm = false;
-        this.assignForm = { mission: '', employee: '', notes: '' };
-        this.snack.open('Employé affecté à la mission', 'Fermer', { duration: 3000 });
+        this.assignForm = { mission: '', employee: '', team: '', lead_employee: '', notes: '', is_lead: true };
+        this.snack.open(
+          this.assignMode === 'team' ? 'Équipe affectée à la mission' : 'Employé affecté à la mission',
+          'Fermer',
+          { duration: 3000 },
+        );
         this.load();
       },
       error: (err) => {

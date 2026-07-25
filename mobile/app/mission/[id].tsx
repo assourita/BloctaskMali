@@ -1011,8 +1011,20 @@ export default function MissionDetailScreen() {
           missionTitle={mission.title}
           onClose={() => setShowAssignModal(false)}
           onAssigned={() => load()}
-          onAssign={async (employeeId) => {
-            await createAssignment({ mission: mission.id, employee: employeeId });
+          onAssign={async (payload) => {
+            if (payload.mode === 'team') {
+              await createAssignment({
+                mission: mission.id,
+                team: payload.teamId,
+                lead_employee: payload.leadEmployeeId,
+              });
+            } else {
+              await createAssignment({
+                mission: mission.id,
+                employee: payload.employeeId,
+                is_lead: true,
+              });
+            }
           }}
         />
     </AppLayout>

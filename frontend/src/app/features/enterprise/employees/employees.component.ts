@@ -53,6 +53,9 @@ type PageTab = 'employees' | 'assignments';
           <a mat-stroked-button routerLink="/enterprise/invitations">
             <mat-icon>history</mat-icon> Historique invitations
           </a>
+          <a mat-stroked-button routerLink="/enterprise/appels">
+            <mat-icon>campaign</mat-icon> Appels à candidature
+          </a>
           <button mat-raised-button color="primary" (click)="openCreateForm()">
             <mat-icon>person_add</mat-icon> Nouvel employé
           </button>

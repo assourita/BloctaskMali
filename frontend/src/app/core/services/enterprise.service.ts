@@ -35,6 +35,32 @@ export interface EnterpriseEmployee {
   hired_at: string;
 }
 
+export interface EnterpriseTeamMember {
+  id: string;
+  employee_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  position?: string;
+  is_active?: boolean;
+  is_lead?: boolean;
+  is_manager?: boolean;
+  joined_at?: string;
+}
+
+export interface EnterpriseTeam {
+  id: string;
+  name: string;
+  description?: string;
+  manager?: string | null;
+  manager_name?: string | null;
+  is_active: boolean;
+  members?: EnterpriseTeamMember[];
+  members_count?: number;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface EnterpriseAnalytics {
   scope: string;
   missions_total: number;
@@ -66,6 +92,8 @@ export interface EmployeeAssignment {
   employee_name?: string;
   assignment_status: string;
   assignment_type?: string;
+  is_lead?: boolean;
+  notes?: string;
   assigned_at: string;
   accepted_at?: string | null;
   rejected_at?: string | null;
@@ -250,10 +278,59 @@ export class EnterpriseService {
     });
   }
 
-  createAssignment(data: { mission: string; employee: string; notes?: string }): Observable<EmployeeAssignment> {
-    return this.http.post<EmployeeAssignment>(`${this.apiUrl}/enterprises/assignments/`, {
+  createAssignment(data: {
+    mission: string;
+    employee?: string;
+    team?: string;
+    lead_employee?: string;
+    is_lead?: boolean;
+    notes?: string;
+  }): Observable<EmployeeAssignment | EmployeeAssignment[]> {
+    return this.http.post<EmployeeAssignment | EmployeeAssignment[]>(`${this.apiUrl}/enterprises/assignments/`, {
       ...data,
       assignment_type: 'manual',
+    });
+  }
+
+  getTeams(): Observable<EnterpriseTeam[]> {
+    return new Observable((observer) => {
+      this.http.get<EnterpriseTeam[] | { results: EnterpriseTeam[] }>(
+        `${this.apiUrl}/enterprises/teams/`,
+      ).subscribe({
+        next: (r) => { observer.next(this.unwrap(r)); observer.complete(); },
+        error: (e) => observer.error(e),
+      });
+    });
+  }
+
+  createTeam(data: { name: string; description?: string; manager?: string | null; is_active?: boolean }): Observable<EnterpriseTeam> {
+    return this.http.post<EnterpriseTeam>(`${this.apiUrl}/enterprises/teams/`, data);
+  }
+
+  updateTeam(id: string, data: Partial<EnterpriseTeam>): Observable<EnterpriseTeam> {
+    return this.http.patch<EnterpriseTeam>(`${this.apiUrl}/enterprises/teams/${id}/`, data);
+  }
+
+  deleteTeam(id: string): Observable<void> {
+    return this.http.delete<void>(`${this.apiUrl}/enterprises/teams/${id}/`);
+  }
+
+  addTeamMember(teamId: string, employeeId: string): Observable<EnterpriseTeam> {
+    return this.http.post<EnterpriseTeam>(`${this.apiUrl}/enterprises/teams/${teamId}/members/`, {
+      employee_id: employeeId,
+    });
+  }
+
+  removeTeamMember(teamId: string, employeeId: string): Observable<EnterpriseTeam> {
+    return this.http.post<EnterpriseTeam>(
+      `${this.apiUrl}/enterprises/teams/${teamId}/members/${employeeId}/remove/`,
+      {},
+    );
+  }
+
+  setTeamManager(teamId: string, employeeId: string): Observable<EnterpriseTeam> {
+    return this.http.post<EnterpriseTeam>(`${this.apiUrl}/enterprises/teams/${teamId}/set-manager/`, {
+      employee_id: employeeId,
     });
   }
 
@@ -361,6 +438,71 @@ export class EnterpriseService {
   getMyEnterprises(): Observable<ProviderEnterpriseMembership[]> {
     return this.http.get<ProviderEnterpriseMembership[]>(`${this.apiUrl}/users/me/enterprises/`);
   }
+
+  listEnterpriseRecruitmentCalls(status: string = 'all'): Observable<RecruitmentCall[]> {
+    const params = new HttpParams().set('status', status);
+    return this.http.get<RecruitmentCall[]>(`${this.apiUrl}/users/enterprise/recruitment-calls/`, { params });
+  }
+
+  createRecruitmentCall(data: {
+    title: string;
+    description: string;
+    role?: string;
+    position?: string;
+    city?: string;
+    requirements?: string;
+    days_valid?: number;
+  }): Observable<RecruitmentCall> {
+    return this.http.post<RecruitmentCall>(`${this.apiUrl}/users/enterprise/recruitment-calls/`, data);
+  }
+
+  updateRecruitmentCall(id: string, data: Partial<{
+    title: string;
+    description: string;
+    role: string;
+    position: string;
+    city: string;
+    requirements: string;
+    status: string;
+  }>): Observable<RecruitmentCall> {
+    return this.http.patch<RecruitmentCall>(`${this.apiUrl}/users/enterprise/recruitment-calls/${id}/`, data);
+  }
+
+  listRecruitmentApplications(callId: string, status: string = 'all'): Observable<RecruitmentApplication[]> {
+    const params = new HttpParams().set('status', status);
+    return this.http.get<RecruitmentApplication[]>(
+      `${this.apiUrl}/users/enterprise/recruitment-calls/${callId}/applications/`,
+      { params },
+    );
+  }
+
+  reviewRecruitmentApplication(
+    applicationId: string,
+    action: 'accept' | 'reject',
+  ): Observable<RecruitmentApplication | { application: RecruitmentApplication; employee_id: string }> {
+    return this.http.post<RecruitmentApplication | { application: RecruitmentApplication; employee_id: string }>(
+      `${this.apiUrl}/users/enterprise/recruitment-applications/${applicationId}/review/`,
+      { action },
+    );
+  }
+
+  listOpenRecruitmentCalls(city?: string): Observable<RecruitmentCall[]> {
+    let params = new HttpParams();
+    if (city) params = params.set('city', city);
+    return this.http.get<RecruitmentCall[]>(`${this.apiUrl}/users/recruitment-calls/open/`, { params });
+  }
+
+  applyToRecruitmentCall(callId: string, message?: string): Observable<RecruitmentApplication> {
+    return this.http.post<RecruitmentApplication>(
+      `${this.apiUrl}/users/recruitment-calls/${callId}/apply/`,
+      { message: message || '' },
+    );
+  }
+
+  getMyRecruitmentApplications(status: string = 'all'): Observable<RecruitmentApplication[]> {
+    const params = new HttpParams().set('status', status);
+    return this.http.get<RecruitmentApplication[]>(`${this.apiUrl}/users/me/recruitment-applications/`, { params });
+  }
 }
 
 export interface EnterpriseInviteSummary {
@@ -408,4 +550,51 @@ export interface ProviderEnterpriseMembership {
   position: string;
   is_active: boolean;
   hired_at?: string;
+}
+
+export interface RecruitmentCall {
+  id: string;
+  title: string;
+  description: string;
+  role: string;
+  position: string;
+  city?: string;
+  requirements?: string;
+  status: string;
+  is_open?: boolean;
+  expires_at?: string;
+  created_at?: string;
+  applications_count?: number;
+  pending_applications_count?: number;
+  enterprise_id: string;
+  enterprise_name: string;
+  enterprise?: EnterpriseInviteSummary | null;
+  my_application?: RecruitmentApplication | null;
+}
+
+export interface RecruitmentApplication {
+  id: string;
+  status: string;
+  message?: string;
+  created_at?: string;
+  reviewed_at?: string;
+  provider_id?: string;
+  provider?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    phone_number?: string;
+    profile_picture?: string | null;
+    city?: string;
+  };
+  call_id?: string;
+  call?: {
+    id: string;
+    title: string;
+    position?: string;
+    role?: string;
+    enterprise_name?: string;
+    enterprise_id?: string;
+  };
 }

@@ -2,19 +2,20 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
+from rest_framework.exceptions import ValidationError
 from django.utils import timezone
-from django.db.models import Sum
+from django.db.models import Sum, Count, Prefetch
 
 from apps.users.models import EnterpriseProfile, Employee
 from apps.missions.models import Mission
 from .models import (
-    EnterpriseTeam, EmployeeAssignment, EnterpriseContract,
-    EnterpriseInvoice, EmployeeAvailability
+    EnterpriseTeam, EnterpriseTeamMember, EmployeeAssignment,
+    EnterpriseContract, EnterpriseInvoice, EmployeeAvailability,
 )
 from .serializers import (
     EnterpriseTeamSerializer, EmployeeAssignmentSerializer,
     EnterpriseContractSerializer, EnterpriseInvoiceSerializer,
-    EmployeeAvailabilitySerializer, EmployeeAssignmentCreateSerializer
+    EmployeeAvailabilitySerializer, EmployeeAssignmentCreateSerializer,
 )
 
 
@@ -31,15 +32,81 @@ class EnterpriseTeamViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         profile = get_enterprise_profile(self.request.user)
+        base = EnterpriseTeam.objects.select_related(
+            'enterprise', 'manager', 'manager__user',
+        ).prefetch_related(
+            Prefetch(
+                'memberships',
+                queryset=EnterpriseTeamMember.objects.select_related('employee', 'employee__user', 'team'),
+            ),
+        ).annotate(members_count_anno=Count('memberships'))
         if not profile and not self.request.user.is_staff:
             return EnterpriseTeam.objects.none()
         if self.request.user.is_staff:
-            return EnterpriseTeam.objects.select_related('enterprise', 'manager')
-        return EnterpriseTeam.objects.filter(enterprise=profile)
+            return base
+        return base.filter(enterprise=profile)
 
     def perform_create(self, serializer):
         profile = get_enterprise_profile(self.request.user)
-        serializer.save(enterprise=profile)
+        if not profile:
+            raise ValidationError({'detail': 'Profil entreprise requis'})
+        team = serializer.save(enterprise=profile)
+        manager = team.manager
+        if manager and manager.enterprise_id == profile.id:
+            EnterpriseTeamMember.objects.get_or_create(team=team, employee=manager)
+
+    def perform_update(self, serializer):
+        profile = get_enterprise_profile(self.request.user)
+        team = serializer.save()
+        if team.manager_id and profile and team.manager.enterprise_id == profile.id:
+            EnterpriseTeamMember.objects.get_or_create(team=team, employee=team.manager)
+
+    @action(detail=True, methods=['post'])
+    def members(self, request, pk=None):
+        """POST { employee_id } — ajoute un membre."""
+        team = self.get_object()
+        profile = get_enterprise_profile(request.user)
+        if not profile or team.enterprise_id != profile.id:
+            return Response({'error': 'Non autorisé'}, status=403)
+        employee_id = request.data.get('employee_id') or request.data.get('employee')
+        if not employee_id:
+            return Response({'error': 'employee_id requis'}, status=400)
+        employee = Employee.objects.filter(id=employee_id, enterprise=profile, is_active=True).first()
+        if not employee:
+            return Response({'error': 'Employé introuvable'}, status=404)
+        EnterpriseTeamMember.objects.get_or_create(team=team, employee=employee)
+        return Response(EnterpriseTeamSerializer(team).data)
+
+    @action(detail=True, methods=['post'], url_path=r'members/(?P<employee_id>[^/.]+)/remove')
+    def remove_member(self, request, pk=None, employee_id=None):
+        team = self.get_object()
+        profile = get_enterprise_profile(request.user)
+        if not profile or team.enterprise_id != profile.id:
+            return Response({'error': 'Non autorisé'}, status=403)
+        deleted, _ = EnterpriseTeamMember.objects.filter(team=team, employee_id=employee_id).delete()
+        if not deleted:
+            return Response({'error': 'Membre introuvable'}, status=404)
+        if team.manager_id and str(team.manager_id) == str(employee_id):
+            team.manager = None
+            team.save(update_fields=['manager'])
+        return Response(EnterpriseTeamSerializer(team).data)
+
+    @action(detail=True, methods=['post'], url_path='set-manager')
+    def set_manager(self, request, pk=None):
+        team = self.get_object()
+        profile = get_enterprise_profile(request.user)
+        if not profile or team.enterprise_id != profile.id:
+            return Response({'error': 'Non autorisé'}, status=403)
+        employee_id = request.data.get('employee_id') or request.data.get('employee')
+        if not employee_id:
+            return Response({'error': 'employee_id requis'}, status=400)
+        employee = Employee.objects.filter(id=employee_id, enterprise=profile, is_active=True).first()
+        if not employee:
+            return Response({'error': 'Employé introuvable'}, status=404)
+        EnterpriseTeamMember.objects.get_or_create(team=team, employee=employee)
+        team.manager = employee
+        team.save(update_fields=['manager'])
+        return Response(EnterpriseTeamSerializer(team).data)
 
 
 class EmployeeAssignmentViewSet(viewsets.ModelViewSet):
@@ -61,15 +128,65 @@ class EmployeeAssignmentViewSet(viewsets.ModelViewSet):
             'mission', 'employee', 'employee__user'
         )
 
-    def perform_create(self, serializer):
-        assignment = serializer.save(assigned_by=self.request.user)
-        from apps.users.enterprise_services import assign_employee_to_mission
+    def create(self, request, *args, **kwargs):
+        serializer = EmployeeAssignmentCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        data = serializer.validated_data
+        profile = get_enterprise_profile(request.user)
+        if not profile:
+            return Response({'error': 'Profil entreprise requis'}, status=403)
+
+        mission = Mission.objects.filter(id=data['mission']).first()
+        if not mission:
+            return Response({'error': 'Mission introuvable'}, status=404)
+        if mission.assigned_enterprise_id != profile.id:
+            return Response({'error': 'Mission non assignée à votre entreprise'}, status=403)
+
+        from apps.users.enterprise_services import (
+            add_employee_to_mission,
+            assign_team_to_mission,
+            set_mission_lead,
+        )
+
         try:
-            assign_employee_to_mission(assignment.mission, assignment.employee, self.request.user)
+            if data.get('team'):
+                team = EnterpriseTeam.objects.filter(id=data['team'], enterprise=profile).first()
+                if not team:
+                    return Response({'error': 'Équipe introuvable'}, status=404)
+                lead = None
+                if data.get('lead_employee'):
+                    lead = Employee.objects.filter(
+                        id=data['lead_employee'], enterprise=profile, is_active=True,
+                    ).first()
+                    if not lead:
+                        return Response({'error': 'Chef introuvable'}, status=404)
+                assignments = assign_team_to_mission(
+                    mission, team, request.user,
+                    lead_employee=lead,
+                    notes=data.get('notes') or '',
+                )
+                return Response(
+                    EmployeeAssignmentSerializer(assignments, many=True).data,
+                    status=201,
+                )
+
+            employee = Employee.objects.filter(
+                id=data['employee'], enterprise=profile, is_active=True,
+            ).first()
+            if not employee:
+                return Response({'error': 'Employé introuvable'}, status=404)
+            is_lead = bool(data.get('is_lead')) or not mission.executing_employee_id
+            assignment = add_employee_to_mission(
+                mission, employee, request.user,
+                is_lead=is_lead,
+                notes=data.get('notes') or '',
+            )
+            if data.get('is_lead') and not assignment.is_lead:
+                set_mission_lead(mission, employee, request.user)
+                assignment.refresh_from_db()
+            return Response(EmployeeAssignmentSerializer(assignment).data, status=201)
         except ValueError as e:
-            assignment.delete()
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError({'detail': str(e)})
+            return Response({'detail': str(e)}, status=400)
 
     @action(detail=True, methods=['post'])
     def accept(self, request, pk=None):
@@ -83,6 +200,7 @@ class EmployeeAssignmentViewSet(viewsets.ModelViewSet):
         assignment = self.get_object()
         assignment.rejected_at = timezone.now()
         assignment.rejection_reason = request.data.get('reason', '')
+        assignment.is_lead = False
         assignment.save()
         return Response(EmployeeAssignmentSerializer(assignment).data)
 

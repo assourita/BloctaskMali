@@ -6,6 +6,7 @@ from django.urls import path
 from . import views
 from . import admin_kyc_views
 from . import invite_views
+from . import recruitment_views
 
 urlpatterns = [
     # Auth
@@ -36,6 +37,15 @@ urlpatterns = [
     path('me/enterprise-invites/<uuid:invite_id>/accept/', invite_views.accept_my_enterprise_invite, name='accept-enterprise-invite'),
     path('me/enterprise-invites/<uuid:invite_id>/reject/', invite_views.reject_my_enterprise_invite, name='reject-enterprise-invite'),
     path('me/enterprises/', invite_views.my_enterprises, name='my-enterprises'),
+
+    # Appels à candidature (ouverts — rejoindre l'entreprise)
+    path('enterprise/recruitment-calls/', recruitment_views.enterprise_recruitment_calls, name='enterprise-recruitment-calls'),
+    path('enterprise/recruitment-calls/<uuid:call_id>/', recruitment_views.enterprise_recruitment_call_detail, name='enterprise-recruitment-call-detail'),
+    path('enterprise/recruitment-calls/<uuid:call_id>/applications/', recruitment_views.enterprise_recruitment_applications, name='enterprise-recruitment-applications'),
+    path('enterprise/recruitment-applications/<uuid:application_id>/review/', recruitment_views.enterprise_review_application, name='enterprise-review-application'),
+    path('recruitment-calls/open/', recruitment_views.open_recruitment_calls, name='open-recruitment-calls'),
+    path('recruitment-calls/<uuid:call_id>/apply/', recruitment_views.apply_to_recruitment_call, name='apply-recruitment-call'),
+    path('me/recruitment-applications/', recruitment_views.my_recruitment_applications, name='my-recruitment-applications'),
     
     # Wallet & Transactions
     path('wallet/transactions/', views.WalletTransactionListView.as_view(), name='wallet-transactions'),

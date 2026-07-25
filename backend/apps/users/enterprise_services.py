@@ -326,9 +326,16 @@ def accept_enterprise_as_provider(mission, enterprise, changed_by, *, reason='')
     )
 
 
-def assign_employee_to_mission(mission, employee, assigned_by):
-    """Lie un employé terrain à une mission entreprise (après acceptation)."""
+def assign_employee_to_mission(mission, employee, assigned_by, *, is_lead: bool = True):
+    """Compat : ajoute l'employé et le pose en chef si is_lead (défaut True)."""
+    return add_employee_to_mission(
+        mission, employee, assigned_by, is_lead=is_lead, auto_start=True,
+    )
+
+
+def _validate_employee_for_mission(mission, employee, assigned_by):
     from .employee_validation import EmployeeValidator
+    from .employee_helpers import get_employee_for_enterprise
 
     enterprise = employee.enterprise
     if mission.assigned_enterprise_id != enterprise.id:
@@ -338,7 +345,6 @@ def assign_employee_to_mission(mission, employee, assigned_by):
     if not employee.user_id or not employee.is_active:
         raise ValueError('Employé inactif ou sans compte prestataire')
 
-    from .employee_helpers import get_employee_for_enterprise
     link = get_employee_for_enterprise(employee.user, enterprise)
     if not link or not link.is_active or link.id != employee.id:
         raise ValueError('Le prestataire n\'a pas de lien actif avec cette entreprise')
@@ -351,7 +357,6 @@ def assign_employee_to_mission(mission, employee, assigned_by):
         if critical_issues:
             error_msg = "Impossible d'assigner cet employé - problèmes critiques :\n"
             solutions = "Solutions recommandées :\n"
-
             for i, issue in enumerate(critical_issues, 1):
                 error_msg += f"{i}. {issue.message}\n"
                 solutions += f"{i}. {issue.suggested_action}"
@@ -366,9 +371,8 @@ def assign_employee_to_mission(mission, employee, assigned_by):
                 'Échec d\'assignation d\'employé',
                 f'Impossible d\'assigner {employee.first_name} {employee.last_name} à la mission "{mission.title}". {solutions}',
                 mission=mission,
-                action_url=f'/enterprise/employees/{employee.id}/fix'
+                action_url=f'/enterprise/employees/{employee.id}/fix',
             )
-
             raise ValueError(error_msg + "\n" + solutions)
 
     can_assign, mission_issues = validator.check_assignment_eligibility(employee, mission)
@@ -378,7 +382,6 @@ def assign_employee_to_mission(mission, employee, assigned_by):
             warning_msg = "Attention - problèmes détectés :\n"
             for issue in warning_issues:
                 warning_msg += f"- {issue.message}\n"
-
             from apps.notifications.services import create_notification
             create_notification(
                 assigned_by,
@@ -386,50 +389,176 @@ def assign_employee_to_mission(mission, employee, assigned_by):
                 'Assignation avec avertissements',
                 f'{employee.first_name} {employee.last_name} assigné à "{mission.title}" mais : {warning_msg}',
                 mission=mission,
-                action_url=f'/enterprise/missions/{mission.id}'
+                action_url=f'/enterprise/missions/{mission.id}',
             )
+    return validation_result
+
+
+def add_employee_to_mission(mission, employee, assigned_by, *, is_lead: bool = False, auto_start: bool = True, notes: str = ''):
+    """Ajoute un employé à la mission sans retirer les autres. Pose le chef si is_lead."""
+    from apps.enterprises.models import EmployeeAssignment
+    from apps.notifications.services import create_notification, notify_mission_event
+
+    validation_result = _validate_employee_for_mission(mission, employee, assigned_by)
+
+    assignment, created = EmployeeAssignment.objects.get_or_create(
+        mission=mission,
+        employee=employee,
+        defaults={
+            'assigned_by': assigned_by,
+            'notes': notes or '',
+            'is_lead': False,
+        },
+    )
+    if not created and assignment.rejected_at:
+        assignment.rejected_at = None
+        assignment.rejection_reason = ''
+        assignment.accepted_at = None
+        assignment.notes = notes or assignment.notes
+        assignment.save(update_fields=['rejected_at', 'rejection_reason', 'accepted_at', 'notes'])
+
+    if is_lead or (created and not mission.executing_employee_id):
+        set_mission_lead(mission, employee, assigned_by, notify=False)
+        assignment.refresh_from_db()
+    elif created:
+        create_notification(
+            employee.user,
+            'mission_assigned',
+            'Nouvelle mission assignée',
+            f'Votre entreprise vous a assigné la mission « {mission.title} ».',
+            mission=mission,
+            action_url=f'/provider/missions/{mission.id}',
+        )
+
+    if (
+        auto_start
+        and mission.executing_employee_id
+        and mission.deposit_paid
+        and mission.status == Mission.Status.ACCEPTED
+    ):
+        from apps.missions.services import start_mission_record
+        if start_mission_record(
+            mission,
+            assigned_by,
+            reason='Mission démarrée automatiquement après assignation',
+        ):
+            lead = mission.executing_employee
+            notify_mission_event(
+                mission,
+                'started',
+                mission.client,
+                'Mission démarrée',
+                f'La mission « {mission.title} » a démarré avec {lead.first_name} {lead.last_name}.',
+            )
+
+    return assignment
+
+
+def set_mission_lead(mission, employee, assigned_by, *, notify: bool = True):
+    """Désigne le chef d'exécution (executing_employee + provider)."""
+    from apps.enterprises.models import EmployeeAssignment
+    from apps.notifications.services import create_notification
+
+    if mission.assigned_enterprise_id != employee.enterprise_id:
+        raise ValueError('Employé hors entreprise de la mission')
+    if not employee.user_id or not employee.is_active:
+        raise ValueError('Employé inactif ou sans compte')
+
+    EmployeeAssignment.objects.filter(mission=mission, is_lead=True).update(is_lead=False)
+    assignment, _ = EmployeeAssignment.objects.update_or_create(
+        mission=mission,
+        employee=employee,
+        defaults={
+            'assigned_by': assigned_by,
+            'is_lead': True,
+            'rejected_at': None,
+            'rejection_reason': '',
+        },
+    )
+    if not assignment.is_lead:
+        assignment.is_lead = True
+        assignment.save(update_fields=['is_lead'])
 
     mission.executing_employee = employee
     mission.provider = employee.user
     mission.save(update_fields=['executing_employee', 'provider', 'updated_at'])
 
-    from apps.notifications.services import create_notification, notify_mission_event
-    create_notification(
-        employee.user,
-        'mission_assigned',
-        'Nouvelle mission assignée',
-        f'Votre entreprise vous a assigné la mission « {mission.title} ».',
-        mission=mission,
-        action_url=f'/provider/missions/{mission.id}',
-    )
-
-    if validation_result.validation_score < 100:
+    if notify:
         create_notification(
-            assigned_by,
-            'employee_assigned_with_issues',
-            'Employé assigné - Actions recommandées',
-            f'{employee.first_name} {employee.last_name} assigné avec score {validation_result.validation_score}%. Vérifiez les problèmes restants.',
+            employee.user,
+            'mission_assigned',
+            'Vous êtes chef sur une mission',
+            f'Votre entreprise vous a désigné chef pour « {mission.title} ».',
             mission=mission,
-            action_url=f'/enterprise/employees/{employee.id}/profile'
+            action_url=f'/provider/missions/{mission.id}',
+        )
+    return assignment
+
+
+def assign_team_to_mission(mission, team, assigned_by, *, lead_employee=None, notes: str = ''):
+    """Affecte tous les membres actifs de l'équipe ; un chef est obligatoire."""
+    from apps.enterprises.models import EnterpriseTeamMember
+
+    if not team.is_active:
+        raise ValueError('Cette équipe est inactive')
+    if team.enterprise_id != mission.assigned_enterprise_id:
+        raise ValueError('Équipe hors entreprise de la mission')
+
+    memberships = list(
+        EnterpriseTeamMember.objects.filter(team=team, employee__is_active=True)
+        .select_related('employee', 'employee__user')
+    )
+    if not memberships:
+        raise ValueError('Cette équipe n\'a aucun membre actif')
+
+    lead = lead_employee or team.manager
+    if not lead:
+        raise ValueError('Désignez un chef d\'équipe pour cette mission')
+    if lead.enterprise_id != team.enterprise_id:
+        raise ValueError('Le chef doit appartenir à l\'entreprise')
+    member_ids = {m.employee_id for m in memberships}
+    if lead.id not in member_ids:
+        EnterpriseTeamMember.objects.get_or_create(team=team, employee=lead)
+        memberships = list(
+            EnterpriseTeamMember.objects.filter(team=team, employee__is_active=True)
+            .select_related('employee', 'employee__user')
         )
 
-    # Caution déjà déposée → démarrage automatique (plus de bouton « Démarrer »)
+    mission.assigned_team = team
+    mission.save(update_fields=['assigned_team', 'updated_at'])
+
+    assignments = []
+    for m in memberships:
+        emp = m.employee
+        is_lead = emp.id == lead.id
+        asg = add_employee_to_mission(
+            mission, emp, assigned_by,
+            is_lead=is_lead,
+            auto_start=False,
+            notes=notes,
+        )
+        assignments.append(asg)
+
+    # ensure lead is set even if already member
+    set_mission_lead(mission, lead, assigned_by, notify=True)
+
     if mission.deposit_paid and mission.status == Mission.Status.ACCEPTED:
         from apps.missions.services import start_mission_record
+        from apps.notifications.services import notify_mission_event
         if start_mission_record(
             mission,
             assigned_by,
-            reason='Mission démarrée automatiquement après assignation employé',
+            reason='Mission démarrée automatiquement après assignation équipe',
         ):
             notify_mission_event(
                 mission,
                 'started',
                 mission.client,
                 'Mission démarrée',
-                f'La mission « {mission.title} » a démarré avec {employee.first_name} {employee.last_name}.',
+                f'La mission « {mission.title} » a démarré avec l\'équipe {team.name}.',
             )
 
-    return mission
+    return assignments
 
 
 def enterprise_can_apply(user, mission) -> bool:

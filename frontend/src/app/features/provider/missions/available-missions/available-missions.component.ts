@@ -129,7 +129,7 @@ interface Mission {
                 {{ mission.category_name || mission.category?.name }}
               </span>
               <span class="call-badge" *ngIf="mission.is_enterprise_call || mission.client?.user_type === 'enterprise'">
-                <mat-icon>campaign</mat-icon> Appel entreprise
+                <mat-icon>business</mat-icon> Mission entreprise
               </span>
               <span class="dist-badge" *ngIf="mission.distance_km || mission.distance">
                 <mat-icon>place</mat-icon> {{ (mission.distance_km || mission.distance) | number:'1.1-1' }} km

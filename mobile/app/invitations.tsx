@@ -67,18 +67,21 @@ export default function ProviderInvitationsScreen() {
 
   if (activeRole !== 'provider') {
     return (
-      <AppLayout title="Appels / invitations" showBack>
+      <AppLayout title="Invitations" showBack>
         <Text style={styles.empty}>Réservé aux prestataires.</Text>
       </AppLayout>
     );
   }
 
   return (
-    <AppLayout title="Appels / invitations" showBack refreshing={refreshing} onRefresh={refresh}>
+    <AppLayout title="Invitations" showBack refreshing={refreshing} onRefresh={refresh}>
       <PageHeader
-        title="Rejoindre une entreprise"
-        subtitle="Appels pour faire partie d'une équipe — pas pour exécuter une mission"
+        title="Invitations ciblées"
+        subtitle="Demandes reçues d'entreprises — pour les appels ouverts, allez dans Appels à candidature"
       />
+      <Pressable onPress={() => router.push('/appels')}>
+        <Text style={styles.link}>Voir les appels à candidature →</Text>
+      </Pressable>
 
       <Pressable onPress={() => router.push('/my-enterprises')}>
         <Text style={styles.link}>Voir mes entreprises liées →</Text>

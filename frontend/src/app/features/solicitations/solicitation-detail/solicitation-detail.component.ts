@@ -17,7 +17,7 @@ import {
   MissionService,
   SolicitationPreview,
 } from '../../../core/services/mission.service';
-import { EnterpriseService } from '../../../core/services/enterprise.service';
+import { EnterpriseService, EnterpriseTeam } from '../../../core/services/enterprise.service';
 import { formatXOF } from '../../../core/constants/africa.constants';
 
 @Component({
@@ -239,8 +239,12 @@ import { formatXOF } from '../../../core/constants/africa.constants';
                 </button>
               </div>
               <div *ngIf="preview.workflow.current_step === 'assign_employee'">
-                <p>Choisissez l'employé sur le terrain.</p>
-                <mat-form-field appearance="outline" class="full-width">
+                <p>Choisissez un employé ou une équipe (avec chef).</p>
+                <div class="mode-toggle">
+                  <button type="button" [class.active]="assignMode === 'employee'" (click)="assignMode = 'employee'">Employé</button>
+                  <button type="button" [class.active]="assignMode === 'team'" (click)="assignMode = 'team'">Équipe</button>
+                </div>
+                <mat-form-field appearance="outline" class="full-width" *ngIf="assignMode === 'employee'">
                   <mat-label>Employé</mat-label>
                   <mat-select [(ngModel)]="selectedEmployeeId">
                     <mat-option *ngFor="let e of preview.enterprise_employees || []" [value]="e.id">
@@ -248,7 +252,24 @@ import { formatXOF } from '../../../core/constants/africa.constants';
                     </mat-option>
                   </mat-select>
                 </mat-form-field>
-                <button mat-raised-button color="primary" class="full-width" (click)="assignEmployee()" [disabled]="acting || !selectedEmployeeId">
+                <mat-form-field appearance="outline" class="full-width" *ngIf="assignMode === 'team'">
+                  <mat-label>Équipe</mat-label>
+                  <mat-select [(ngModel)]="selectedTeamId" (selectionChange)="onTeamSelect($event.value)">
+                    <mat-option *ngFor="let t of teams" [value]="t.id">
+                      {{ t.name }} ({{ t.members_count || t.members?.length || 0 }})
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <mat-form-field appearance="outline" class="full-width" *ngIf="assignMode === 'team' && selectedTeamId">
+                  <mat-label>Chef</mat-label>
+                  <mat-select [(ngModel)]="selectedLeadId">
+                    <mat-option *ngFor="let m of selectedTeamMembers" [value]="m.employee_id">
+                      {{ m.first_name }} {{ m.last_name }}
+                    </mat-option>
+                  </mat-select>
+                </mat-form-field>
+                <button mat-raised-button color="primary" class="full-width" (click)="assignEmployee()"
+                  [disabled]="acting || (assignMode === 'employee' ? !selectedEmployeeId : !selectedTeamId)">
                   <mat-icon>person_add</mat-icon> Assigner
                 </button>
               </div>
@@ -357,6 +378,14 @@ import { formatXOF } from '../../../core/constants/africa.constants';
     .info-text mat-icon { color: #3b82f6; font-size: 20px; width: 20px; height: 20px; flex-shrink: 0; }
     .action-list { display: flex; flex-direction: column; gap: 10px; }
     .full-width { width: 100%; }
+    .mode-toggle {
+      display: flex; gap: 8px; margin-bottom: 12px;
+      button {
+        border: 1px solid #e2e8f0; background: #fff; border-radius: 999px;
+        padding: 6px 14px; font-weight: 600; cursor: pointer; color: #64748b;
+        &.active { background: #ecfdf5; border-color: #86efac; color: #166534; }
+      }
+    }
     .success-msg { display: flex; align-items: center; gap: 8px; color: #059669; font-weight: 600; }
     .loading { display: flex; justify-content: center; padding: 80px; }
     @media (max-width: 900px) {
@@ -371,6 +400,11 @@ export class SolicitationDetailComponent implements OnInit {
   loading = true;
   acting = false;
   selectedEmployeeId = '';
+  assignMode: 'employee' | 'team' = 'employee';
+  selectedTeamId = '';
+  selectedLeadId = '';
+  teams: EnterpriseTeam[] = [];
+  selectedTeamMembers: { employee_id: string; first_name: string; last_name: string }[] = [];
   backLink = '/enterprise/solicitations';
   private scope: 'enterprise' | 'provider' = 'enterprise';
 
@@ -392,6 +426,21 @@ export class SolicitationDetailComponent implements OnInit {
       this.backLink = '/provider/missions/solicitations';
     }
     this.load();
+    if (this.scope === 'enterprise') {
+      this.enterpriseService.getTeams().subscribe({
+        next: (list) => { this.teams = (list || []).filter((t) => t.is_active !== false); },
+      });
+    }
+  }
+
+  onTeamSelect(teamId: string): void {
+    const team = this.teams.find((t) => t.id === teamId);
+    this.selectedTeamMembers = (team?.members || []).map((m) => ({
+      employee_id: m.employee_id,
+      first_name: m.first_name,
+      last_name: m.last_name,
+    }));
+    if (team?.manager) this.selectedLeadId = String(team.manager);
   }
 
   get missionLink(): string {
@@ -493,15 +542,29 @@ export class SolicitationDetailComponent implements OnInit {
 
   assignEmployee(): void {
     const missionId = this.preview?.mission?.id;
-    if (!missionId || !this.selectedEmployeeId || this.acting) return;
+    if (!missionId || this.acting) return;
+    if (this.assignMode === 'employee' && !this.selectedEmployeeId) return;
+    if (this.assignMode === 'team' && !this.selectedTeamId) return;
     this.acting = true;
-    this.enterpriseService.createAssignment({
-      mission: missionId,
-      employee: this.selectedEmployeeId,
-    }).subscribe({
+    const payload = this.assignMode === 'team'
+      ? {
+          mission: missionId,
+          team: this.selectedTeamId,
+          lead_employee: this.selectedLeadId || undefined,
+        }
+      : {
+          mission: missionId,
+          employee: this.selectedEmployeeId,
+          is_lead: true,
+        };
+    this.enterpriseService.createAssignment(payload).subscribe({
       next: () => {
         this.acting = false;
-        this.snackBar.open('Employé assigné — vous pouvez démarrer', 'Fermer', { duration: 4000 });
+        this.snackBar.open(
+          this.assignMode === 'team' ? 'Équipe affectée' : 'Employé assigné — vous pouvez démarrer',
+          'Fermer',
+          { duration: 4000 },
+        );
         this.load();
       },
       error: (err) => {

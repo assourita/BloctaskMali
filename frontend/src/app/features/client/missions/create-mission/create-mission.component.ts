@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { lastValueFrom } from 'rxjs';
 import { CommonModule } from '@angular/common';
-import { RouterModule, Router, ActivatedRoute } from '@angular/router';
+import { RouterModule, Router } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -96,14 +96,10 @@ interface CategoryConfig {
       <mat-card class="form-card">
         <mat-card-header>
           <div class="header-content">
-            <mat-icon class="header-icon">{{ isAppelMode ? 'campaign' : 'add_circle' }}</mat-icon>
+            <mat-icon class="header-icon">add_circle</mat-icon>
             <div>
-              <mat-card-title>{{ isAppelMode ? 'Nouvelle mission (entreprise)' : 'Créer une nouvelle mission' }}</mat-card-title>
-              <mat-card-subtitle>
-                {{ isAppelMode
-                  ? 'Pour recruter quelqu’un dans votre équipe, utilisez Appels / invitations'
-                  : 'Décrivez votre besoin et trouvez un prestataire' }}
-              </mat-card-subtitle>
+              <mat-card-title>Créer une nouvelle mission</mat-card-title>
+              <mat-card-subtitle>Décrivez votre besoin et trouvez un prestataire pour exécuter la mission</mat-card-subtitle>
             </div>
           </div>
         </mat-card-header>
@@ -113,14 +109,14 @@ interface CategoryConfig {
             <label class="listing-option">
               <input type="radio" name="listingMode" [(ngModel)]="listingMode" [ngModelOptions]="{standalone: true}" value="open" />
               <span>
-                <strong>Appel ouvert</strong>
-                Visible dans les opportunités — les prestataires peuvent postuler
+                <strong>Mission ouverte</strong>
+                Visible dans les opportunités — les prestataires peuvent postuler à la mission
               </span>
             </label>
             <label class="listing-option">
               <input type="radio" name="listingMode" [(ngModel)]="listingMode" [ngModelOptions]="{standalone: true}" value="invite_only" />
               <span>
-                <strong>Sur invitation uniquement</strong>
+                <strong>Sur sollicitation uniquement</strong>
                 Visible seulement après une sollicitation ciblée
               </span>
             </label>
@@ -1903,7 +1899,6 @@ export class CreateMissionComponent implements OnInit {
   locationsForm: FormGroup;
   paymentForm: FormGroup;
   listingMode: 'open' | 'invite_only' = 'open';
-  isAppelMode = false;
 
   categories: Category[] = [];
   loadingCategories = false;
@@ -1983,7 +1978,6 @@ export class CreateMissionComponent implements OnInit {
     private fb: FormBuilder,
     private http: HttpClient,
     private router: Router,
-    private route: ActivatedRoute,
     private paymentService: PaymentService,
     private web3Service: Web3Service,
     private blockchainService: BlockchainService,
@@ -2055,12 +2049,6 @@ export class CreateMissionComponent implements OnInit {
   }
 
   ngOnInit(): void {
-    this.route.queryParams.subscribe((params) => {
-      this.isAppelMode = params['mode'] === 'appel' && this.isEnterprise;
-      if (this.isAppelMode) {
-        this.listingMode = 'open';
-      }
-    });
     this.mobileMoneyOperators = this.paymentService.getMobileMoneyOperators('ML');
     this.loadCategories();
     this.blockchainService.getStatus().subscribe({

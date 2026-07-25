@@ -17,10 +17,11 @@ class IsMissionOwner(permissions.BasePermission):
 
 
 class IsMissionProvider(permissions.BasePermission):
-    """Permission qui vérifie que l'utilisateur est le prestataire assigné à la mission."""
+    """Prestataire assigné ou membre d'équipe affecté à la mission."""
 
     def has_object_permission(self, request, view, obj):
-        return obj.provider == request.user
+        from apps.missions.executor_helpers import user_is_mission_executor
+        return user_is_mission_executor(request.user, obj)
 
 
 class CanApplyToMission(permissions.BasePermission):
@@ -76,7 +77,10 @@ class IsEnterpriseMember(permissions.BasePermission):
 
 
 class IsClientOrProvider(permissions.BasePermission):
-    """Permission qui autorise le client ou le prestataire d'une mission."""
+    """Permission qui autorise le client ou un exécutant de la mission."""
 
     def has_object_permission(self, request, view, obj):
-        return request.user in [obj.client, obj.provider]
+        if request.user == obj.client:
+            return True
+        from apps.missions.executor_helpers import user_is_mission_executor
+        return user_is_mission_executor(request.user, obj)

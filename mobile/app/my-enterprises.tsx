@@ -54,7 +54,7 @@ export default function MyEnterprisesScreen() {
             <Pressable onPress={() => router.push('/invitations')}>
               <SoftCard style={{ marginBottom: spacing.md }}>
                 <Text style={styles.sectionTitle}>
-                  {invites.length} appel(s) / invitation(s) en attente
+                  {invites.length} invitation(s) en attente
                 </Text>
                 <Text style={styles.meta}>Ouvrir pour accepter ou refuser →</Text>
               </SoftCard>

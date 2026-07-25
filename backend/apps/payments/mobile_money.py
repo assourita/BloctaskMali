@@ -235,11 +235,13 @@ class MobileMoneyService:
 
     @classmethod
     def release_to_provider(cls, payment) -> dict:
-        """Libère les fonds au prestataire après validation mission."""
+        """Libère les fonds au prestataire (ou compte entreprise) après validation mission."""
+        from apps.missions.executor_helpers import payout_recipient_user
+
         mission = payment.mission
-        provider = mission.provider
+        provider = payout_recipient_user(mission)
         if not provider:
-            raise MobileMoneyError('Aucun prestataire assigné')
+            raise MobileMoneyError('Aucun destinataire de paiement')
 
         amount = payment.provider_amount or (payment.amount * Decimal('0.95'))
         tx_id = f'PAYOUT-{uuid.uuid4().hex[:12].upper()}'
@@ -250,6 +252,7 @@ class MobileMoneyService:
                 'transaction_id': tx_id,
                 'amount': str(amount),
                 'provider_id': str(provider.id),
+                'enterprise_id': str(mission.assigned_enterprise_id) if mission.assigned_enterprise_id else None,
                 'released_at': timezone.now().isoformat(),
             },
         }

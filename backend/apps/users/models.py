@@ -436,6 +436,113 @@ class EnterpriseInvite(models.Model):
         return self.expires_at > timezone.now()
 
 
+class EnterpriseRecruitmentCall(models.Model):
+    """Appel à candidature ouvert : tout prestataire peut postuler pour rejoindre l'entreprise."""
+
+    class Status(models.TextChoices):
+        OPEN = 'open', 'Ouvert'
+        CLOSED = 'closed', 'Fermé'
+        CANCELLED = 'cancelled', 'Annulé'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    enterprise = models.ForeignKey(
+        EnterpriseProfile,
+        on_delete=models.CASCADE,
+        related_name='recruitment_calls',
+    )
+    created_by = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='created_recruitment_calls',
+    )
+    title = models.CharField(max_length=255)
+    description = models.TextField()
+    role = models.CharField(
+        max_length=20,
+        choices=Employee.Role.choices,
+        default=Employee.Role.AGENT,
+    )
+    position = models.CharField(max_length=100, blank=True, default='Agent terrain')
+    city = models.CharField(max_length=100, blank=True)
+    requirements = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.OPEN,
+        db_index=True,
+    )
+    expires_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'enterprise_recruitment_calls'
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['status', 'created_at']),
+            models.Index(fields=['enterprise', 'status']),
+        ]
+
+    def __str__(self):
+        return f"{self.title} — {self.enterprise.company_name} ({self.status})"
+
+    @property
+    def is_open(self) -> bool:
+        from django.utils import timezone
+        if self.status != self.Status.OPEN:
+            return False
+        if self.expires_at and self.expires_at <= timezone.now():
+            return False
+        return True
+
+
+class EnterpriseRecruitmentApplication(models.Model):
+    """Candidature d'un prestataire à un appel ouvert."""
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'En attente'
+        ACCEPTED = 'accepted', 'Acceptée'
+        REJECTED = 'rejected', 'Refusée'
+        WITHDRAWN = 'withdrawn', 'Retirée'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    call = models.ForeignKey(
+        EnterpriseRecruitmentCall,
+        on_delete=models.CASCADE,
+        related_name='applications',
+    )
+    provider = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name='recruitment_applications',
+    )
+    message = models.TextField(blank=True)
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+        db_index=True,
+    )
+    reviewed_at = models.DateTimeField(blank=True, null=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'enterprise_recruitment_applications'
+        ordering = ['-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['call', 'provider'],
+                name='uniq_recruitment_application_call_provider',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.provider_id} → {self.call_id} ({self.status})"
+
+
 class LoginHistory(models.Model):
     """Historique des connexions"""
 

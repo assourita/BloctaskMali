@@ -273,6 +273,11 @@ class MissionDetailSerializer(serializers.ModelSerializer):
         source='assigned_enterprise.company_name', read_only=True, allow_null=True,
     )
     executing_employee = serializers.SerializerMethodField()
+    executing_employees = serializers.SerializerMethodField()
+    assigned_team_id = serializers.UUIDField(read_only=True, allow_null=True)
+    assigned_team_name = serializers.CharField(
+        source='assigned_team.name', read_only=True, allow_null=True,
+    )
     category_rule = serializers.SerializerMethodField()
     counterparty = serializers.SerializerMethodField()
     can_view_counterparty = serializers.SerializerMethodField()
@@ -300,6 +305,7 @@ class MissionDetailSerializer(serializers.ModelSerializer):
             'views_count', 'applications_count', 'pending_applications_count',
             'requirements', 'custom_details', 'media', 'payment_id', 'payment_status',
             'assigned_enterprise_id', 'assigned_enterprise_name', 'executing_employee',
+            'executing_employees', 'assigned_team_id', 'assigned_team_name',
             'counterparty', 'can_view_counterparty',
             'created_at', 'updated_at',
             'status_history', 'is_applied', 'can_apply', 'apply_block_reason', 'applications_open'
@@ -354,8 +360,40 @@ class MissionDetailSerializer(serializers.ModelSerializer):
             'first_name': emp.first_name,
             'last_name': emp.last_name,
             'email': emp.email or '',
+            'is_lead': True,
         }
-    
+
+    def get_executing_employees(self, obj):
+        from apps.enterprises.models import EmployeeAssignment
+        rows = []
+        for asg in obj.employee_assignments.filter(rejected_at__isnull=True).select_related('employee'):
+            emp = asg.employee
+            rows.append({
+                'id': str(emp.id),
+                'assignment_id': str(asg.id),
+                'first_name': emp.first_name,
+                'last_name': emp.last_name,
+                'email': emp.email or '',
+                'is_lead': bool(asg.is_lead) or (obj.executing_employee_id == emp.id),
+                'status': (
+                    'completed' if asg.completed_at else
+                    'accepted' if asg.accepted_at else
+                    'pending'
+                ),
+            })
+        if not rows and obj.executing_employee_id:
+            emp = obj.executing_employee
+            rows.append({
+                'id': str(emp.id),
+                'assignment_id': None,
+                'first_name': emp.first_name,
+                'last_name': emp.last_name,
+                'email': emp.email or '',
+                'is_lead': True,
+                'status': 'accepted',
+            })
+        return rows
+
     def get_requirements(self, obj):
         from .requirements import parse_mission_requirements
         return parse_mission_requirements(obj)

@@ -8,8 +8,8 @@ import uuid
 
 
 class EnterpriseTeam(models.Model):
-    """Équipe au sein d'une entreprise"""
-    
+    """Équipe réutilisable au sein d'une entreprise."""
+
     enterprise = models.ForeignKey(
         'users.EnterpriseProfile',
         on_delete=models.CASCADE,
@@ -17,8 +17,8 @@ class EnterpriseTeam(models.Model):
     )
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True)
-    
-    # Chef d'équipe
+
+    # Chef d'équipe (défaut pour les affectations mission)
     manager = models.ForeignKey(
         'users.Employee',
         on_delete=models.SET_NULL,
@@ -26,25 +26,60 @@ class EnterpriseTeam(models.Model):
         blank=True,
         related_name='managed_teams'
     )
-    
+
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
-    
+    updated_at = models.DateTimeField(auto_now=True)
+
     class Meta:
         db_table = 'enterprise_teams'
-    
+        ordering = ['name']
+
     def __str__(self):
         return f"{self.name} - {self.enterprise.company_name}"
 
 
+class EnterpriseTeamMember(models.Model):
+    """Membre d'une équipe entreprise."""
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    team = models.ForeignKey(
+        EnterpriseTeam,
+        on_delete=models.CASCADE,
+        related_name='memberships',
+    )
+    employee = models.ForeignKey(
+        'users.Employee',
+        on_delete=models.CASCADE,
+        related_name='team_memberships',
+    )
+    is_lead = models.BooleanField(
+        default=False,
+        help_text='Marqueur local (le chef officiel reste team.manager)',
+    )
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        db_table = 'enterprise_team_members'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['team', 'employee'],
+                name='uniq_team_member',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.employee} ∈ {self.team.name}"
+
+
 class EmployeeAssignment(models.Model):
-    """Affectation d'un employé à une mission"""
-    
+    """Affectation d'un employé à une mission (multi-exécutants possibles)."""
+
     class AssignmentType(models.TextChoices):
         MANUAL = 'manual', 'Manuelle'
         AUTOMATIC = 'automatic', 'Automatique'
         ROTATION = 'rotation', 'Rotation'
-    
+
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     mission = models.ForeignKey(
         'missions.Mission',
@@ -62,25 +97,35 @@ class EmployeeAssignment(models.Model):
         null=True,
         related_name='assignments_made'
     )
-    
+
     assignment_type = models.CharField(
         max_length=20,
         choices=AssignmentType.choices,
         default=AssignmentType.MANUAL
     )
-    
+    is_lead = models.BooleanField(
+        default=False,
+        help_text='Chef d\'équipe pour cette mission',
+    )
+
     notes = models.TextField(blank=True)
-    
+
     assigned_at = models.DateTimeField(auto_now_add=True)
     accepted_at = models.DateTimeField(blank=True, null=True)
     rejected_at = models.DateTimeField(blank=True, null=True)
     rejection_reason = models.TextField(blank=True)
     completed_at = models.DateTimeField(blank=True, null=True)
-    
+
     class Meta:
         db_table = 'employee_assignments'
         ordering = ['-assigned_at']
-    
+        constraints = [
+            models.UniqueConstraint(
+                fields=['mission', 'employee'],
+                name='uniq_assignment_mission_employee',
+            ),
+        ]
+
     def __str__(self):
         return f"{self.employee} → {self.mission}"
 

@@ -51,7 +51,17 @@ export interface Mission {
   listing_mode?: 'open' | 'invite_only' | string;
   is_enterprise_call?: boolean;
   client_display_name?: string;
-  executing_employee?: { id: string; first_name: string; last_name: string; position?: string };
+  executing_employee?: { id: string; first_name: string; last_name: string; position?: string; is_lead?: boolean };
+  executing_employees?: Array<{
+    id: string;
+    first_name: string;
+    last_name: string;
+    email?: string;
+    is_lead?: boolean;
+    status?: string;
+  }>;
+  assigned_team_id?: string | null;
+  assigned_team_name?: string | null;
   min_reputation_score?: number;
   priority?: string;
   deposit_policy?: {

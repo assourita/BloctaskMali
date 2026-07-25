@@ -1,45 +1,83 @@
 from rest_framework import serializers
 from .models import (
-    EnterpriseTeam, EmployeeAssignment, EnterpriseContract,
-    EnterpriseInvoice, EmployeeAvailability
+    EnterpriseTeam, EnterpriseTeamMember, EmployeeAssignment,
+    EnterpriseContract, EnterpriseInvoice, EmployeeAvailability,
 )
+
+
+class TeamMemberSerializer(serializers.ModelSerializer):
+    employee_id = serializers.UUIDField(source='employee.id', read_only=True)
+    first_name = serializers.CharField(source='employee.first_name', read_only=True)
+    last_name = serializers.CharField(source='employee.last_name', read_only=True)
+    email = serializers.CharField(source='employee.email', read_only=True)
+    position = serializers.CharField(source='employee.position', read_only=True)
+    is_active = serializers.BooleanField(source='employee.is_active', read_only=True)
+    is_manager = serializers.SerializerMethodField()
+
+    class Meta:
+        model = EnterpriseTeamMember
+        fields = [
+            'id', 'employee_id', 'first_name', 'last_name', 'email',
+            'position', 'is_active', 'is_lead', 'is_manager', 'joined_at',
+        ]
+
+    def get_is_manager(self, obj):
+        return bool(obj.team.manager_id and obj.team.manager_id == obj.employee_id)
 
 
 class EnterpriseTeamSerializer(serializers.ModelSerializer):
     manager_name = serializers.SerializerMethodField()
+    members = serializers.SerializerMethodField()
+    members_count = serializers.SerializerMethodField()
 
     class Meta:
         model = EnterpriseTeam
-        fields = ['id', 'name', 'description', 'manager', 'manager_name', 'is_active', 'created_at']
-        read_only_fields = ['id', 'created_at']
+        fields = [
+            'id', 'name', 'description', 'manager', 'manager_name',
+            'is_active', 'members', 'members_count', 'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_at', 'updated_at']
 
     def get_manager_name(self, obj):
-        if obj.manager:
-            return obj.manager.user.get_full_name()
-        return None
+        if not obj.manager_id:
+            return None
+        m = obj.manager
+        name = f"{m.first_name or ''} {m.last_name or ''}".strip()
+        if name:
+            return name
+        if m.user_id:
+            return m.user.get_full_name() or m.user.email
+        return m.email or None
+
+    def get_members(self, obj):
+        qs = obj.memberships.select_related('employee', 'employee__user', 'team')
+        return TeamMemberSerializer(qs, many=True).data
+
+    def get_members_count(self, obj):
+        if hasattr(obj, 'members_count_anno'):
+            return obj.members_count_anno
+        return obj.memberships.count()
 
 
 class EmployeeAssignmentSerializer(serializers.ModelSerializer):
     employee_name = serializers.SerializerMethodField()
     mission_title = serializers.CharField(source='mission.title', read_only=True)
+    assignment_status = serializers.SerializerMethodField()
 
     class Meta:
         model = EmployeeAssignment
         fields = [
             'id', 'mission', 'mission_title', 'employee', 'employee_name',
-            'assignment_type', 'assignment_status', 'notes', 'assigned_at', 'accepted_at',
-            'rejected_at', 'rejection_reason', 'completed_at'
+            'assignment_type', 'is_lead', 'assignment_status', 'notes',
+            'assigned_at', 'accepted_at', 'rejected_at', 'rejection_reason', 'completed_at',
         ]
         read_only_fields = ['id', 'assigned_at', 'accepted_at', 'rejected_at', 'completed_at']
 
-    assignment_status = serializers.SerializerMethodField()
-
     def get_employee_name(self, obj):
-        """Retourne le nom complet de l'employé."""
         if obj.employee:
-            return f"{obj.employee.first_name} {obj.employee.last_name}"
+            return f"{obj.employee.first_name} {obj.employee.last_name}".strip()
         return None
-    
+
     def get_assignment_status(self, obj):
         if obj.completed_at:
             return 'completed'
@@ -88,62 +126,32 @@ class EmployeeAvailabilitySerializer(serializers.ModelSerializer):
             'current_mission', 'mission_title', 'available_from', 'updated_at'
         ]
 
+    def get_employee_name(self, obj):
+        if obj.employee:
+            return f"{obj.employee.first_name} {obj.employee.last_name}".strip()
+        return None
 
-class EmployeeAssignmentCreateSerializer(serializers.ModelSerializer):
-    employee_validation = serializers.SerializerMethodField()
-    
-    class Meta:
-        model = EmployeeAssignment
-        fields = ['mission', 'employee', 'assignment_type', 'notes', 'employee_validation']
-        read_only_fields = ['employee_validation']
-    
-    def get_employee_validation(self, obj):
-        """Retourne les informations de validation de l'employé."""
-        if not obj.employee:
-            return None
-        
-        from apps.users.employee_validation import EmployeeValidator
-        validator = EmployeeValidator()
-        result = validator.validate_employee(obj.employee)
-        
-        return {
-            'is_valid': result.is_valid,
-            'can_assign_mission': result.can_assign_mission,
-            'validation_score': result.validation_score,
-            'critical_issues': len([i for i in result.issues if i.severity == 'critical']),
-            'warning_issues': len([i for i in result.issues if i.severity == 'warning']),
-            'issues_summary': [
-                {
-                    'type': issue.type.value,
-                    'severity': issue.severity,
-                    'message': issue.message,
-                    'suggested_action': issue.suggested_action,
-                    'can_auto_fix': issue.can_auto_fix
-                }
-                for issue in result.issues[:5]  # Limiter à 5 problèmes pour la lisibilité
-            ]
-        }
-    
+
+class EmployeeAssignmentCreateSerializer(serializers.Serializer):
+    """Création d'affectation : employé seul, ou équipe entière."""
+
+    mission = serializers.UUIDField()
+    employee = serializers.UUIDField(required=False, allow_null=True)
+    team = serializers.UUIDField(required=False, allow_null=True)
+    lead_employee = serializers.UUIDField(required=False, allow_null=True)
+    is_lead = serializers.BooleanField(required=False, default=False)
+    assignment_type = serializers.ChoiceField(
+        choices=EmployeeAssignment.AssignmentType.choices,
+        required=False,
+        default=EmployeeAssignment.AssignmentType.MANUAL,
+    )
+    notes = serializers.CharField(required=False, allow_blank=True, default='')
+
     def validate(self, attrs):
-        """Validation personnalisée avant création d'assignation."""
         employee = attrs.get('employee')
-        mission = attrs.get('mission')
-        
-        if employee and mission:
-            from apps.users.employee_validation import validate_employee_for_assignment
-            validation_result = validate_employee_for_assignment(
-                str(employee.id), 
-                str(mission.id)
-            )
-            
-            if not validation_result['can_assign']:
-                critical_issues = [i for i in validation_result['issues'] if i['severity'] == 'critical']
-                if critical_issues:
-                    error_messages = [issue['message'] for issue in critical_issues]
-                    raise serializers.ValidationError({
-                        'employee': f'Impossible d\'assigner cet employé: {"; ".join(error_messages)}',
-                        'validation_issues': validation_result['issues'],
-                        'suggested_actions': [issue['suggested_action'] for issue in critical_issues]
-                    })
-        
+        team = attrs.get('team')
+        if not employee and not team:
+            raise serializers.ValidationError('Indiquez un employé ou une équipe')
+        if employee and team:
+            raise serializers.ValidationError('Choisissez soit un employé, soit une équipe')
         return attrs

@@ -23,9 +23,8 @@ def _user_can_access_mission(user, mission):
         return True
     if mission.client_id == user.id:
         return True
-    if mission.provider_id == user.id:
-        return True
-    return False
+    from apps.missions.executor_helpers import user_is_mission_executor
+    return user_is_mission_executor(user, mission)
 
 
 class MissionProofViewSet(viewsets.ModelViewSet):
@@ -44,8 +43,16 @@ class MissionProofViewSet(viewsets.ModelViewSet):
             qs = qs.filter(mission_id=mission_id)
         if not (self.request.user.is_staff or getattr(self.request.user, 'user_type', '') == 'admin'):
             user = self.request.user
+            from apps.enterprises.models import EmployeeAssignment
+            assigned_mission_ids = EmployeeAssignment.objects.filter(
+                employee__user=user,
+                rejected_at__isnull=True,
+            ).values_list('mission_id', flat=True)
             qs = qs.filter(
-                Q(mission__client=user) | Q(mission__provider=user) | Q(submitted_by=user)
+                Q(mission__client=user)
+                | Q(mission__provider=user)
+                | Q(submitted_by=user)
+                | Q(mission_id__in=assigned_mission_ids)
             )
         return qs.distinct()
 
@@ -55,8 +62,9 @@ class MissionProofViewSet(viewsets.ModelViewSet):
             return Response({'error': 'mission requis'}, status=status.HTTP_400_BAD_REQUEST)
 
         mission = get_object_or_404(Mission, id=mission_id)
-        if mission.provider != request.user and not request.user.is_staff:
-            return Response({'error': 'Seul le prestataire peut soumettre des preuves'}, status=403)
+        from apps.missions.executor_helpers import user_is_mission_executor
+        if not user_is_mission_executor(request.user, mission) and not request.user.is_staff:
+            return Response({'error': 'Seul un exécutant de la mission peut soumettre des preuves'}, status=403)
         if mission.status not in ['in_progress', 'provider_done', 'submitted']:
             return Response({'error': 'Mission non éligible pour les preuves'}, status=400)
 

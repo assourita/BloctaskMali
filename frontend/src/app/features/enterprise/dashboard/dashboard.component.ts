@@ -56,9 +56,9 @@ import {
             <mat-icon>add</mat-icon>
             Nouvelle mission
           </button>
-          <button mat-stroked-button routerLink="/enterprise/employees">
-            <mat-icon>people</mat-icon>
-            Gérer équipe
+          <button mat-stroked-button routerLink="/enterprise/teams">
+            <mat-icon>groups</mat-icon>
+            Gérer équipes
           </button>
         </div>
       </div>

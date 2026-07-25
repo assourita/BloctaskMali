@@ -122,3 +122,57 @@ def test_enterprise_can_order_mission(enterprise_user, category):
     )
     assert mission.client_id == enterprise_user.id
     assert enterprise_user.user_type == 'enterprise'
+
+
+@pytest.mark.django_db
+def test_assign_team_multi_executors_and_payout_recipient(funded_mission, enterprise_user, client_user):
+    from apps.enterprises.models import EnterpriseTeam, EnterpriseTeamMember, EmployeeAssignment
+    from apps.missions.executor_helpers import user_is_mission_executor, payout_recipient_user
+    from apps.users.enterprise_services import assign_team_to_mission
+
+    accept_enterprise_as_provider(
+        funded_mission,
+        enterprise_user.enterprise_profile,
+        client_user,
+    )
+    enterprise = enterprise_user.enterprise_profile
+    enterprise.deposit_balance = funded_mission.required_deposit
+    enterprise.save(update_fields=['deposit_balance'])
+    escrow_service.lock_enterprise_deposit(funded_mission, enterprise)
+
+    lead, _ = create_employee_account(
+        enterprise=enterprise,
+        first_name='Chef',
+        last_name='Equipe',
+        email='chef.team@test.ml',
+        phone='+22370001111',
+    )
+    member, _ = create_employee_account(
+        enterprise=enterprise,
+        first_name='Membre',
+        last_name='Deux',
+        email='membre.team@test.ml',
+        phone='+22370002222',
+    )
+
+    team = EnterpriseTeam.objects.create(
+        enterprise=enterprise,
+        name='Terrain Bamako',
+        manager=lead,
+    )
+    EnterpriseTeamMember.objects.create(team=team, employee=lead)
+    EnterpriseTeamMember.objects.create(team=team, employee=member)
+
+    assign_team_to_mission(funded_mission, team, enterprise_user, lead_employee=lead)
+
+    funded_mission.refresh_from_db()
+    assert funded_mission.assigned_team_id == team.id
+    assert funded_mission.executing_employee_id == lead.id
+    assert funded_mission.provider_id == lead.user_id
+    assert EmployeeAssignment.objects.filter(mission=funded_mission).count() == 2
+    assert EmployeeAssignment.objects.filter(mission=funded_mission, is_lead=True).count() == 1
+
+    assert user_is_mission_executor(lead.user, funded_mission)
+    assert user_is_mission_executor(member.user, funded_mission)
+    assert payout_recipient_user(funded_mission).id == enterprise.user_id
+

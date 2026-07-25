@@ -113,6 +113,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/provider/invitations/invitations.component').then(m => m.ProviderInvitationsComponent)
       },
       {
+        path: 'appels',
+        loadComponent: () => import('./features/provider/appels/appels.component').then(m => m.ProviderAppelsComponent)
+      },
+      {
         path: 'missions/available',
         loadComponent: () => import('./features/provider/missions/available-missions/available-missions.component').then(m => m.AvailableMissionsComponent)
       },
@@ -175,6 +179,10 @@ export const routes: Routes = [
       {
         path: 'employees',
         loadComponent: () => import('./features/enterprise/employees/employees.component').then(m => m.EnterpriseEmployeesComponent)
+      },
+      {
+        path: 'teams',
+        loadComponent: () => import('./features/enterprise/teams/teams.component').then(m => m.EnterpriseTeamsComponent)
       },
       {
         path: 'invitations',

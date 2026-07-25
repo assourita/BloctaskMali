@@ -339,7 +339,10 @@ export default function EmployeesScreen() {
         ) : (
           <>
             <Pressable onPress={() => router.push('/enterprise-invitations')}>
-              <Text style={styles.link}>Voir l'historique complet des appels / invitations →</Text>
+              <Text style={styles.link}>Voir l'historique des invitations →</Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/enterprise-appels')}>
+              <Text style={styles.link}>Publier un appel à candidature →</Text>
             </Pressable>
             {pendingInvites.length === 0 ? (
               <Text style={styles.empty}>Aucune invitation en attente.</Text>

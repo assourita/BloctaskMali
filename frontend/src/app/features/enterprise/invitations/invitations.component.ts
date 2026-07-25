@@ -32,12 +32,17 @@ type InviteFilter = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'expired
     <div class="page">
       <header class="page-header">
         <div>
-          <h1><mat-icon>campaign</mat-icon> Appels / invitations</h1>
-          <p>Invitez des prestataires à rejoindre votre entreprise (pas pour exécuter une mission).</p>
+          <h1><mat-icon>mail_outline</mat-icon> Invitations</h1>
+          <p>Invitations ciblées par email pour rejoindre votre entreprise. Pour un recrutement ouvert, utilisez Appels à candidature.</p>
         </div>
-        <a mat-raised-button color="primary" routerLink="/enterprise/employees">
-          <mat-icon>person_add</mat-icon> Inviter à rejoindre
-        </a>
+        <div class="header-actions">
+          <a mat-stroked-button routerLink="/enterprise/appels">
+            <mat-icon>campaign</mat-icon> Appels à candidature
+          </a>
+          <a mat-raised-button color="primary" routerLink="/enterprise/employees">
+            <mat-icon>person_add</mat-icon> Inviter à rejoindre
+          </a>
+        </div>
       </header>
 
       <div class="filters">
@@ -93,8 +98,9 @@ type InviteFilter = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'expired
     .page-header {
       display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;
       h1 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 22px; }
-      p { margin: 0; color: #64748b; font-size: 14px; }
+      p { margin: 0; color: #64748b; font-size: 14px; max-width: 480px; }
     }
+    .header-actions { display: flex; flex-wrap: wrap; gap: 8px; }
     .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
     .filters button {
       border: 1px solid #e2e8f0; background: #fff; color: #64748b;

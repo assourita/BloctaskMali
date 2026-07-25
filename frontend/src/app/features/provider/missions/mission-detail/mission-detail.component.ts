@@ -15,7 +15,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { lastValueFrom } from 'rxjs';
 import { MissionService, Mission } from '../../../../core/services/mission.service';
-import { EnterpriseService, EnterpriseEmployee } from '../../../../core/services/enterprise.service';
+import { EnterpriseService, EnterpriseEmployee, EnterpriseTeam } from '../../../../core/services/enterprise.service';
 import { ProofService } from '../../../../core/services/proof.service';
 import { BlockchainService } from '../../../../core/services/blockchain.service';
 import { Web3Service } from '../../../../core/services/web3.service';
@@ -356,20 +356,39 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
                     </a>
 
                     <ng-container *ngIf="mission.deposit_paid && !mission.executing_employee">
-                      <p class="action-hint">Sélectionnez l'employé qui exécutera la mission sur le terrain.</p>
-                      <select class="employee-select" [(ngModel)]="assignEmployeeId">
-                        <option value="">Choisir un employé</option>
-                        <option *ngFor="let e of employees" [value]="e.id">{{ e.first_name }} {{ e.last_name }}</option>
-                      </select>
+                      <p class="action-hint">Affectez un employé ou une équipe (avec chef désigné).</p>
+                      <div class="mode-toggle">
+                        <button type="button" [class.active]="assignMode === 'employee'" (click)="assignMode = 'employee'">Employé</button>
+                        <button type="button" [class.active]="assignMode === 'team'" (click)="assignMode = 'team'">Équipe</button>
+                      </div>
+                      <ng-container *ngIf="assignMode === 'employee'">
+                        <select class="employee-select" [(ngModel)]="assignEmployeeId">
+                          <option value="">Choisir un employé</option>
+                          <option *ngFor="let e of employees" [value]="e.id">{{ e.first_name }} {{ e.last_name }}</option>
+                        </select>
+                      </ng-container>
+                      <ng-container *ngIf="assignMode === 'team'">
+                        <select class="employee-select" [(ngModel)]="assignTeamId" (ngModelChange)="onAssignTeamPick($event)">
+                          <option value="">Choisir une équipe</option>
+                          <option *ngFor="let t of teams" [value]="t.id">{{ t.name }}</option>
+                        </select>
+                        <select class="employee-select" [(ngModel)]="assignLeadId" *ngIf="assignTeamId">
+                          <option value="">Chef (défaut manager)</option>
+                          <option *ngFor="let m of assignTeamMembers" [value]="m.employee_id">{{ m.first_name }} {{ m.last_name }}</option>
+                        </select>
+                      </ng-container>
                       <button mat-raised-button color="primary" class="full-width"
-                        (click)="assignEmployee()" [disabled]="actionLoading || !assignEmployeeId">
-                        <mat-icon>person_add</mat-icon> Assigner un employé
+                        (click)="assignEmployee()" [disabled]="actionLoading || (assignMode === 'employee' ? !assignEmployeeId : !assignTeamId)">
+                        <mat-icon>person_add</mat-icon> Confirmer l'affectation
                       </button>
                     </ng-container>
 
                     <div class="success-banner" *ngIf="mission.deposit_paid && mission.executing_employee">
                       <mat-icon>check_circle</mat-icon>
-                      Employé assigné : {{ mission.executing_employee.first_name }} {{ mission.executing_employee.last_name }}
+                      Chef : {{ mission.executing_employee.first_name }} {{ mission.executing_employee.last_name }}
+                      <span *ngIf="mission.executing_employees?.length">
+                        · {{ mission.executing_employees?.length }} exécutant(s)
+                      </span>
                       — la mission démarre automatiquement.
                     </div>
                   </ng-container>
@@ -710,7 +729,12 @@ export class ProviderMissionDetailComponent implements OnInit {
   selectedFile: File | null = null;
   applyMessage = '';
   employees: EnterpriseEmployee[] = [];
+  teams: EnterpriseTeam[] = [];
+  assignMode: 'employee' | 'team' = 'employee';
   assignEmployeeId = '';
+  assignTeamId = '';
+  assignLeadId = '';
+  assignTeamMembers: { employee_id: string; first_name: string; last_name: string }[] = [];
 
   readonly timelineSteps: Array<{ key: string; label: string; done: boolean; active: boolean }> = [];
 
@@ -732,6 +756,9 @@ export class ProviderMissionDetailComponent implements OnInit {
     if (this.enterpriseReceived) {
       this.enterpriseService.getEmployees().subscribe({
         next: (list) => { this.employees = list.filter(e => e.is_active); },
+      });
+      this.enterpriseService.getTeams().subscribe({
+        next: (list) => { this.teams = (list || []).filter(t => t.is_active !== false); },
       });
     }
     this.loadMission();
@@ -1101,17 +1128,48 @@ export class ProviderMissionDetailComponent implements OnInit {
     });
   }
 
+  onAssignTeamPick(teamId: string): void {
+    const team = this.teams.find((t) => t.id === teamId);
+    this.assignTeamMembers = (team?.members || []).map((m) => ({
+      employee_id: m.employee_id,
+      first_name: m.first_name,
+      last_name: m.last_name,
+    }));
+    if (team?.manager) this.assignLeadId = String(team.manager);
+  }
+
   assignEmployee(): void {
-    if (!this.assignEmployeeId) return;
     this.actionLoading = true;
-    this.enterpriseService.createAssignment({
-      mission: this.missionId,
-      employee: this.assignEmployeeId,
-    }).subscribe({
+    const payload = this.assignMode === 'team'
+      ? {
+          mission: this.missionId,
+          team: this.assignTeamId,
+          lead_employee: this.assignLeadId || undefined,
+        }
+      : {
+          mission: this.missionId,
+          employee: this.assignEmployeeId,
+          is_lead: true,
+        };
+    if (this.assignMode === 'employee' && !this.assignEmployeeId) {
+      this.actionLoading = false;
+      return;
+    }
+    if (this.assignMode === 'team' && !this.assignTeamId) {
+      this.actionLoading = false;
+      return;
+    }
+    this.enterpriseService.createAssignment(payload).subscribe({
       next: () => {
         this.actionLoading = false;
         this.assignEmployeeId = '';
-        this.snackBar.open('Employé assigné — mission démarrée', 'Fermer', { duration: 4000 });
+        this.assignTeamId = '';
+        this.assignLeadId = '';
+        this.snackBar.open(
+          this.assignMode === 'team' ? 'Équipe affectée — mission démarrée' : 'Employé assigné — mission démarrée',
+          'Fermer',
+          { duration: 4000 },
+        );
         this.loadMission();
       },
       error: (e) => {

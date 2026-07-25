@@ -1504,10 +1504,11 @@ class MissionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path='location')
     def post_location(self, request, pk=None):
-        """Enregistre une position GPS (prestataire)."""
+        """Enregistre une position GPS (exécutant)."""
         mission = self.get_object()
-        if mission.provider != request.user and not request.user.is_staff:
-            return Response({'error': 'Seul le prestataire peut partager sa position'}, status=403)
+        from apps.missions.executor_helpers import user_is_mission_executor
+        if not user_is_mission_executor(request.user, mission) and not request.user.is_staff:
+            return Response({'error': 'Seul un exécutant peut partager sa position'}, status=403)
         if mission.status not in [Mission.Status.ACCEPTED, Mission.Status.IN_PROGRESS]:
             return Response({'error': 'Mission non en cours'}, status=400)
 

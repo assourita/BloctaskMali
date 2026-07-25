@@ -69,14 +69,17 @@ export default function EnterpriseInvitationsScreen() {
   if (guardRedirect) return null;
 
   return (
-    <AppLayout title="Appels / invitations" showBack refreshing={refreshing} onRefresh={refresh}>
+    <AppLayout title="Invitations" showBack refreshing={refreshing} onRefresh={refresh}>
       <PageHeader
-        title="Appels à rejoindre l'entreprise"
-        subtitle="Invitez des prestataires à faire partie de votre équipe"
+        title="Invitations ciblées"
+        subtitle="Invitations par email pour rejoindre votre équipe — distinct des appels ouverts"
       />
 
       <Pressable onPress={() => router.push('/employees')}>
         <Text style={styles.link}>Inviter depuis Employés →</Text>
+      </Pressable>
+      <Pressable onPress={() => router.push('/enterprise-appels')}>
+        <Text style={styles.link}>Publier un appel à candidature →</Text>
       </Pressable>
 
       <TabBar tabs={FILTERS} value={status} onChange={setStatus} />

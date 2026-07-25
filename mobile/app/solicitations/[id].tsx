@@ -131,7 +131,7 @@ export default function SolicitationDetailScreen() {
     if (!missionId || !selectedEmployeeId) return;
     setActing(true);
     try {
-      await createAssignment({ mission: missionId, employee: selectedEmployeeId });
+      await createAssignment({ mission: missionId, employee: selectedEmployeeId, is_lead: true });
       Alert.alert('Succès', 'Employé assigné — vous pouvez démarrer la mission.');
       setLoading(true);
       await load();

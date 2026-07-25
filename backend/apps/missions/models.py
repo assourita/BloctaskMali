@@ -85,7 +85,15 @@ class Mission(models.Model):
         related_name='executed_missions',
         blank=True,
         null=True,
-        help_text='Employé terrain qui exécute la mission',
+        help_text='Chef d\'équipe / employé principal qui exécute la mission',
+    )
+    assigned_team = models.ForeignKey(
+        'enterprises.EnterpriseTeam',
+        on_delete=models.SET_NULL,
+        related_name='missions',
+        blank=True,
+        null=True,
+        help_text='Équipe entreprise affectée (si affectation par équipe)',
     )
     category = models.ForeignKey(
         Category,
