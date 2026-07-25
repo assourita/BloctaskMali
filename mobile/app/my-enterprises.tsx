@@ -1,57 +1,35 @@
 import { useCallback, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { router } from 'expo-router';
 import {
-  acceptEnterpriseInvite,
   getMyEnterpriseInvites,
   getMyEnterprises,
-  rejectEnterpriseInvite,
   type EnterpriseInvite,
   type ProviderEnterpriseMembership,
 } from '../src/api/enterprise';
-import { PrimaryButton, SecondaryButton } from '../src/components/buttons';
 import { AppLayout } from '../src/components/layout/AppLayout';
 import { PageHeader, SoftCard } from '../src/components/widgets';
 import { Loader } from '../src/components/ui';
 import { colors, spacing } from '../src/constants/theme';
 import { useScreenLoad } from '../src/utils/useScreenLoad';
 import { useAuth } from '../src/context/AuthContext';
-import { ApiError } from '../src/api/client';
 
 export default function MyEnterprisesScreen() {
   const { activeRole } = useAuth();
   const [invites, setInvites] = useState<EnterpriseInvite[]>([]);
   const [memberships, setMemberships] = useState<ProviderEnterpriseMembership[]>([]);
-  const [busyId, setBusyId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (activeRole !== 'provider') return;
     const [pending, links] = await Promise.all([
-      getMyEnterpriseInvites().catch(() => [] as EnterpriseInvite[]),
+      getMyEnterpriseInvites('pending').catch(() => [] as EnterpriseInvite[]),
       getMyEnterprises().catch(() => [] as ProviderEnterpriseMembership[]),
     ]);
-    setInvites(pending.filter((i) => i.status === 'pending'));
+    setInvites(pending);
     setMemberships(links.filter((m) => m.is_active));
   }, [activeRole]);
 
   const { loading, refreshing, refresh } = useScreenLoad(load, [load]);
-
-  const respond = async (id: string, accept: boolean) => {
-    setBusyId(id);
-    try {
-      if (accept) {
-        await acceptEnterpriseInvite(id);
-        Alert.alert('Bienvenue', 'Vous êtes maintenant lié à cette entreprise.');
-      } else {
-        await rejectEnterpriseInvite(id);
-      }
-      await load();
-    } catch (e) {
-      Alert.alert('Erreur', e instanceof ApiError ? e.message : accept ? 'Acceptation impossible' : 'Refus impossible');
-    } finally {
-      setBusyId(null);
-    }
-  };
 
   if (activeRole !== 'provider') {
     return (
@@ -65,7 +43,7 @@ export default function MyEnterprisesScreen() {
     <AppLayout title="Mes entreprises" showBack refreshing={refreshing} onRefresh={refresh}>
       <PageHeader
         title="Mes entreprises"
-        subtitle="Invitations et liens avec les entreprises partenaires"
+        subtitle="Entreprises auxquelles vous êtes lié"
       />
 
       {loading ? (
@@ -73,30 +51,14 @@ export default function MyEnterprisesScreen() {
       ) : (
         <>
           {invites.length > 0 ? (
-            <SoftCard style={{ marginBottom: spacing.md }}>
-              <Text style={styles.sectionTitle}>Invitations en attente</Text>
-              {invites.map((inv) => (
-                <View key={inv.id} style={styles.inviteBlock}>
-                  <Text style={styles.title}>{inv.enterprise_name}</Text>
-                  <Text style={styles.meta}>
-                    {inv.position || inv.role}
-                    {inv.message ? ` · ${inv.message}` : ''}
-                  </Text>
-                  <View style={styles.actions}>
-                    <View style={{ flex: 1 }}>
-                      <PrimaryButton
-                        label="Accepter"
-                        loading={busyId === inv.id}
-                        onPress={() => respond(inv.id, true)}
-                      />
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <SecondaryButton label="Refuser" onPress={() => respond(inv.id, false)} />
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </SoftCard>
+            <Pressable onPress={() => router.push('/invitations')}>
+              <SoftCard style={{ marginBottom: spacing.md }}>
+                <Text style={styles.sectionTitle}>
+                  {invites.length} appel(s) / invitation(s) en attente
+                </Text>
+                <Text style={styles.meta}>Ouvrir pour accepter ou refuser →</Text>
+              </SoftCard>
+            </Pressable>
           ) : null}
 
           <SoftCard>
@@ -104,25 +66,34 @@ export default function MyEnterprisesScreen() {
             {memberships.length === 0 ? (
               <Text style={styles.emptyInline}>Aucune entreprise liée pour le moment.</Text>
             ) : (
-              memberships.map((m) => (
-                <View key={m.id} style={styles.row}>
-                  <View style={styles.logo}>
-                    <Text style={styles.logoText}>E</Text>
+              memberships.map((m) => {
+                const logo = m.enterprise?.logo;
+                return (
+                  <View key={m.id} style={styles.row}>
+                    {logo ? (
+                      <Image source={{ uri: logo }} style={styles.logoImg} />
+                    ) : (
+                      <View style={styles.logo}>
+                        <Text style={styles.logoText}>
+                          {(m.enterprise_name || 'E')[0]}
+                        </Text>
+                      </View>
+                    )}
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.title}>{m.enterprise_name}</Text>
+                      <Text style={styles.meta}>
+                        {m.position || m.role}
+                        {m.hired_at
+                          ? ` · depuis ${new Date(m.hired_at).toLocaleDateString('fr-FR')}`
+                          : ''}
+                      </Text>
+                    </View>
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>Lié</Text>
+                    </View>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.title}>{m.enterprise_name}</Text>
-                    <Text style={styles.meta}>
-                      {m.position || m.role}
-                      {m.hired_at
-                        ? ` · depuis ${new Date(m.hired_at).toLocaleDateString('fr-FR')}`
-                        : ''}
-                    </Text>
-                  </View>
-                  <View style={styles.badge}>
-                    <Text style={styles.badgeText}>Lié</Text>
-                  </View>
-                </View>
-              ))
+                );
+              })
             )}
             <Text style={[styles.meta, { marginTop: spacing.md }]}>
               Les missions assignées via une entreprise apparaissent dans Mes missions.
@@ -139,15 +110,8 @@ export default function MyEnterprisesScreen() {
 
 const styles = StyleSheet.create({
   sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
-  inviteBlock: {
-    marginTop: spacing.sm,
-    paddingTop: spacing.sm,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
   title: { fontWeight: '700', color: colors.text, fontSize: 15 },
   meta: { fontSize: 12, color: colors.textMuted, marginTop: 2, lineHeight: 18 },
-  actions: { flexDirection: 'row', gap: spacing.sm, marginTop: spacing.sm },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -164,6 +128,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  logoImg: { width: 40, height: 40, borderRadius: 10 },
   logoText: { color: colors.primary, fontWeight: '800' },
   badge: {
     backgroundColor: '#dcfce7',

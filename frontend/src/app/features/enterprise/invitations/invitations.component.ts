@@ -32,11 +32,11 @@ type InviteFilter = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'expired
     <div class="page">
       <header class="page-header">
         <div>
-          <h1><mat-icon>mail_outline</mat-icon> Invitations prestataires</h1>
-          <p>Suivez les invitations en attente, acceptées, refusées ou annulées.</p>
+          <h1><mat-icon>campaign</mat-icon> Appels / invitations</h1>
+          <p>Invitez des prestataires à rejoindre votre entreprise (pas pour exécuter une mission).</p>
         </div>
         <a mat-raised-button color="primary" routerLink="/enterprise/employees">
-          <mat-icon>person_add</mat-icon> Inviter un prestataire
+          <mat-icon>person_add</mat-icon> Inviter à rejoindre
         </a>
       </header>
 

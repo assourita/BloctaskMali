@@ -40,8 +40,8 @@ type InviteFilter = 'pending' | 'accepted' | 'rejected' | 'cancelled' | 'expired
     <div class="page">
       <header class="page-header">
         <div>
-          <h1><mat-icon>inbox</mat-icon> Invitations entreprises</h1>
-          <p>Acceptez, refusez et consultez l'historique des invitations reçues.</p>
+          <h1><mat-icon>campaign</mat-icon> Appels / invitations</h1>
+          <p>Demandes pour rejoindre une entreprise — acceptez, refusez, consultez l'historique.</p>
         </div>
         <a mat-stroked-button routerLink="/provider/enterprises">
           <mat-icon>business</mat-icon> Mes entreprises

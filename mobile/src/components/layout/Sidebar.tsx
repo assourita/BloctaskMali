@@ -37,6 +37,7 @@ const CLIENT_NAV: NavItem[] = [
 const PROVIDER_NAV: NavItem[] = [
   { label: 'Mes missions assignées', href: '/(tabs)/missions', match: '/missions' },
   { label: 'Mes entreprises', href: '/my-enterprises', match: '/my-enterprises' },
+  { label: 'Appels / invitations', href: '/invitations', match: '/invitations' },
   { label: 'Mes sollicitations', href: '/solicitations', match: '/solicitations' },
   { label: 'Missions disponibles', href: '/(tabs)/available', match: '/available' },
   { label: 'Suivi GPS', href: '/tracking', match: '/tracking' },
@@ -51,6 +52,7 @@ const ENTERPRISE_NAV: NavItem[] = [
   { label: 'Missions', href: '/(tabs)/missions', match: '/missions' },
   { label: 'Sollicitations reçues', href: '/solicitations', match: '/solicitations' },
   { label: 'Employés', href: '/employees', match: '/employees' },
+  { label: 'Appels / invitations', href: '/enterprise-invitations', match: '/enterprise-invitations' },
   { label: 'Affectations', href: '/assignments', match: '/assignments' },
   { label: 'Suivi en temps réel', href: '/tracking', match: '/tracking' },
   { label: 'Finances', href: '/finances', match: '/finances' },

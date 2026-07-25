@@ -98,10 +98,10 @@ interface CategoryConfig {
           <div class="header-content">
             <mat-icon class="header-icon">{{ isAppelMode ? 'campaign' : 'add_circle' }}</mat-icon>
             <div>
-              <mat-card-title>{{ isAppelMode ? 'Publier un appel à prestataires' : 'Créer une nouvelle mission' }}</mat-card-title>
+              <mat-card-title>{{ isAppelMode ? 'Nouvelle mission (entreprise)' : 'Créer une nouvelle mission' }}</mat-card-title>
               <mat-card-subtitle>
                 {{ isAppelMode
-                  ? 'Besoin ouvert visible par les prestataires — ils postulent, vous choisissez'
+                  ? 'Pour recruter quelqu’un dans votre équipe, utilisez Appels / invitations'
                   : 'Décrivez votre besoin et trouvez un prestataire' }}
               </mat-card-subtitle>
             </div>

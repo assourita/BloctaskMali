@@ -58,8 +58,8 @@ interface Mission {
 
       <div class="page-hero">
         <div>
-          <h1><mat-icon>search</mat-icon> {{ enterpriseContext ? 'Missions disponibles' : 'Opportunités' }}</h1>
-          <p>{{ filteredMissions.length }} offre(s) ouverte(s){{ enterpriseContext ? ' — postulez pour votre entreprise' : ' — missions et appels entreprises' }}</p>
+          <h1><mat-icon>search</mat-icon> {{ enterpriseContext ? 'Missions disponibles' : 'Missions disponibles' }}</h1>
+          <p>{{ filteredMissions.length }} mission(s) ouverte(s){{ enterpriseContext ? ' — postulez pour votre entreprise' : '' }}</p>
         </div>
         <button mat-stroked-button class="filter-btn" (click)="showFilters = !showFilters">
           <mat-icon>tune</mat-icon> Filtres
@@ -69,10 +69,10 @@ interface Mission {
       <div class="source-tabs" *ngIf="!enterpriseContext">
         <button type="button" [class.active]="sourceFilter === 'all'" (click)="setSourceFilter('all')">Tous</button>
         <button type="button" [class.active]="sourceFilter === 'enterprise'" (click)="setSourceFilter('enterprise')">
-          Appels entreprises
+          Publiées par entreprises
         </button>
         <button type="button" [class.active]="sourceFilter === 'client'" (click)="setSourceFilter('client')">
-          Missions clients
+          Publiées par clients
         </button>
       </div>
 

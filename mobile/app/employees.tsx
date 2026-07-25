@@ -336,29 +336,36 @@ export default function EmployeesScreen() {
       {pageTab === 'invites' && (
         loading ? (
           <Loader />
-        ) : pendingInvites.length === 0 ? (
-          <Text style={styles.empty}>Aucune invitation en attente.</Text>
         ) : (
-          pendingInvites.map((inv) => (
-            <Card key={inv.id} style={styles.assignCard}>
-              <Text style={styles.name}>{inv.email}</Text>
-              <Text style={styles.meta}>
-                {ROLE_LABELS[inv.role] || inv.role}
-                {inv.position ? ` · ${inv.position}` : ''}
-                {inv.user_exists ? ' · compte existant' : ' · nouvel email'}
-              </Text>
-              {inv.expires_at ? (
-                <Text style={styles.meta}>
-                  Expire le {new Date(inv.expires_at).toLocaleDateString('fr-FR')}
-                </Text>
-              ) : null}
-              <View style={styles.formActions}>
-                <View style={{ flex: 1 }}>
-                  <SecondaryButton label="Annuler l’invitation" onPress={() => cancelInvite(inv.id)} />
-                </View>
-              </View>
-            </Card>
-          ))
+          <>
+            <Pressable onPress={() => router.push('/enterprise-invitations')}>
+              <Text style={styles.link}>Voir l'historique complet des appels / invitations →</Text>
+            </Pressable>
+            {pendingInvites.length === 0 ? (
+              <Text style={styles.empty}>Aucune invitation en attente.</Text>
+            ) : (
+              pendingInvites.map((inv) => (
+                <Card key={inv.id} style={styles.assignCard}>
+                  <Text style={styles.name}>{inv.email}</Text>
+                  <Text style={styles.meta}>
+                    {ROLE_LABELS[inv.role] || inv.role}
+                    {inv.position ? ` · ${inv.position}` : ''}
+                    {inv.user_exists ? ' · compte existant' : ' · nouvel email'}
+                  </Text>
+                  {inv.expires_at ? (
+                    <Text style={styles.meta}>
+                      Expire le {new Date(inv.expires_at).toLocaleDateString('fr-FR')}
+                    </Text>
+                  ) : null}
+                  <View style={styles.formActions}>
+                    <View style={{ flex: 1 }}>
+                      <SecondaryButton label="Annuler l’invitation" onPress={() => cancelInvite(inv.id)} />
+                    </View>
+                  </View>
+                </Card>
+              ))
+            )}
+          </>
         )
       )}
 

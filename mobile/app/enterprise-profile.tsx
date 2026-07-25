@@ -1,22 +1,28 @@
 import { useCallback, useEffect, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
+import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import * as ImagePicker from 'expo-image-picker';
 import {
   getEnterpriseProfile,
   updateEnterpriseProfile,
   type EnterpriseProfile,
 } from '../src/api/enterprise';
+import { uploadProfilePicture } from '../src/api/profile';
 import { PrimaryButton, Input } from '../src/components/buttons';
 import { Loader } from '../src/components/ui';
 import { AppLayout } from '../src/components/layout/AppLayout';
 import { PageHeader, SoftCard } from '../src/components/widgets';
-import { colors, spacing } from '../src/constants/theme';
+import { colors, radius, spacing } from '../src/constants/theme';
 import { ApiError } from '../src/api/client';
 import { formatXOF } from '../src/constants/africa';
+import { useAuth } from '../src/context/AuthContext';
 
 export default function EnterpriseProfileScreen() {
+  const { user, refreshProfile } = useAuth();
   const [profile, setProfile] = useState<EnterpriseProfile | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [logoUri, setLogoUri] = useState<string | null>(user?.profile_picture || null);
   const [form, setForm] = useState({
     company_name: '',
     rccm: '',
@@ -44,12 +50,52 @@ export default function EnterpriseProfileScreen() {
           city: p.city || '',
         });
       }
+      setLogoUri(user?.profile_picture || null);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [user?.profile_picture]);
 
   useEffect(() => { load(); }, [load]);
+
+  const pickLogo = () => {
+    Alert.alert('Photo entreprise', 'Choisir une source', [
+      { text: 'Galerie', onPress: () => uploadFrom(false) },
+      { text: 'Appareil photo', onPress: () => uploadFrom(true) },
+      { text: 'Annuler', style: 'cancel' },
+    ]);
+  };
+
+  const uploadFrom = async (useCamera: boolean) => {
+    const perm = useCamera
+      ? await ImagePicker.requestCameraPermissionsAsync()
+      : await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert('Permission', 'Autorisez l\'accès pour changer la photo.');
+      return;
+    }
+    const result = useCamera
+      ? await ImagePicker.launchCameraAsync({ quality: 0.8, allowsEditing: true, aspect: [1, 1] })
+      : await ImagePicker.launchImageLibraryAsync({ quality: 0.8, allowsEditing: true, aspect: [1, 1] });
+    if (result.canceled || !result.assets?.[0]) return;
+
+    setUploading(true);
+    try {
+      const asset = result.assets[0];
+      const updated = await uploadProfilePicture({
+        uri: asset.uri,
+        name: 'enterprise-logo.jpg',
+        type: 'image/jpeg',
+      });
+      setLogoUri(updated.profile_picture || asset.uri);
+      await refreshProfile?.();
+      Alert.alert('Succès', 'Photo entreprise mise à jour.');
+    } catch (e) {
+      Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Upload impossible');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const save = async () => {
     if (!form.company_name || !form.address || !form.city) {
@@ -72,9 +118,24 @@ export default function EnterpriseProfileScreen() {
     return <AppLayout title="Mon entreprise" showBack><Loader /></AppLayout>;
   }
 
+  const initials = (form.company_name || 'E').slice(0, 2).toUpperCase();
+
   return (
     <AppLayout title="Mon entreprise" showBack>
-      <PageHeader title="Profil entreprise" subtitle="Informations légales et contact" />
+      <PageHeader title="Profil entreprise" subtitle="Logo, informations légales et contact" />
+
+      <SoftCard style={styles.logoCard}>
+        <Pressable onPress={pickLogo} disabled={uploading}>
+          {logoUri ? (
+            <Image source={{ uri: logoUri }} style={styles.logo} />
+          ) : (
+            <View style={styles.logoFallback}>
+              <Text style={styles.logoLetter}>{initials}</Text>
+            </View>
+          )}
+          <Text style={styles.logoHint}>{uploading ? 'Upload…' : 'Changer la photo'}</Text>
+        </Pressable>
+      </SoftCard>
 
       {profile && (
         <SoftCard style={styles.kpi}>
@@ -100,9 +161,21 @@ export default function EnterpriseProfileScreen() {
 }
 
 const styles = StyleSheet.create({
-  kpi: { marginBottom: spacing.md, alignItems: 'center' },
-  kpiLabel: { fontSize: 12, color: colors.textMuted, fontWeight: '700' },
-  kpiValue: { fontSize: 22, fontWeight: '800', color: colors.primary, marginTop: 4 },
-  kpiSub: { fontSize: 12, color: colors.textMuted, marginTop: 4 },
+  logoCard: { alignItems: 'center', marginBottom: spacing.md, paddingVertical: spacing.lg },
+  logo: { width: 96, height: 96, borderRadius: radius.lg },
+  logoFallback: {
+    width: 96,
+    height: 96,
+    borderRadius: radius.lg,
+    backgroundColor: colors.warningLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  logoLetter: { fontSize: 28, fontWeight: '800', color: '#92400e' },
+  logoHint: { marginTop: spacing.sm, color: colors.primary, fontWeight: '600' },
+  kpi: { marginBottom: spacing.md },
+  kpiLabel: { color: colors.textMuted, fontSize: 13 },
+  kpiValue: { fontSize: 22, fontWeight: '800', color: colors.text, marginTop: 4 },
+  kpiSub: { color: colors.textMuted, marginTop: 4 },
   form: { gap: spacing.sm },
 });

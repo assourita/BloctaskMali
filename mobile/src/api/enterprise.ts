@@ -209,6 +209,25 @@ export async function getPublicEnterpriseProfile(id: string): Promise<Enterprise
   return apiRequest(`/users/enterprises/${id}/public/`);
 }
 
+export interface EnterpriseInviteSummary {
+  id: string;
+  user_id: string;
+  company_name: string;
+  city?: string;
+  country?: string;
+  address?: string;
+  website?: string;
+  description?: string;
+  company_email?: string;
+  company_phone?: string;
+  logo?: string | null;
+  is_verified?: boolean;
+  reputation_score?: number;
+  total_employees?: number;
+  total_missions_posted?: number;
+  member_since?: string;
+}
+
 export interface EnterpriseInvite {
   id: string;
   email: string;
@@ -218,8 +237,10 @@ export interface EnterpriseInvite {
   message?: string;
   expires_at?: string;
   created_at?: string;
+  responded_at?: string;
   enterprise_id: string;
   enterprise_name: string;
+  enterprise?: EnterpriseInviteSummary | null;
   user_exists?: boolean;
   invited_by_name?: string;
 }
@@ -228,6 +249,7 @@ export interface ProviderEnterpriseMembership {
   id: string;
   enterprise_id: string;
   enterprise_name: string;
+  enterprise?: EnterpriseInviteSummary | null;
   role: string;
   position: string;
   is_active: boolean;
@@ -257,9 +279,9 @@ export async function cancelEnterpriseInvite(id: string): Promise<EnterpriseInvi
   return apiRequest(`/users/enterprise/invites/${id}/cancel/`, { method: 'POST', body: '{}' });
 }
 
-export async function getMyEnterpriseInvites(): Promise<EnterpriseInvite[]> {
+export async function getMyEnterpriseInvites(status = 'pending'): Promise<EnterpriseInvite[]> {
   const data = await apiRequest<EnterpriseInvite[] | { results: EnterpriseInvite[] }>(
-    '/users/me/enterprise-invites/',
+    `/users/me/enterprise-invites/?status=${encodeURIComponent(status)}`,
   );
   return unwrap(data);
 }
