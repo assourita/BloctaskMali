@@ -54,7 +54,7 @@ interface CategoryRules {
 interface Category { id: string; name: string; icon: string; slug: string; rules?: CategoryRules; }
 
 // Category types for dynamic form behavior
-type CategoryType = 'delivery' | 'home_service' | 'location_based' | 'remote' | 'other';
+type CategoryType = 'delivery' | 'home_service' | 'professional' | 'security' | 'transport' | 'location_based' | 'remote' | 'other';
 
 interface CategoryConfig {
   type: CategoryType;
@@ -93,13 +93,21 @@ interface CategoryConfig {
   template: `
     <app-enterprise-missions-nav *ngIf="isEnterprise" />
     <div class="create-mission-container">
+      <header class="page-intro">
+        <p class="page-eyebrow">Nouvelle mission</p>
+        <h1>Créer une mission</h1>
+        <p class="page-lead">Décrivez votre besoin, précisez le lieu et payez en toute sécurité.</p>
+      </header>
+
       <mat-card class="form-card">
         <mat-card-header>
           <div class="header-content">
-            <mat-icon class="header-icon">add_circle</mat-icon>
-            <div>
-              <mat-card-title>Créer une nouvelle mission</mat-card-title>
-              <mat-card-subtitle>Décrivez votre besoin et trouvez un prestataire pour exécuter la mission</mat-card-subtitle>
+            <div class="header-icon-wrap" aria-hidden="true">
+              <mat-icon class="header-icon">add_task</mat-icon>
+            </div>
+            <div class="header-text">
+              <mat-card-title>Formulaire de publication</mat-card-title>
+              <mat-card-subtitle>Quatre étapes courtes — vous pouvez revenir en arrière à tout moment</mat-card-subtitle>
             </div>
           </div>
         </mat-card-header>
@@ -122,12 +130,18 @@ interface CategoryConfig {
             </label>
           </div>
 
-          <mat-stepper linear #stepper>
+          <mat-stepper linear #stepper class="mission-stepper">
             <!-- Step 1: Mission Details -->
             <mat-step [stepControl]="missionDetailsForm">
               <ng-template matStepLabel>Détails</ng-template>
               <form [formGroup]="missionDetailsForm" class="step-form">
-                <mat-form-field appearance="fill" class="full-width">
+                <div class="step-panel">
+                  <div class="step-panel__head">
+                    <h2>Détails de la mission</h2>
+                    <p>Titre, description, catégorie et budget</p>
+                  </div>
+
+                <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Titre de la mission</mat-label>
                   <input matInput formControlName="title" placeholder="Ex: Livraison colis urgent">
                   <mat-error *ngIf="missionDetailsForm.get('title')?.hasError('required')">
@@ -135,7 +149,7 @@ interface CategoryConfig {
                   </mat-error>
                 </mat-form-field>
 
-                <mat-form-field appearance="fill" class="full-width">
+                <mat-form-field appearance="outline" class="full-width desc-field">
                   <mat-label>Description</mat-label>
                   <textarea 
                     matInput 
@@ -158,9 +172,9 @@ interface CategoryConfig {
                     </div>
                   </div>
 
-                  <mat-form-field appearance="fill">
+                  <mat-form-field appearance="outline">
                     <mat-label>Budget (FCFA)</mat-label>
-                    <input matInput type="number" formControlName="budget" placeholder="50">
+                    <input matInput type="number" formControlName="budget" placeholder="50000">
                     <span matSuffix>FCFA</span>
                     <mat-error *ngIf="missionDetailsForm.get('budget')?.hasError('required')">
                       Le budget est requis
@@ -173,7 +187,7 @@ interface CategoryConfig {
 
                 <!-- Date + heure (calendrier + horloge) -->
                 <div class="date-field-container">
-                  <mat-form-field appearance="fill" class="full-width">
+                  <mat-form-field appearance="outline" class="full-width">
                     <mat-label>{{ dateLabel }}</mat-label>
                     <input matInput [matDatepicker]="missionDatePicker" formControlName="deadline" [min]="minDate">
                     <mat-datepicker-toggle matIconSuffix [for]="missionDatePicker"></mat-datepicker-toggle>
@@ -184,7 +198,7 @@ interface CategoryConfig {
                   </mat-form-field>
 
                   <!-- Une seule heure (deadline / livraison ponctuelle) -->
-                  <mat-form-field appearance="fill" class="time-field full-width" *ngIf="!showTimeRange">
+                  <mat-form-field appearance="outline" class="time-field full-width" *ngIf="!showTimeRange">
                     <mat-label>Heure</mat-label>
                     <input matInput type="time" formControlName="start_time">
                     <mat-icon matSuffix>schedule</mat-icon>
@@ -195,7 +209,7 @@ interface CategoryConfig {
 
                   <!-- Plage horaire (RDV, intervention, déménagement…) -->
                   <div class="time-range-row" *ngIf="showTimeRange">
-                    <mat-form-field appearance="fill" class="time-field">
+                    <mat-form-field appearance="outline" class="time-field">
                       <mat-label>Heure de début</mat-label>
                       <input matInput type="time" formControlName="start_time">
                       <mat-icon matSuffix>schedule</mat-icon>
@@ -203,7 +217,7 @@ interface CategoryConfig {
                         Requis
                       </mat-error>
                     </mat-form-field>
-                    <mat-form-field appearance="fill" class="time-field">
+                    <mat-form-field appearance="outline" class="time-field">
                       <mat-label>Heure de fin (optionnel)</mat-label>
                       <input matInput type="time" formControlName="end_time">
                       <mat-icon matSuffix>schedule</mat-icon>
@@ -215,10 +229,11 @@ interface CategoryConfig {
                     Durée estimée : {{ computedDurationMinutes }} minutes (calculée depuis les heures)
                   </p>
                 </div>
+                </div>
               </form>
 
               <div class="step-actions">
-                <button mat-raised-button color="primary" matStepperNext [disabled]="missionDetailsForm.invalid">
+                <button mat-flat-button color="primary" matStepperNext [disabled]="missionDetailsForm.invalid">
                   Suivant
                   <mat-icon>arrow_forward</mat-icon>
                 </button>
@@ -229,15 +244,20 @@ interface CategoryConfig {
             <mat-step [stepControl]="locationsForm">
               <ng-template matStepLabel>{{ locationStepLabel }}</ng-template>
               <form [formGroup]="locationsForm" class="step-form">
+                <div class="step-panel">
+                  <div class="step-panel__head">
+                    <h2>{{ locationStepLabel }}</h2>
+                    <p>Indiquez où la mission doit être réalisée</p>
+                  </div>
 
-                <!-- DELIVERY TYPE: Pickup + Delivery -->
-                <ng-container *ngIf="isDeliveryType">
+                <!-- DELIVERY / TRANSPORT: Pickup + Delivery -->
+                <ng-container *ngIf="showsRouteLocations">
                   <div class="location-section">
                     <h3>
                       <mat-icon>location_on</mat-icon>
                       Point de départ
                     </h3>
-                    <mat-form-field appearance="fill" class="full-width">
+                    <mat-form-field appearance="outline" class="full-width">
                       <mat-label>Adresse de retrait</mat-label>
                       <input matInput formControlName="pickup_address" placeholder="Ex: Cocody, Rue des Jardins">
                       <mat-error *ngIf="locationsForm.get('pickup_address')?.hasError('required')">
@@ -245,24 +265,24 @@ interface CategoryConfig {
                       </mat-error>
                     </mat-form-field>
 
-                    <div class="form-row">
-                      <mat-form-field appearance="fill">
+                    <div class="form-row" *ngIf="categoryConfig.showContacts">
+                      <mat-form-field appearance="outline">
                         <mat-label>Nom du contact</mat-label>
                         <input matInput formControlName="pickup_contact_name">
                       </mat-form-field>
-                      <mat-form-field appearance="fill">
+                      <mat-form-field appearance="outline">
                         <mat-label>Téléphone</mat-label>
                         <input matInput formControlName="pickup_contact_phone">
                       </mat-form-field>
                     </div>
                   </div>
 
-                  <div class="location-section">
+                  <div class="location-section" *ngIf="requiresDeliveryLocation || isDeliveryType">
                     <h3>
                       <mat-icon>flag</mat-icon>
                       Point d'arrivée
                     </h3>
-                    <mat-form-field appearance="fill" class="full-width">
+                    <mat-form-field appearance="outline" class="full-width">
                       <mat-label>Adresse de livraison</mat-label>
                       <input matInput formControlName="delivery_address" placeholder="Ex: Plateau, Avenue Champs de Mars">
                       <mat-error *ngIf="locationsForm.get('delivery_address')?.hasError('required')">
@@ -270,12 +290,12 @@ interface CategoryConfig {
                       </mat-error>
                     </mat-form-field>
 
-                    <div class="form-row">
-                      <mat-form-field appearance="fill">
+                    <div class="form-row" *ngIf="categoryConfig.showContacts">
+                      <mat-form-field appearance="outline">
                         <mat-label>Nom du contact</mat-label>
                         <input matInput formControlName="delivery_contact_name">
                       </mat-form-field>
-                      <mat-form-field appearance="fill">
+                      <mat-form-field appearance="outline">
                         <mat-label>Téléphone</mat-label>
                         <input matInput formControlName="delivery_contact_phone">
                       </mat-form-field>
@@ -283,16 +303,16 @@ interface CategoryConfig {
                   </div>
                 </ng-container>
 
-                <!-- HOME SERVICE TYPE: Just service location -->
-                <ng-container *ngIf="isHomeServiceType">
+                <!-- HOME / PRO / SECURITY: single intervention location -->
+                <ng-container *ngIf="showsServiceLocation">
                   <div class="location-section">
                     <h3>
                       <mat-icon>home</mat-icon>
-                      Lieu d'intervention
+                      {{ locationStepLabel }}
                     </h3>
-                    <mat-form-field appearance="fill" class="full-width">
+                    <mat-form-field appearance="outline" class="full-width">
                       <mat-label>Adresse complète</mat-label>
-                      <input matInput formControlName="service_location" placeholder="Ex: Cocody, Rue des Jardins, Immeuble X, Apt 5">
+                      <input matInput formControlName="service_location" placeholder="Ex: Bamako, quartier, rue, immeuble, apt">
                       <mat-error *ngIf="locationsForm.get('service_location')?.hasError('required')">
                         L'adresse est requise
                       </mat-error>
@@ -304,36 +324,12 @@ interface CategoryConfig {
                   </div>
                 </ng-container>
 
-                <!-- OTHER TYPES: Simple addresses without contacts -->
-                <ng-container *ngIf="!isDeliveryType && !isHomeServiceType">
-                  <div class="location-section" *ngIf="requiresPickupLocation">
-                    <h3>
-                      <mat-icon>location_on</mat-icon>
-                      Adresse de départ
-                    </h3>
-                    <mat-form-field appearance="fill" class="full-width">
-                      <mat-label>Adresse</mat-label>
-                      <input matInput formControlName="pickup_address">
-                    </mat-form-field>
-                  </div>
-
-                  <div class="location-section" *ngIf="requiresDeliveryLocation">
-                    <h3>
-                      <mat-icon>flag</mat-icon>
-                      Adresse d'arrivée
-                    </h3>
-                    <mat-form-field appearance="fill" class="full-width">
-                      <mat-label>Adresse</mat-label>
-                      <input matInput formControlName="delivery_address">
-                    </mat-form-field>
-                  </div>
-                </ng-container>
-
+                </div>
               </form>
 
               <div class="step-actions">
                 <button mat-button matStepperPrevious>Retour</button>
-                <button mat-raised-button color="primary" matStepperNext [disabled]="locationsForm.invalid">
+                <button mat-flat-button color="primary" matStepperNext [disabled]="locationsForm.invalid">
                   Suivant
                   <mat-icon>arrow_forward</mat-icon>
                 </button>
@@ -344,7 +340,12 @@ interface CategoryConfig {
             <mat-step>
               <ng-template matStepLabel>Options</ng-template>
               <div class="step-form">
-                <h3>Exigences — {{ selectedCategory?.name || 'catégorie' }}</h3>
+                <div class="step-panel">
+                  <div class="step-panel__head">
+                    <h2>Options & exigences</h2>
+                    <p>{{ selectedCategory?.name || 'Selon la catégorie choisie' }}</p>
+                  </div>
+                <h3 class="sr-only">Exigences — {{ selectedCategory?.name || 'catégorie' }}</h3>
 
                 <div class="category-rules-info" *ngIf="apiRules">
                   <mat-icon>policy</mat-icon>
@@ -356,7 +357,7 @@ interface CategoryConfig {
                   </div>
                 </div>
 
-                <mat-form-field appearance="fill" class="full-width" *ngIf="requiresMerchandiseValue">
+                <mat-form-field appearance="outline" class="full-width" *ngIf="requiresMerchandiseValue">
                   <mat-label>Valeur de la marchandise (XOF)</mat-label>
                   <input matInput type="number" min="1000" [(ngModel)]="merchandiseValue"
                     [ngModelOptions]="{standalone: true}" (ngModelChange)="refreshDepositPreview()" />
@@ -375,7 +376,7 @@ interface CategoryConfig {
                 <div *ngIf="hasCustomFields()" class="custom-fields-section">
                   <h4>Champs spécifiques — {{ selectedCategory?.name }}</h4>
                   <div *ngFor="let field of getCustomFields()" class="custom-field">
-                    <mat-form-field appearance="fill" class="full-width" *ngIf="field.type === 'text' || field.type === 'textarea'">
+                    <mat-form-field appearance="outline" class="full-width" *ngIf="field.type === 'text' || field.type === 'textarea'">
                       <mat-label>{{ field.label }}{{ field.required ? ' *' : '' }}</mat-label>
                       <input *ngIf="field.type === 'text'" matInput [placeholder]="field.placeholder || ''"
                         [(ngModel)]="customData[field.name]" [ngModelOptions]="{standalone: true}">
@@ -385,7 +386,7 @@ interface CategoryConfig {
                       <mat-hint *ngIf="field.help_text">{{ field.help_text }}</mat-hint>
                     </mat-form-field>
 
-                    <mat-form-field appearance="fill" class="full-width" *ngIf="field.type === 'number'">
+                    <mat-form-field appearance="outline" class="full-width" *ngIf="field.type === 'number'">
                       <mat-label>{{ field.label }}{{ field.required ? ' *' : '' }}</mat-label>
                       <input matInput type="number" [placeholder]="field.placeholder || ''"
                         [(ngModel)]="customData[field.name]" [ngModelOptions]="{standalone: true}">
@@ -408,7 +409,7 @@ interface CategoryConfig {
                       <p class="hint" *ngIf="field.help_text">{{ field.help_text }}</p>
                     </div>
 
-                    <mat-form-field appearance="fill" class="full-width" *ngIf="field.type === 'date'">
+                    <mat-form-field appearance="outline" class="full-width" *ngIf="field.type === 'date'">
                       <mat-label>{{ field.label }}{{ field.required ? ' *' : '' }}</mat-label>
                       <input matInput [matDatepicker]="datePicker" [(ngModel)]="customData[field.name]" [ngModelOptions]="{standalone: true}">
                       <mat-datepicker-toggle matIconSuffix [for]="datePicker"></mat-datepicker-toggle>
@@ -463,7 +464,7 @@ interface CategoryConfig {
                   </mat-checkbox>
                 </div>
 
-                <mat-form-field appearance="fill" class="full-width">
+                <mat-form-field appearance="outline" class="full-width">
                   <mat-label>Instructions spéciales</mat-label>
                   <textarea 
                     matInput 
@@ -512,17 +513,23 @@ interface CategoryConfig {
                     </p>
                   </div>
                 </div>
+                </div>
               </div>
 
               <div class="step-actions">
                 <button mat-button matStepperPrevious>Retour</button>
-                <button mat-raised-button color="primary" matStepperNext>Suivant</button>
+                <button mat-flat-button color="primary" matStepperNext>Suivant</button>
               </div>
             </mat-step>
 
             <!-- Step 4: Payment -->
             <mat-step [stepControl]="paymentForm" label="Paiement">
               <div class="step-content checkout-step" [formGroup]="paymentForm">
+                <div class="step-panel checkout-panel">
+                  <div class="step-panel__head">
+                    <h2>Paiement sécurisé</h2>
+                    <p>Vérifiez le récapitulatif puis payez par Mobile Money</p>
+                  </div>
                 <div class="checkout-layout">
                   <aside class="checkout-summary">
                     <div class="summary-header">
@@ -632,12 +639,13 @@ interface CategoryConfig {
                     </div>
                   </main>
                 </div>
+                </div>
               </div>
 
               <div class="step-actions checkout-actions">
                 <button mat-button matStepperPrevious>Retour</button>
                 <button
-                  mat-raised-button
+                  mat-flat-button
                   color="primary"
                   (click)="createMission()"
                   [disabled]="isSubmitting || paymentForm.invalid"
@@ -657,148 +665,236 @@ interface CategoryConfig {
     </div>
   `,
   styles: [`
+    .sr-only {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      border: 0;
+    }
+
+    .checkout-panel {
+      padding-bottom: 20px;
+    }
+
     .create-mission-container {
-      padding: 32px 24px;
-      max-width: 800px;
+      padding: 28px 24px 48px;
+      max-width: 760px;
       margin: 0 auto;
     }
 
+    .page-intro {
+      margin-bottom: 20px;
+
+      .page-eyebrow {
+        margin: 0 0 6px;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        color: #16a34a;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 28px;
+        font-weight: 800;
+        color: #0f172a;
+        letter-spacing: -0.02em;
+      }
+
+      .page-lead {
+        margin: 8px 0 0;
+        font-size: 15px;
+        line-height: 1.5;
+        color: #64748b;
+        max-width: 42rem;
+      }
+    }
+
     .form-card {
-      border-radius: 16px;
-      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+      border-radius: 18px;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04), 0 12px 32px rgba(15, 23, 42, 0.06);
       background: #ffffff;
-      overflow: hidden;
+      overflow: visible;
+      border: 1px solid #e2e8f0;
 
       mat-card-header {
         margin-bottom: 0;
-        padding: 32px 32px 24px;
-        background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-        border-bottom: 1px solid #e2e8f0;
+        padding: 22px 28px;
+        background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
+        border-bottom: 1px solid #dcfce7;
       }
 
       mat-card-content {
-        padding: 32px;
+        padding: 24px 28px 28px;
       }
 
       .header-content {
         display: flex;
         align-items: center;
-        gap: 20px;
+        gap: 16px;
+        width: 100%;
+      }
+
+      .header-icon-wrap {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        background: #16a34a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        box-shadow: 0 8px 18px rgba(22, 163, 74, 0.28);
       }
 
       .header-icon {
-        font-size: 48px;
-        width: 48px;
-        height: 48px;
-        color: #6C5CE7;
-        filter: drop-shadow(0 2px 4px rgba(108, 92, 231, 0.3));
+        font-size: 26px;
+        width: 26px;
+        height: 26px;
+        color: #fff;
+        filter: none;
+      }
+
+      .header-text {
+        min-width: 0;
       }
     }
 
     ::ng-deep {
       .mat-mdc-card-title {
-        font-size: 24px;
-        font-weight: 600;
-        color: #1e293b;
-        margin-bottom: 8px;
+        font-size: 18px;
+        font-weight: 700;
+        color: #0f172a;
+        margin-bottom: 4px;
       }
 
       .mat-mdc-card-subtitle {
-        font-size: 14px;
+        font-size: 13px;
         color: #64748b;
         margin: 0;
+        line-height: 1.45;
       }
     }
 
     .step-form {
-      padding: 8px 0;
+      padding: 0;
+      max-width: 100%;
+    }
+
+    .step-panel {
+      border: 1px solid #e2e8f0;
+      background: #f8fafc;
+      border-radius: 14px;
+      padding: 20px 20px 8px;
+      margin-bottom: 8px;
+    }
+
+    .step-panel__head {
+      margin-bottom: 18px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid #e2e8f0;
+
+      h2 {
+        margin: 0;
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      p {
+        margin: 4px 0 0;
+        font-size: 13px;
+        color: #64748b;
+      }
     }
 
     .full-width {
       width: 100%;
       display: block;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
+    }
+
+    .desc-field textarea {
+      min-height: 110px;
     }
 
     .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 20px;
-      margin-bottom: 20px;
+      gap: 16px;
+      margin-bottom: 8px;
+      align-items: start;
 
       mat-form-field {
         width: 100%;
-        margin-bottom: 0;
+        margin-bottom: 16px;
       }
     }
 
-    /* Material Form Field Enhanced Appearance */
+    /* Material Form Field — outline framed */
     mat-form-field {
       width: 100%;
       display: block;
-      margin-bottom: 20px;
+      margin-bottom: 16px;
 
       ::ng-deep {
         .mat-mdc-text-field-wrapper {
-          background-color: #f8fafc !important;
-          border-radius: 12px 12px 0 0;
-          transition: all 0.2s ease;
+          background-color: #fff !important;
         }
 
-        /* Fix datepicker toggle button */
         .mat-datepicker-toggle {
           color: #64748b;
         }
 
         .mat-datepicker-toggle-active {
-          color: #6C5CE7;
+          color: #16a34a;
         }
 
-        .mdc-text-field--filled {
-          background-color: #f8fafc !important;
-          border-radius: 12px;
+        .mdc-text-field--outlined {
+          --mdc-outlined-text-field-container-shape: 12px;
         }
 
-        .mdc-text-field--filled.mdc-text-field--focused {
-          background-color: #f1f5f9 !important;
-          box-shadow: 0 4px 12px rgba(108, 92, 231, 0.15);
+        .mdc-text-field--outlined .mdc-notched-outline__leading,
+        .mdc-text-field--outlined .mdc-notched-outline__notch,
+        .mdc-text-field--outlined .mdc-notched-outline__trailing {
+          border-color: #cbd5e1;
+        }
+
+        .mdc-text-field--outlined.mdc-text-field--focused .mdc-notched-outline__leading,
+        .mdc-text-field--outlined.mdc-text-field--focused .mdc-notched-outline__notch,
+        .mdc-text-field--outlined.mdc-text-field--focused .mdc-notched-outline__trailing {
+          border-color: #16a34a;
+          border-width: 2px;
+        }
+
+        .mat-mdc-form-field-focus-overlay {
+          background: transparent;
         }
 
         .mat-mdc-form-field-infix {
-          padding: 28px 16px 10px;
-          min-height: 60px;
+          padding-top: 16px;
+          padding-bottom: 16px;
+          min-height: 52px;
         }
 
         .mat-mdc-floating-label {
           color: #64748b;
           font-size: 14px;
           font-weight: 500;
-          top: 26px;
-          left: 16px;
         }
 
         .mat-mdc-floating-label.mdc-floating-label--float-above {
-          font-size: 12px;
-          top: 12px;
-          left: 16px;
-          color: #6C5CE7;
+          color: #16a34a;
         }
 
         .mat-mdc-input-element {
-          padding-top: 10px;
-          padding-left: 4px;
-          color: #1e293b;
+          color: #0f172a;
           font-size: 15px;
-          font-weight: 400;
-        }
-
-        .mdc-line-ripple::before {
-          border-bottom-color: #cbd5e1;
-        }
-
-        .mdc-line-ripple::after {
-          border-bottom-color: #6C5CE7;
-          border-bottom-width: 2px;
         }
 
         .mat-mdc-form-field-subscript-wrapper {
@@ -818,37 +914,36 @@ interface CategoryConfig {
       flex: 1;
       display: flex;
       flex-direction: column;
+      margin-bottom: 16px;
 
       .field-label {
         font-size: 12px;
-        font-weight: 500;
-        color: #6C5CE7;
-        margin-bottom: 4px;
-        margin-left: 12px;
+        font-weight: 600;
+        color: #166534;
+        margin-bottom: 6px;
+        margin-left: 4px;
       }
 
       .native-select {
         width: 100%;
-        padding: 20px 40px 6px 16px;
+        padding: 14px 40px 14px 14px;
         font-size: 15px;
-        color: #1e293b;
-        background: #f8fafc;
-        border: none;
-        border-bottom: 1px solid #cbd5e1;
-        border-radius: 12px 12px 0 0;
+        color: #0f172a;
+        background: #fff;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 12px;
         cursor: pointer;
         appearance: none;
         background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='%2364748b'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E");
         background-repeat: no-repeat;
         background-position: right 12px center;
         background-size: 20px;
-        min-height: 56px;
+        min-height: 52px;
 
         &:focus {
           outline: none;
-          border-bottom-color: #6C5CE7;
-          border-bottom-width: 2px;
-          background-color: #f1f5f9;
+          border-color: #16a34a;
+          box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
         }
 
         &:disabled {
@@ -857,7 +952,7 @@ interface CategoryConfig {
         }
 
         option {
-          color: #1e293b;
+          color: #0f172a;
           background: white;
           padding: 12px;
           font-size: 15px;
@@ -872,7 +967,7 @@ interface CategoryConfig {
         font-size: 12px;
         color: #ef4444;
         margin-top: 4px;
-        margin-left: 12px;
+        margin-left: 4px;
       }
     }
 
@@ -922,12 +1017,12 @@ interface CategoryConfig {
       }
 
       .mat-calendar-body-selected {
-        background-color: #6C5CE7;
+        background-color: #16a34a;
         color: white;
       }
 
       .mat-calendar-body-today:not(.mat-calendar-body-selected) {
-        border-color: #6C5CE7;
+        border-color: #16a34a;
       }
 
       .mat-calendar-table-header {
@@ -935,7 +1030,7 @@ interface CategoryConfig {
       }
 
       .mat-calendar-body-cell-content:hover:not(.mat-calendar-body-selected) {
-        background-color: rgba(108, 92, 231, 0.1);
+        background-color: rgba(22, 163, 74, 0.1);
       }
 
       /* Fix calendar period button (month/year) */
@@ -958,60 +1053,65 @@ interface CategoryConfig {
     }
 
     /* Stepper Modern Styling */
+    mat-stepper.mission-stepper,
     mat-stepper {
       background: transparent;
 
       ::ng-deep {
+        .mat-horizontal-stepper-header-container {
+          margin-bottom: 20px;
+          padding: 10px 12px;
+          background: #f8fafc;
+          border: 1px solid #e2e8f0;
+          border-radius: 14px;
+        }
+
         .mat-step-header {
-          padding: 20px 24px;
+          padding: 12px 16px;
           border-radius: 10px;
           transition: all 0.2s ease;
 
           &:hover {
-            background-color: rgba(108, 92, 231, 0.05);
+            background-color: rgba(22, 163, 74, 0.06);
           }
 
           .mat-step-icon {
-            background: #6C5CE7;
-            color: white;
-            width: 36px;
-            height: 36px;
-            font-size: 14px;
-            font-weight: 600;
-            box-shadow: 0 2px 8px rgba(108, 92, 231, 0.4);
+            background: #cbd5e1;
+            color: #fff;
+            width: 32px;
+            height: 32px;
+            font-size: 13px;
+            font-weight: 700;
+            box-shadow: none;
           }
 
           .mat-step-icon-selected {
-            background: linear-gradient(135deg, #6C5CE7 0%, #5b4bd4 100%);
-            transform: scale(1.1);
+            background: #16a34a;
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.35);
+            transform: none;
           }
 
           .mat-step-icon-state-edit {
-            background: #10b981;
+            background: #16a34a;
           }
 
           .mat-step-label {
-            font-size: 15px;
+            font-size: 13px;
             font-weight: 600;
-            color: #475569;
+            color: #64748b;
 
             &.mat-step-label-active {
-              color: #6C5CE7;
+              color: #166534;
             }
           }
         }
 
-        .mat-horizontal-stepper-header-container {
-          margin-bottom: 24px;
-          padding: 8px 0;
-        }
-
         .mat-stepper-horizontal-line {
-          border-top-color: #e2e8f0;
+          border-top-color: #d1d5db;
           border-top-width: 2px;
+          margin: 0 4px;
         }
 
-        /* Fix step content visibility */
         .mat-horizontal-content-container {
           overflow: visible !important;
           height: auto !important;
@@ -1025,23 +1125,23 @@ interface CategoryConfig {
     }
 
     .location-section {
-      margin-bottom: 32px;
-      padding: 24px;
-      background: #f8fafc;
+      margin-bottom: 20px;
+      padding: 20px;
+      background: #fff;
       border-radius: 12px;
       border: 1px solid #e2e8f0;
 
       h3 {
         display: flex;
         align-items: center;
-        gap: 12px;
-        margin: 0 0 20px 0;
-        color: #1e293b;
-        font-size: 16px;
-        font-weight: 600;
+        gap: 10px;
+        margin: 0 0 16px 0;
+        color: #0f172a;
+        font-size: 15px;
+        font-weight: 700;
 
         mat-icon {
-          color: #6C5CE7;
+          color: #16a34a;
           font-size: 20px;
           width: 20px;
           height: 20px;
@@ -1130,7 +1230,7 @@ interface CategoryConfig {
         display: block;
         font-size: 12px;
         font-weight: 500;
-        color: #6C5CE7;
+        color: #16a34a;
         margin-bottom: 4px;
         margin-left: 12px;
       }
@@ -1154,7 +1254,7 @@ interface CategoryConfig {
 
         &:focus {
           outline: none;
-          border-bottom-color: #6C5CE7;
+          border-bottom-color: #16a34a;
           border-bottom-width: 2px;
           background-color: #f1f5f9;
         }
@@ -1376,41 +1476,45 @@ interface CategoryConfig {
     .step-actions {
       display: flex;
       justify-content: flex-end;
-      gap: 16px;
-      margin-top: 32px;
-      padding-top: 24px;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 20px;
+      padding-top: 18px;
       border-top: 1px solid #e2e8f0;
 
       button {
         border-radius: 10px;
-        font-weight: 500;
-        padding: 0 24px;
+        font-weight: 600;
+        padding: 0 22px;
         height: 44px;
-        transition: all 0.2s ease;
+        letter-spacing: 0.01em;
 
-        &:not(:disabled):hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        mat-icon {
+          margin-left: 4px;
+          font-size: 18px;
+          width: 18px;
+          height: 18px;
         }
 
         &[disabled] {
-          opacity: 0.5;
+          opacity: 0.45;
         }
       }
     }
 
     .submit-btn {
-      background: linear-gradient(135deg, #6C5CE7 0%, #5b4bd4 100%);
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
       color: white;
       padding: 0 32px;
       height: 48px;
       border-radius: 10px;
       font-weight: 600;
-      box-shadow: 0 4px 14px rgba(108, 92, 231, 0.4);
+      box-shadow: 0 4px 14px rgba(22, 163, 74, 0.4);
       transition: all 0.2s ease;
 
       &:hover {
-        box-shadow: 0 6px 20px rgba(108, 92, 231, 0.5);
+        box-shadow: 0 6px 20px rgba(22, 163, 74, 0.5);
         transform: translateY(-2px);
       }
 
@@ -1876,8 +1980,8 @@ interface CategoryConfig {
       gap: 10px;
       margin-bottom: 20px;
       padding: 14px;
-      border: 1px solid #dbeafe;
-      background: #f8fafc;
+      border: 1px solid #bbf7d0;
+      background: #f0fdf4;
       border-radius: 12px;
     }
     .listing-option {
@@ -1887,8 +1991,16 @@ interface CategoryConfig {
       cursor: pointer;
       font-size: 13px;
       color: #475569;
+      padding: 10px 12px;
+      border-radius: 10px;
+      background: #fff;
+      border: 1px solid #e2e8f0;
       strong { display: block; color: #0f172a; margin-bottom: 2px; }
-      input { margin-top: 3px; }
+      input { margin-top: 3px; accent-color: #16a34a; }
+      &:has(input:checked) {
+        border-color: #86efac;
+        background: #f0fdf4;
+      }
     }
   `]
 })
@@ -2184,16 +2296,17 @@ export class CreateMissionComponent implements OnInit {
   get categoryConfig(): CategoryConfig {
     const api = this.apiRules;
     if (api) {
+      const type = (api.mission_type as CategoryType) || 'other';
       return {
-        type: (api.mission_type as CategoryType) || 'other',
-        requiresPickup: api.requires_pickup,
-        requiresDelivery: api.requires_delivery,
-        showContacts: api.mission_type === 'delivery',
+        type,
+        requiresPickup: !!api.requires_pickup,
+        requiresDelivery: !!api.requires_delivery,
+        showContacts: type === 'delivery' || type === 'transport' || !!api.show_contacts,
         locationLabel: api.location_label || 'Adresses',
         requirements: api.requirement_labels || [],
         dateType: api.show_time_range ? 'schedule' : 'deadline',
         dateLabel: api.date_label || 'Échéance',
-        showTimeRange: api.show_time_range,
+        showTimeRange: !!api.show_time_range,
       };
     }
     if (!this.selectedCategory) return this.categoryConfigs['default'];
@@ -2223,11 +2336,27 @@ export class CreateMissionComponent implements OnInit {
   }
 
   get isDeliveryType(): boolean {
-    return this.categoryConfig.type === 'delivery';
+    const t = this.categoryConfig.type as string;
+    return t === 'delivery' || t === 'transport';
+  }
+
+  /** Lieu unique (ménage, pro, sécurité…) — pas un trajet A→B. */
+  get showsServiceLocation(): boolean {
+    const t = this.categoryConfig.type as string;
+    if (t === 'home_service' || t === 'professional' || t === 'security') return true;
+    return !this.categoryConfig.requiresPickup && !this.categoryConfig.requiresDelivery;
+  }
+
+  get showsRouteLocations(): boolean {
+    return !this.showsServiceLocation && (
+      this.isDeliveryType
+      || this.categoryConfig.requiresPickup
+      || this.categoryConfig.requiresDelivery
+    );
   }
 
   get isHomeServiceType(): boolean {
-    return this.categoryConfig.type === 'home_service';
+    return this.showsServiceLocation;
   }
 
   get requiresPickupLocation(): boolean {
@@ -2322,11 +2451,12 @@ export class CreateMissionComponent implements OnInit {
     }
     deliveryControl?.updateValueAndValidity();
 
-    // For home services, service location is required
-    if (config.type === 'home_service') {
+    // For single-location services, service location is required
+    if (this.showsServiceLocation) {
       serviceLocationControl?.setValidators(Validators.required);
     } else {
       serviceLocationControl?.clearValidators();
+      serviceLocationControl?.setValue('');
     }
     serviceLocationControl?.updateValueAndValidity();
 

@@ -20,7 +20,7 @@ import {
   type CategoryRules,
   type CategorySchema,
 } from '../src/api/categories';
-import { resolveCategoryConfig } from '../src/constants/categoryConfig';
+import { resolveCategoryConfig, type CategoryConfig } from '../src/constants/categoryConfig';
 import { useAuth } from '../src/context/AuthContext';
 import { EnterpriseMissionsNav } from '../src/components/EnterpriseMissionsNav';
 import { AppLayout } from '../src/components/layout/AppLayout';
@@ -79,17 +79,41 @@ const INITIAL: FormState = {
   custom_data: {},
 };
 
-function configFromRules(rules: CategoryRules | undefined, fallback: ReturnType<typeof resolveCategoryConfig>) {
-  if (!rules) return fallback;
+type FormCategoryConfig = CategoryConfig & {
+  missionType?: string;
+  showsServiceLocation: boolean;
+};
+
+function configFromRules(
+  rules: CategoryRules | undefined,
+  fallback: CategoryConfig,
+): FormCategoryConfig {
+  if (!rules) {
+    return {
+      ...fallback,
+      missionType: fallback.type,
+      showsServiceLocation:
+        fallback.type === 'home_service'
+        || (!fallback.requiresPickup && !fallback.requiresDelivery),
+    };
+  }
+  const type = (rules.mission_type || fallback.type) as string;
+  const requiresPickup = !!rules.requires_pickup;
+  const requiresDelivery = !!rules.requires_delivery;
+  const showsServiceLocation =
+    type === 'home_service' || type === 'professional' || type === 'security'
+    || (!requiresPickup && !requiresDelivery);
   return {
-    type: rules.mission_type as 'delivery' | 'home_service' | 'other',
-    requiresPickup: rules.requires_pickup,
-    requiresDelivery: rules.requires_delivery,
-    showContacts: rules.mission_type === 'delivery',
+    type: (type === 'delivery' || type === 'home_service' ? type : showsServiceLocation ? 'home_service' : 'delivery') as CategoryConfig['type'],
+    missionType: type,
+    requiresPickup,
+    requiresDelivery,
+    showContacts: type === 'delivery' || type === 'transport' || !!rules.show_contacts,
     locationLabel: rules.location_label || fallback.locationLabel,
     requirements: rules.requirement_labels || [],
     dateLabel: rules.date_label || fallback.dateLabel,
-    showTimeRange: rules.show_time_range,
+    showTimeRange: !!rules.show_time_range,
+    showsServiceLocation,
   };
 }
 
@@ -231,7 +255,7 @@ export default function CreateMissionScreen() {
       if (!Number.isFinite(b) || b < 5000) return 'Le budget minimum est de 5 000 FCFA.';
     }
     if (s === 1) {
-      if (config.type === 'home_service') {
+      if (config.showsServiceLocation) {
         if (!form.service_location.trim()) return "Le lieu d'intervention est requis.";
       } else {
         if (config.requiresPickup && !form.pickup_address.trim()) return "L'adresse de départ est requise.";
@@ -275,6 +299,40 @@ export default function CreateMissionScreen() {
   };
   const prev = () => setStep((s) => Math.max(s - 1, 0));
 
+  /** Comme le stepper web (linear) : retour libre, avance si les étapes précédentes sont valides. */
+  const goToStep = (target: number) => {
+    if (target === step || target < 0 || target >= STEPS.length) return;
+    if (target > 0) {
+      const firstErr = validateStep(0);
+      if (firstErr) {
+        Alert.alert('Champs requis', firstErr);
+        setStep(0);
+        return;
+      }
+    }
+    if (target > step) {
+      for (let s = step; s < target; s += 1) {
+        const err = validateStep(s);
+        if (err) {
+          Alert.alert('Champs requis', err);
+          setStep(s);
+          return;
+        }
+      }
+    }
+    setStep(target);
+  };
+
+  const canPressStep = (index: number) => {
+    if (index === step) return true;
+    if (index < step) return validateStep(0) === null || step > 0;
+    if (validateStep(0) !== null) return false;
+    for (let s = 0; s < index; s += 1) {
+      if (validateStep(s) !== null) return false;
+    }
+    return true;
+  };
+
   const computedDuration = useMemo(() => {
     if (!config.showTimeRange || !form.end_time) return 60;
     const [sh, sm] = form.start_time.split(':').map(Number);
@@ -299,7 +357,7 @@ export default function CreateMissionScreen() {
     const merchandiseValue = Number(form.merchandise_value);
 
     let locations: Record<string, string> = {};
-    if (config.type === 'home_service') {
+    if (config.showsServiceLocation) {
       locations = { delivery_address: form.service_location.trim() };
     } else {
       locations = {
@@ -406,7 +464,12 @@ export default function CreateMissionScreen() {
         <Text style={styles.h1}>Nouvelle mission</Text>
 
         <View style={styles.stepperWrap}>
-          <ProgressStepper steps={STEPS} current={step} />
+          <ProgressStepper
+            steps={STEPS}
+            current={step}
+            onStepPress={goToStep}
+            canPressStep={canPressStep}
+          />
         </View>
 
         {categoriesError ? (
@@ -465,33 +528,41 @@ export default function CreateMissionScreen() {
           <SoftCard>
             <Text style={styles.stepTitle}>{config.locationLabel}</Text>
 
-            {config.type === 'home_service' ? (
+            {config.showsServiceLocation ? (
               <>
                 <FieldLabel>{config.locationLabel} *</FieldLabel>
                 <Input
-                  placeholder="Adresse où le prestataire intervient"
+                  placeholder="Ex: Bamako, quartier, rue, immeuble, apt"
                   value={form.service_location}
                   onChangeText={(v) => update('service_location', v)}
                 />
               </>
             ) : (
               <>
-                <FieldLabel>Adresse de départ *</FieldLabel>
-                <Input placeholder="Point de retrait" value={form.pickup_address} onChangeText={(v) => update('pickup_address', v)} />
-                {config.showContacts && (
+                {config.requiresPickup ? (
                   <>
-                    <Input placeholder="Contact départ (nom)" value={form.pickup_contact_name} onChangeText={(v) => update('pickup_contact_name', v)} />
-                    <Input placeholder="Contact départ (téléphone)" keyboardType="phone-pad" value={form.pickup_contact_phone} onChangeText={(v) => update('pickup_contact_phone', v)} />
+                    <FieldLabel>Adresse de départ *</FieldLabel>
+                    <Input placeholder="Point de retrait" value={form.pickup_address} onChangeText={(v) => update('pickup_address', v)} />
+                    {config.showContacts && (
+                      <>
+                        <Input placeholder="Contact départ (nom)" value={form.pickup_contact_name} onChangeText={(v) => update('pickup_contact_name', v)} />
+                        <Input placeholder="Contact départ (téléphone)" keyboardType="phone-pad" value={form.pickup_contact_phone} onChangeText={(v) => update('pickup_contact_phone', v)} />
+                      </>
+                    )}
                   </>
-                )}
-                <FieldLabel>Adresse d'arrivée *</FieldLabel>
-                <Input placeholder="Point de livraison" value={form.delivery_address} onChangeText={(v) => update('delivery_address', v)} />
-                {config.showContacts && (
+                ) : null}
+                {config.requiresDelivery ? (
                   <>
-                    <Input placeholder="Contact arrivée (nom)" value={form.delivery_contact_name} onChangeText={(v) => update('delivery_contact_name', v)} />
-                    <Input placeholder="Contact arrivée (téléphone)" keyboardType="phone-pad" value={form.delivery_contact_phone} onChangeText={(v) => update('delivery_contact_phone', v)} />
+                    <FieldLabel>Adresse d'arrivée *</FieldLabel>
+                    <Input placeholder="Point de livraison" value={form.delivery_address} onChangeText={(v) => update('delivery_address', v)} />
+                    {config.showContacts && (
+                      <>
+                        <Input placeholder="Contact arrivée (nom)" value={form.delivery_contact_name} onChangeText={(v) => update('delivery_contact_name', v)} />
+                        <Input placeholder="Contact arrivée (téléphone)" keyboardType="phone-pad" value={form.delivery_contact_phone} onChangeText={(v) => update('delivery_contact_phone', v)} />
+                      </>
+                    )}
                   </>
-                )}
+                ) : null}
               </>
             )}
 

@@ -92,21 +92,26 @@ export function SoftCard({ children, style }: { children: ReactNode; style?: Vie
   return <View style={[styles.softCard, shadow, style]}>{children}</View>;
 }
 
-/** Stepper horizontal de progression de mission. */
+/** Stepper horizontal de progression de mission (cliquable comme le web). */
 export function ProgressStepper({
   steps,
   current,
+  onStepPress,
+  canPressStep,
 }: {
   steps: string[];
   current: number; // index 0-based de l'étape active
+  onStepPress?: (index: number) => void;
+  canPressStep?: (index: number) => boolean;
 }) {
   return (
     <View style={styles.stepper}>
       {steps.map((label, i) => {
         const done = i < current;
         const active = i === current;
-        return (
-          <View key={label} style={styles.stepWrap}>
+        const pressable = !!onStepPress && (canPressStep ? canPressStep(i) : i <= current);
+        const content = (
+          <>
             <View style={styles.stepRow}>
               {i > 0 ? <View style={[styles.stepLine, done || active ? styles.stepLineDone : null]} /> : <View style={styles.stepLine} />}
               <View
@@ -114,6 +119,7 @@ export function ProgressStepper({
                   styles.stepCircle,
                   done && styles.stepCircleDone,
                   active && styles.stepCircleActive,
+                  !pressable && !active && !done && styles.stepCircleDisabled,
                 ]}
               >
                 <Text style={[styles.stepNum, (done || active) && { color: '#fff' }]}>
@@ -122,9 +128,31 @@ export function ProgressStepper({
               </View>
               {i < steps.length - 1 ? <View style={[styles.stepLine, done ? styles.stepLineDone : null]} /> : <View style={styles.stepLine} />}
             </View>
-            <Text style={[styles.stepLabel, active && { color: colors.accent, fontWeight: '700' }]} numberOfLines={1}>
+            <Text
+              style={[
+                styles.stepLabel,
+                active && { color: colors.accent, fontWeight: '700' },
+                pressable && !active && { color: colors.text },
+              ]}
+              numberOfLines={1}
+            >
               {label}
             </Text>
+          </>
+        );
+        return pressable ? (
+          <Pressable
+            key={label}
+            style={styles.stepWrap}
+            onPress={() => onStepPress?.(i)}
+            accessibilityRole="button"
+            accessibilityLabel={`Étape ${i + 1} : ${label}`}
+          >
+            {content}
+          </Pressable>
+        ) : (
+          <View key={label} style={styles.stepWrap}>
+            {content}
           </View>
         );
       })}
@@ -173,7 +201,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  tabActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  tabActive: { backgroundColor: colors.primary, borderColor: colors.primary },
   tabText: { color: colors.textMuted, fontWeight: '600', fontSize: 13 },
   tabTextActive: { color: '#fff' },
   softCard: {
@@ -201,6 +229,7 @@ const styles = StyleSheet.create({
   },
   stepCircleDone: { backgroundColor: colors.accent, borderColor: colors.accent },
   stepCircleActive: { backgroundColor: colors.accent, borderColor: colors.accent },
+  stepCircleDisabled: { opacity: 0.55 },
   stepNum: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
   stepLabel: { fontSize: 10.5, color: colors.textMuted, marginTop: 4, textAlign: 'center' },
 });
