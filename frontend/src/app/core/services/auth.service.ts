@@ -130,13 +130,36 @@ export class AuthService {
     return this.http.post(`${this.apiUrl}/users/email/resend/`, { email });
   }
   
-  logout(): void {
+  /** Pages où un 401 / session expirée ne doit pas renvoyer vers /login. */
+  isOnPublicAuthPage(): boolean {
+    const path = (this.router.url.split('?')[0] || '/').replace(/\/+$/, '') || '/';
+    const publicPaths = [
+      '/',
+      '/login',
+      '/register',
+      '/forgot-password',
+      '/reset-password',
+      '/verify-email',
+      '/wallet-connect',
+    ];
+    return publicPaths.some((p) => (p === '/' ? path === '/' : path === p || path.startsWith(p + '/')));
+  }
+
+  /** Efface la session. `redirectToLogin: true` force /login (bouton Déconnexion). */
+  clearSession(options: { redirectToLogin?: boolean } = {}): void {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
     this.currentUserSubject.next(null);
     this.isAuthenticatedSubject.next(false);
-    this.router.navigate(['/login']);
+    this.activeRoleSubject.next(null);
+    if (options.redirectToLogin) {
+      this.router.navigate(['/login']);
+    }
+  }
+
+  logout(): void {
+    this.clearSession({ redirectToLogin: true });
   }
   
   private setSession(authResult: any): void {

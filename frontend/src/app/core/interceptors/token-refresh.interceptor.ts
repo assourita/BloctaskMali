@@ -10,6 +10,18 @@ import { Observable, throwError, BehaviorSubject, from } from 'rxjs';
 import { catchError, filter, switchMap, take, finalize } from 'rxjs/operators';
 import { AuthService } from '../services/auth.service';
 
+/** Pas de refresh/logout forcé sur les routes auth publiques. */
+const PUBLIC_AUTH_URL_PARTS = [
+  '/auth/token/',
+  '/auth/google/',
+  '/users/register/',
+  '/users/email/verify/',
+  '/users/email/resend/',
+  '/users/password/reset/',
+  '/users/password/reset/validate/',
+  '/users/password/reset/confirm/',
+];
+
 @Injectable()
 export class TokenRefreshInterceptor implements HttpInterceptor {
   private refreshing = false;
@@ -18,7 +30,7 @@ export class TokenRefreshInterceptor implements HttpInterceptor {
   constructor(private authService: AuthService) {}
 
   intercept(req: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
-    if (this.isAuthRequest(req.url)) {
+    if (this.isPublicAuthRequest(req.url)) {
       return next.handle(req);
     }
 
@@ -32,8 +44,8 @@ export class TokenRefreshInterceptor implements HttpInterceptor {
     );
   }
 
-  private isAuthRequest(url: string): boolean {
-    return url.includes('/auth/token/');
+  private isPublicAuthRequest(url: string): boolean {
+    return PUBLIC_AUTH_URL_PARTS.some((part) => url.includes(part));
   }
 
   private handle401(req: HttpRequest<unknown>, next: HttpHandler): Observable<HttpEvent<unknown>> {
@@ -44,14 +56,15 @@ export class TokenRefreshInterceptor implements HttpInterceptor {
       return from(this.authService.refreshAccessToken()).pipe(
         switchMap((token) => {
           if (!token) {
-            this.authService.logout();
+            // Session morte : clear sans forcer /login si on est déjà sur register/login
+            this.authService.clearSession({ redirectToLogin: !this.authService.isOnPublicAuthPage() });
             return throwError(() => new HttpErrorResponse({ status: 401 }));
           }
           this.refreshSubject.next(token);
           return next.handle(this.addToken(req, token));
         }),
         catchError((err) => {
-          this.authService.logout();
+          this.authService.clearSession({ redirectToLogin: !this.authService.isOnPublicAuthPage() });
           return throwError(() => err);
         }),
         finalize(() => {
