@@ -26,7 +26,7 @@ export interface Mission {
   updated_at?: string;
   category?: { id: string; name: string; icon?: string; slug?: string };
   provider?: { id: string; first_name: string; last_name: string; profile_picture?: string; phone_number?: string };
-  client?: { id: string; first_name: string; last_name: string; profile_picture?: string; city?: string };
+  client?: { id: string; first_name: string; last_name: string; profile_picture?: string; city?: string; user_type?: string; enterprise_name?: string };
   application_count?: number;
   applications_count?: number;
   mission_contract_id?: number;
@@ -48,6 +48,9 @@ export interface Mission {
   requires_verified_provider?: boolean;
   requires_gps_tracking?: boolean;
   enterprise_only?: boolean;
+  listing_mode?: 'open' | 'invite_only' | string;
+  is_enterprise_call?: boolean;
+  client_display_name?: string;
   executing_employee?: { id: string; first_name: string; last_name: string; position?: string };
   min_reputation_score?: number;
   priority?: string;
@@ -158,11 +161,19 @@ export class MissionService {
     ).pipe(map(r => Array.isArray(r) ? r : (r.results || [])));
   }
 
-  listFunded(page = 1, pageSize = 12, asEnterprise = false): Observable<{ count: number; results: Mission[] }> {
+  listFunded(
+    page = 1,
+    pageSize = 12,
+    asEnterprise = false,
+    source?: 'enterprise' | 'client' | 'all' | '',
+  ): Observable<{ count: number; results: Mission[] }> {
     let params = new HttpParams()
       .set('role', asEnterprise ? 'enterprise' : 'provider')
       .set('page', String(page))
       .set('page_size', String(pageSize));
+    if (source && source !== 'all') {
+      params = params.set('source', source);
+    }
     return this.http.get<{ count: number; results: Mission[] } | Mission[]>(
       `${this.apiUrl}/available/`,
       { headers: this.headers(), params }

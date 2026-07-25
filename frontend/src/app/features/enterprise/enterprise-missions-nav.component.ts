@@ -13,6 +13,14 @@ import { MatIconModule } from '@angular/material/icon';
       <div class="tab-group">
         <a
           class="tab"
+          routerLink="/enterprise/appels"
+          [class.active]="activeTab === 'appels'"
+        >
+          <mat-icon>campaign</mat-icon>
+          Appels
+        </a>
+        <a
+          class="tab"
           routerLink="/enterprise/missions/available"
           [class.active]="activeTab === 'available'"
         >
@@ -39,6 +47,10 @@ import { MatIconModule } from '@angular/material/icon';
         </a>
       </div>
       <div class="nav-actions">
+        <a mat-stroked-button routerLink="/enterprise/missions/create" [queryParams]="{ mode: 'appel' }">
+          <mat-icon>campaign</mat-icon>
+          Publier un appel
+        </a>
         <a mat-flat-button color="primary" routerLink="/enterprise/missions/create" class="create-btn">
           <mat-icon>add</mat-icon>
           Nouvelle mission
@@ -110,8 +122,9 @@ export class EnterpriseMissionsNavComponent {
 
   constructor(private router: Router) {}
 
-  get activeTab(): 'ordered' | 'received' | 'create' | 'available' {
+  get activeTab(): 'ordered' | 'received' | 'create' | 'available' | 'appels' {
     const url = this.router.url;
+    if (url.includes('/appels')) return 'appels';
     if (url.includes('/missions/create')) return 'create';
     if (url.includes('/missions/available')) return 'available';
     if (url.includes('tab=received')) return 'received';

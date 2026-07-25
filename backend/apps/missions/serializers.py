@@ -32,9 +32,22 @@ class MissionMediaSerializer(serializers.ModelSerializer):
 
 class UserBasicSerializer(serializers.ModelSerializer):
     """Serializer basique pour les informations utilisateur"""
+    enterprise_name = serializers.SerializerMethodField()
+
     class Meta:
         model = User
-        fields = ['id', 'username', 'first_name', 'last_name', 'profile_picture', 'city']
+        fields = [
+            'id', 'username', 'first_name', 'last_name', 'profile_picture',
+            'city', 'user_type', 'enterprise_name',
+        ]
+
+    def get_enterprise_name(self, obj):
+        if getattr(obj, 'user_type', None) != 'enterprise':
+            return None
+        try:
+            return obj.enterprise_profile.company_name
+        except Exception:
+            return None
 
 
 class MissionCounterpartySerializer(serializers.ModelSerializer):
@@ -131,12 +144,14 @@ class MissionListSerializer(serializers.ModelSerializer):
     can_apply = serializers.SerializerMethodField()
     apply_block_reason = serializers.SerializerMethodField()
     applications_open = serializers.SerializerMethodField()
+    is_enterprise_call = serializers.SerializerMethodField()
+    client_display_name = serializers.SerializerMethodField()
     
     class Meta:
         model = Mission
         fields = [
             'id', 'title', 'description', 'mission_hash', 'category', 'category_name', 'category_icon', 'category_slug',
-            'client', 'provider', 'status', 'priority',
+            'client', 'provider', 'status', 'priority', 'listing_mode',
             'budget', 'deposit_amount', 'required_deposit', 'deposit_paid', 'deposit_deadline', 'currency',
             'deposit_required', 'requirement_labels', 'requirements',
             'expiry_decision_pending', 'expiry_decision_due_at',
@@ -145,7 +160,8 @@ class MissionListSerializer(serializers.ModelSerializer):
             'requires_verified_provider', 'enterprise_only', 'requires_gps_tracking',
             'application_count',
             'mission_contract_id', 'blockchain_status', 'escrow_tx_hash',
-            'distance_km', 'is_applied', 'can_apply', 'apply_block_reason', 'applications_open', 'created_at'
+            'distance_km', 'is_applied', 'can_apply', 'apply_block_reason', 'applications_open',
+            'is_enterprise_call', 'client_display_name', 'created_at'
         ]
     
     def get_is_applied(self, obj):
@@ -171,6 +187,28 @@ class MissionListSerializer(serializers.ModelSerializer):
     def get_applications_open(self, obj):
         from .eligibility import mission_is_open_for_applications
         return mission_is_open_for_applications(obj)
+
+    def get_is_enterprise_call(self, obj):
+        client = getattr(obj, 'client', None)
+        return bool(
+            client
+            and getattr(client, 'user_type', None) == 'enterprise'
+            and getattr(obj, 'listing_mode', Mission.ListingMode.OPEN) == Mission.ListingMode.OPEN
+        )
+
+    def get_client_display_name(self, obj):
+        client = getattr(obj, 'client', None)
+        if not client:
+            return ''
+        if getattr(client, 'user_type', None) == 'enterprise':
+            try:
+                name = client.enterprise_profile.company_name
+                if name:
+                    return name
+            except Exception:
+                pass
+        full = f'{client.first_name or ""} {client.last_name or ""}'.strip()
+        return full or client.username or ''
 
     def get_category_name(self, obj):
         from .category_rules import display_category_name
@@ -247,7 +285,7 @@ class MissionDetailSerializer(serializers.ModelSerializer):
         model = Mission
         fields = [
             'id', 'mission_hash', 'title', 'description', 'category',
-            'client', 'provider', 'status', 'priority',
+            'client', 'provider', 'status', 'priority', 'listing_mode',
             'pickup_address', 'pickup_latitude', 'pickup_longitude',
             'delivery_address', 'delivery_latitude', 'delivery_longitude',
             'budget', 'final_price', 'currency',
@@ -408,6 +446,11 @@ class MissionCreateSerializer(serializers.ModelSerializer):
 
     # Dynamic custom fields from category schema
     custom_data = serializers.JSONField(required=False, default=dict)
+    listing_mode = serializers.ChoiceField(
+        choices=Mission.ListingMode.choices,
+        required=False,
+        default=Mission.ListingMode.OPEN,
+    )
 
     class Meta:
         model = Mission
@@ -426,7 +469,7 @@ class MissionCreateSerializer(serializers.ModelSerializer):
             'escrow_enabled', 'escrow_amount', 'platform_fee',
             'start_time', 'end_time', 'estimated_duration',
             'payment_method', 'country_code', 'phone_number', 'operator',
-            'custom_data',
+            'custom_data', 'listing_mode',
         ]
 
     def to_internal_value(self, data):

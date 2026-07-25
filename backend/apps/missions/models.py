@@ -50,6 +50,10 @@ class Mission(models.Model):
         NORMAL = 'normal', 'Normale'
         HIGH = 'high', 'Haute'
         URGENT = 'urgent', 'Urgente'
+
+    class ListingMode(models.TextChoices):
+        OPEN = 'open', 'Appel ouvert'
+        INVITE_ONLY = 'invite_only', 'Sur invitation'
     
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     mission_hash = models.CharField(max_length=64, unique=True, blank=True, null=True)
@@ -153,6 +157,12 @@ class Mission(models.Model):
         max_length=20,
         choices=Priority.choices,
         default=Priority.NORMAL
+    )
+    listing_mode = models.CharField(
+        max_length=20,
+        choices=ListingMode.choices,
+        default=ListingMode.OPEN,
+        help_text='open = visible sur le marché / appels ; invite_only = sollicitation ciblée uniquement',
     )
     
     # Options avancées

@@ -33,10 +33,15 @@ interface Mission {
   distance?: number;
   is_applied?: boolean;
   can_apply?: boolean;
+  is_enterprise_call?: boolean;
+  client_display_name?: string;
+  listing_mode?: string;
   client?: {
     first_name: string;
     last_name: string;
     profile_picture?: string;
+    user_type?: string;
+    enterprise_name?: string;
   };
 }
 
@@ -53,11 +58,21 @@ interface Mission {
 
       <div class="page-hero">
         <div>
-          <h1><mat-icon>search</mat-icon> Missions disponibles</h1>
-          <p>{{ filteredMissions.length }} mission(s) ouvertes{{ enterpriseContext ? ' — postulez pour votre entreprise' : ' — inclut vos candidatures en attente' }}</p>
+          <h1><mat-icon>search</mat-icon> {{ enterpriseContext ? 'Missions disponibles' : 'Opportunités' }}</h1>
+          <p>{{ filteredMissions.length }} offre(s) ouverte(s){{ enterpriseContext ? ' — postulez pour votre entreprise' : ' — missions et appels entreprises' }}</p>
         </div>
         <button mat-stroked-button class="filter-btn" (click)="showFilters = !showFilters">
           <mat-icon>tune</mat-icon> Filtres
+        </button>
+      </div>
+
+      <div class="source-tabs" *ngIf="!enterpriseContext">
+        <button type="button" [class.active]="sourceFilter === 'all'" (click)="setSourceFilter('all')">Tous</button>
+        <button type="button" [class.active]="sourceFilter === 'enterprise'" (click)="setSourceFilter('enterprise')">
+          Appels entreprises
+        </button>
+        <button type="button" [class.active]="sourceFilter === 'client'" (click)="setSourceFilter('client')">
+          Missions clients
         </button>
       </div>
 
@@ -113,6 +128,9 @@ interface Mission {
                 <mat-icon>{{ mission.category_icon || mission.category?.icon || 'work' }}</mat-icon>
                 {{ mission.category_name || mission.category?.name }}
               </span>
+              <span class="call-badge" *ngIf="mission.is_enterprise_call || mission.client?.user_type === 'enterprise'">
+                <mat-icon>campaign</mat-icon> Appel entreprise
+              </span>
               <span class="dist-badge" *ngIf="mission.distance_km || mission.distance">
                 <mat-icon>place</mat-icon> {{ (mission.distance_km || mission.distance) | number:'1.1-1' }} km
               </span>
@@ -154,14 +172,15 @@ interface Mission {
             <span *ngIf="mission.expected_duration"><mat-icon>timer</mat-icon> {{ mission.expected_duration }} min</span>
           </div>
 
-          <div class="client-row" *ngIf="mission.client">
+          <div class="client-row" *ngIf="mission.client || mission.client_display_name">
             <div class="client-avatar">
-              <img *ngIf="mission.client.profile_picture" [src]="mission.client.profile_picture" alt="" />
-              <span *ngIf="!mission.client.profile_picture">
-                {{ mission.client.first_name[0] }}{{ mission.client.last_name[0] }}
+              <img *ngIf="mission.client?.profile_picture" [src]="mission.client?.profile_picture" alt="" />
+              <span *ngIf="!mission.client?.profile_picture">
+                <ng-container *ngIf="mission.client">{{ mission.client.first_name[0] }}{{ mission.client.last_name[0] }}</ng-container>
+                <ng-container *ngIf="!mission.client">E</ng-container>
               </span>
             </div>
-            <span>{{ mission.client.first_name }} {{ mission.client.last_name }}</span>
+            <span>{{ clientLabel(mission) }}</span>
           </div>
 
           <!-- Message optionnel -->
@@ -262,10 +281,24 @@ interface Mission {
     }
     .cat-badge { background: #dbeafe; color: #1e40af; }
     .dist-badge { background: #f3f4f6; color: #6b7280; }
+    .call-badge {
+      display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;
+      padding: 4px 10px; border-radius: 20px; background: #ede9fe; color: #5b21b6;
+      mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    }
     .applied-badge {
       display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-weight: 600;
       padding: 4px 10px; border-radius: 20px; background: #d1fae5; color: #065f46;
       mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    }
+
+    .source-tabs {
+      display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;
+      button {
+        border: 1px solid #e2e8f0; background: #fff; color: #64748b;
+        border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
+        &.active { background: #ecfdf5; border-color: #86efac; color: #166534; }
+      }
     }
 
     .price-block { text-align: right; }
@@ -334,6 +367,7 @@ export class AvailableMissionsComponent implements OnInit {
   submittingId: string | null = null;
 
   filters = { maxDistance: '', minBudget: '', sortBy: 'budget' };
+  sourceFilter: 'all' | 'enterprise' | 'client' = 'all';
   currentPage = 1;
   totalPages = 1;
   pageSize = 12;
@@ -350,6 +384,19 @@ export class AvailableMissionsComponent implements OnInit {
     return !!this.route.snapshot.data['enterpriseContext'];
   }
 
+  clientLabel(mission: Mission): string {
+    if (mission.client_display_name) return mission.client_display_name;
+    if (mission.client?.enterprise_name) return mission.client.enterprise_name;
+    if (mission.client) return `${mission.client.first_name} ${mission.client.last_name}`.trim();
+    return 'Client';
+  }
+
+  setSourceFilter(source: 'all' | 'enterprise' | 'client'): void {
+    this.sourceFilter = source;
+    this.currentPage = 1;
+    this.loadMissions();
+  }
+
   missionDetailLink(id: string): string[] {
     return this.enterpriseContext
       ? ['/enterprise/missions/available', id]
@@ -361,7 +408,12 @@ export class AvailableMissionsComponent implements OnInit {
   loadMissions(): void {
     this.loading = true;
     forkJoin({
-      missions: this.missionService.listFunded(this.currentPage, this.pageSize, this.enterpriseContext),
+      missions: this.missionService.listFunded(
+        this.currentPage,
+        this.pageSize,
+        this.enterpriseContext,
+        this.enterpriseContext ? 'all' : this.sourceFilter,
+      ),
       applications: this.missionService.getMyApplications('provider'),
     }).subscribe({
       next: ({ missions: response, applications }) => {
@@ -377,6 +429,8 @@ export class AvailableMissionsComponent implements OnInit {
             : undefined),
           is_applied: (m as any).is_applied || appliedIds.has(m.id),
           can_apply: appliedIds.has(m.id) ? false : (m as any).can_apply,
+          is_enterprise_call: (m as any).is_enterprise_call,
+          client_display_name: (m as any).client_display_name,
         })) as Mission[];
         this.totalPages = Math.max(1, Math.ceil((response.count || this.missions.length) / this.pageSize));
         this.applyFilters();

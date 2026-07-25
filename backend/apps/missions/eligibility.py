@@ -7,8 +7,10 @@ from .requirements import mission_requires_id_verification
 
 
 def mission_is_open_for_applications(mission) -> bool:
-    """Mission ouverte aux candidatures : financée, sans prestataire ni entreprise assignée."""
+    """Mission ouverte aux candidatures : financée, listing ouvert, sans assignation."""
     if mission.status != Mission.Status.FUNDED:
+        return False
+    if getattr(mission, 'listing_mode', Mission.ListingMode.OPEN) == Mission.ListingMode.INVITE_ONLY:
         return False
     if mission.provider_id:
         return False
@@ -27,6 +29,8 @@ def provider_can_apply_to_mission(user, mission) -> bool:
     if not can_access_platform(user):
         return False
     if not mission_is_open_for_applications(mission):
+        return False
+    if getattr(mission, 'enterprise_only', False):
         return False
     if mission.applications.filter(provider=user).exists():
         return False
@@ -50,6 +54,8 @@ def get_apply_block_reason(user, mission) -> str | None:
         return 'assigned'
     if mission.status != Mission.Status.FUNDED:
         return 'closed'
+    if getattr(mission, 'listing_mode', Mission.ListingMode.OPEN) == Mission.ListingMode.INVITE_ONLY:
+        return 'invite_only'
     if getattr(user, 'user_type', '') == User.UserType.ENTERPRISE:
         from apps.users.enterprise_services import enterprise_can_apply
         if enterprise_can_apply(user, mission):
@@ -57,6 +63,8 @@ def get_apply_block_reason(user, mission) -> str | None:
         if mission.client_id == user.id:
             return 'own_mission'
         return 'enterprise_ineligible'
+    if getattr(mission, 'enterprise_only', False):
+        return 'enterprise_only'
     if not can_act_as_provider(user) or get_effective_role(user) != 'provider':
         return 'wrong_role'
     if not can_access_platform(user):

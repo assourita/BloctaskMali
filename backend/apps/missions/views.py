@@ -364,20 +364,29 @@ class MissionViewSet(viewsets.ModelViewSet):
                 status=Mission.Status.FUNDED,
                 provider__isnull=True,
                 assigned_enterprise__isnull=True,
+                listing_mode=Mission.ListingMode.OPEN,
             ).exclude(client=user).select_related(
-                'client', 'provider', 'category'
+                'client', 'client__enterprise_profile', 'provider', 'category'
             ).prefetch_related('applications')
         elif can_act_as_provider(user) and role == 'provider':
             queryset = Mission.objects.filter(
                 status=Mission.Status.FUNDED,
                 provider__isnull=True,
+                listing_mode=Mission.ListingMode.OPEN,
+                enterprise_only=False,
             ).exclude(client=user).select_related(
-                'client', 'provider', 'category'
+                'client', 'client__enterprise_profile', 'provider', 'category'
             ).prefetch_related('applications')
             if user_has_active_employee_link(user):
                 return Response({'error': 'Les agents entreprise voient leurs missions assignées'}, status=403)
         else:
             return Response({'error': 'Activez l\'espace prestataire ou entreprise'}, status=403)
+
+        source = (request.query_params.get('source') or '').strip().lower()
+        if source == 'enterprise':
+            queryset = queryset.filter(client__user_type='enterprise')
+        elif source in ('client', 'individual'):
+            queryset = queryset.exclude(client__user_type='enterprise')
         
         # Filtres géographiques (si latitude/longitude fournies)
         lat = request.query_params.get('lat')

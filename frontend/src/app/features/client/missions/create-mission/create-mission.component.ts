@@ -1,7 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { lastValueFrom } from 'rxjs';
 import { CommonModule } from '@angular/common';
-import { RouterModule, Router } from '@angular/router';
+import { RouterModule, Router, ActivatedRoute } from '@angular/router';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { FormBuilder, FormGroup, Validators, ReactiveFormsModule, FormsModule } from '@angular/forms';
 import { MatCardModule } from '@angular/material/card';
@@ -96,15 +96,36 @@ interface CategoryConfig {
       <mat-card class="form-card">
         <mat-card-header>
           <div class="header-content">
-            <mat-icon class="header-icon">add_circle</mat-icon>
+            <mat-icon class="header-icon">{{ isAppelMode ? 'campaign' : 'add_circle' }}</mat-icon>
             <div>
-              <mat-card-title>Créer une nouvelle mission</mat-card-title>
-              <mat-card-subtitle>Décrivez votre besoin et trouvez un prestataire</mat-card-subtitle>
+              <mat-card-title>{{ isAppelMode ? 'Publier un appel à prestataires' : 'Créer une nouvelle mission' }}</mat-card-title>
+              <mat-card-subtitle>
+                {{ isAppelMode
+                  ? 'Besoin ouvert visible par les prestataires — ils postulent, vous choisissez'
+                  : 'Décrivez votre besoin et trouvez un prestataire' }}
+              </mat-card-subtitle>
             </div>
           </div>
         </mat-card-header>
 
         <mat-card-content>
+          <div class="listing-mode-box" *ngIf="isEnterprise">
+            <label class="listing-option">
+              <input type="radio" name="listingMode" [(ngModel)]="listingMode" [ngModelOptions]="{standalone: true}" value="open" />
+              <span>
+                <strong>Appel ouvert</strong>
+                Visible dans les opportunités — les prestataires peuvent postuler
+              </span>
+            </label>
+            <label class="listing-option">
+              <input type="radio" name="listingMode" [(ngModel)]="listingMode" [ngModelOptions]="{standalone: true}" value="invite_only" />
+              <span>
+                <strong>Sur invitation uniquement</strong>
+                Visible seulement après une sollicitation ciblée
+              </span>
+            </label>
+          </div>
+
           <mat-stepper linear #stepper>
             <!-- Step 1: Mission Details -->
             <mat-step [stepControl]="missionDetailsForm">
@@ -1853,6 +1874,26 @@ interface CategoryConfig {
         padding: 16px;
       }
     }
+
+    .listing-mode-box {
+      display: grid;
+      gap: 10px;
+      margin-bottom: 20px;
+      padding: 14px;
+      border: 1px solid #dbeafe;
+      background: #f8fafc;
+      border-radius: 12px;
+    }
+    .listing-option {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      cursor: pointer;
+      font-size: 13px;
+      color: #475569;
+      strong { display: block; color: #0f172a; margin-bottom: 2px; }
+      input { margin-top: 3px; }
+    }
   `]
 })
 export class CreateMissionComponent implements OnInit {
@@ -1861,6 +1902,8 @@ export class CreateMissionComponent implements OnInit {
   missionDetailsForm: FormGroup;
   locationsForm: FormGroup;
   paymentForm: FormGroup;
+  listingMode: 'open' | 'invite_only' = 'open';
+  isAppelMode = false;
 
   categories: Category[] = [];
   loadingCategories = false;
@@ -1940,6 +1983,7 @@ export class CreateMissionComponent implements OnInit {
     private fb: FormBuilder,
     private http: HttpClient,
     private router: Router,
+    private route: ActivatedRoute,
     private paymentService: PaymentService,
     private web3Service: Web3Service,
     private blockchainService: BlockchainService,
@@ -2011,6 +2055,12 @@ export class CreateMissionComponent implements OnInit {
   }
 
   ngOnInit(): void {
+    this.route.queryParams.subscribe((params) => {
+      this.isAppelMode = params['mode'] === 'appel' && this.isEnterprise;
+      if (this.isAppelMode) {
+        this.listingMode = 'open';
+      }
+    });
     this.mobileMoneyOperators = this.paymentService.getMobileMoneyOperators('ML');
     this.loadCategories();
     this.blockchainService.getStatus().subscribe({
@@ -2444,7 +2494,8 @@ export class CreateMissionComponent implements OnInit {
       escrow_amount: fees.escrowAmount,
       platform_fee: fees.platformFee,
       // Custom data from category schema (texte uniquement ; fichiers uploadés après création)
-      custom_data: this.buildSerializableCustomData()
+      custom_data: this.buildSerializableCustomData(),
+      listing_mode: this.isEnterprise ? this.listingMode : 'open',
     };
 
     console.log('Creating mission with payment data:', missionData);

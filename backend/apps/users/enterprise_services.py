@@ -439,6 +439,8 @@ def enterprise_can_apply(user, mission) -> bool:
         return False
     if mission.status != Mission.Status.FUNDED or mission.provider_id:
         return False
+    if getattr(mission, 'listing_mode', 'open') == 'invite_only':
+        return False
     if mission.client_id == user.id:
         return False
     if mission.assigned_enterprise_id:

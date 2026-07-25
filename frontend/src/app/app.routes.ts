@@ -173,6 +173,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/enterprise/employees/employees.component').then(m => m.EnterpriseEmployeesComponent)
       },
       {
+        path: 'appels',
+        loadComponent: () => import('./features/enterprise/appels/appels.component').then(m => m.EnterpriseAppelsComponent)
+      },
+      {
         path: 'missions',
         loadComponent: () => import('./features/enterprise/missions/missions.component').then(m => m.EnterpriseMissionsComponent)
       },
