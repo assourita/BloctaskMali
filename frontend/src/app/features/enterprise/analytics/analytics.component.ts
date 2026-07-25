@@ -1,6 +1,5 @@
 import { Component, OnInit, OnDestroy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatCardModule } from '@angular/material/card';
 import { MatIconModule } from '@angular/material/icon';
 import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -27,91 +26,145 @@ const STATUS_LABELS: Record<string, string> = {
   disputed: 'Litige',
 };
 
+/** Palette sobre (slate / vert) — pas de pastels « jouets » */
 const STATUS_COLORS = [
-  '#6C5CE7', '#3CB371', '#4ECDC4', '#FFD93D', '#FF6B6B',
-  '#f59e0b', '#3b82f6', '#10b981', '#ef4444', '#9ca3af',
+  '#0f172a', '#16a34a', '#334155', '#64748b', '#94a3b8',
+  '#166534', '#475569', '#1e293b', '#86efac', '#cbd5e1',
 ];
 
 @Component({
   selector: 'app-enterprise-analytics',
   standalone: true,
   imports: [
-    CommonModule, MatCardModule, MatIconModule, MatButtonModule, MatProgressSpinnerModule,
+    CommonModule, MatIconModule, MatButtonModule, MatProgressSpinnerModule,
   ],
   template: `
-    <div class="page-container">
-      <div class="page-header">
+    <div class="page">
+      <header class="page-header">
         <div>
-          <h1><mat-icon>analytics</mat-icon> Analytics</h1>
-          <p>Indicateurs et tendances de vos missions (30 derniers jours)</p>
+          <p class="eyebrow">Pilotage</p>
+          <h1>Analytics</h1>
+          <p class="sub">Indicateurs et tendances — 30 derniers jours</p>
         </div>
         <button mat-stroked-button (click)="exportPdf()" [disabled]="loading || !stats">
           <mat-icon>picture_as_pdf</mat-icon> Exporter PDF
         </button>
-      </div>
+      </header>
 
       <div class="loading" *ngIf="loading"><mat-spinner diameter="36"></mat-spinner></div>
 
-      <div class="kpi-grid" *ngIf="!loading && stats">
-        <mat-card class="kpi">
-          <mat-icon>assignment</mat-icon>
-          <span class="val">{{ stats.missions_total }}</span>
-          <span class="lbl">Missions totales</span>
-        </mat-card>
-        <mat-card class="kpi active">
-          <mat-icon>play_circle</mat-icon>
-          <span class="val">{{ stats.missions_active }}</span>
-          <span class="lbl">En cours</span>
-        </mat-card>
-        <mat-card class="kpi done">
-          <mat-icon>check_circle</mat-icon>
-          <span class="val">{{ stats.missions_completed }}</span>
-          <span class="lbl">Terminées</span>
-        </mat-card>
-        <mat-card class="kpi rate">
-          <mat-icon>trending_up</mat-icon>
-          <span class="val">{{ completionRate }}%</span>
-          <span class="lbl">Taux de complétion</span>
-        </mat-card>
+      <div class="metrics" *ngIf="!loading && stats">
+        <div class="metric">
+          <span class="metric-val">{{ stats.missions_total }}</span>
+          <span class="metric-lbl">Missions totales</span>
+        </div>
+        <div class="metric">
+          <span class="metric-val">{{ stats.missions_active }}</span>
+          <span class="metric-lbl">En cours</span>
+        </div>
+        <div class="metric">
+          <span class="metric-val">{{ stats.missions_completed }}</span>
+          <span class="metric-lbl">Terminées</span>
+        </div>
+        <div class="metric">
+          <span class="metric-val">{{ completionRate }}%</span>
+          <span class="metric-lbl">Taux de complétion</span>
+        </div>
       </div>
 
-      <div class="charts-row" *ngIf="!loading && trends">
-        <mat-card class="chart-card">
-          <h3>Missions créées vs terminées</h3>
-          <div class="chart-wrap"><canvas id="entTrendChart"></canvas></div>
-        </mat-card>
-        <mat-card class="chart-card">
-          <h3>Répartition par statut</h3>
-          <div class="chart-wrap"><canvas id="entStatusChart"></canvas></div>
-        </mat-card>
+      <div class="extra" *ngIf="!loading && stats && stats.spent_this_month != null">
+        <div class="panel spend">
+          <span class="label">Dépenses du mois</span>
+          <strong>{{ stats.spent_this_month | number:'1.0-0' }} XOF</strong>
+        </div>
+        <div class="panel spend" *ngIf="stats.employees_count != null">
+          <span class="label">Effectif</span>
+          <strong>{{ stats.employees_count }} employé(s)</strong>
+        </div>
       </div>
+
+      <div class="charts" *ngIf="!loading && trends">
+        <section class="panel">
+          <h2>Missions créées vs terminées</h2>
+          <div class="chart-wrap"><canvas id="entTrendChart"></canvas></div>
+        </section>
+        <section class="panel">
+          <h2>Répartition par statut</h2>
+          <div class="chart-wrap"><canvas id="entStatusChart"></canvas></div>
+        </section>
+      </div>
+
+      <section class="panel" *ngIf="!loading && trends?.by_status?.length">
+        <h2>Détail des statuts</h2>
+        <table>
+          <thead>
+            <tr><th>Statut</th><th>Nombre</th></tr>
+          </thead>
+          <tbody>
+            <tr *ngFor="let s of trends!.by_status">
+              <td>{{ statusLabel(s.status) }}</td>
+              <td>{{ s.count }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
     </div>
   `,
   styles: [`
-    .page-container { max-width: 1100px; margin: 0 auto; }
+    .page {
+      max-width: 1100px; margin: 0 auto; padding: 28px 24px 56px; color: #0f172a;
+    }
     .page-header {
-      display: flex; justify-content: space-between; align-items: flex-start;
-      margin-bottom: 24px; flex-wrap: wrap; gap: 12px;
-      h1 { margin: 0 0 4px; display: flex; align-items: center; gap: 8px; font-size: 22px; }
-      p { margin: 0; color: #6b7280; font-size: 14px; }
+      display: flex; justify-content: space-between; align-items: flex-end; gap: 16px;
+      flex-wrap: wrap; margin-bottom: 20px;
     }
-    .loading { display: flex; justify-content: center; padding: 40px; }
-    .kpi-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px; }
-    .kpi {
-      padding: 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 8px;
-      mat-icon { font-size: 32px; width: 32px; height: 32px; color: #6C5CE7; }
-      .val { font-size: 28px; font-weight: 800; } .lbl { font-size: 13px; color: #6b7280; }
-      &.active mat-icon { color: #f59e0b; } &.done mat-icon { color: #00b894; } &.rate mat-icon { color: #3CB371; }
+    .eyebrow {
+      margin: 0 0 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #64748b;
     }
-    .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .chart-card {
-      padding: 20px;
-      h3 { margin: 0 0 16px; font-size: 15px; color: #374151; }
+    h1 { margin: 0 0 4px; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+    .sub { margin: 0; color: #64748b; font-size: 14px; }
+    .loading { display: flex; justify-content: center; padding: 48px; }
+
+    .metrics {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px;
+    }
+    .metric {
+      border: 1px solid #e2e8f0; background: #fff; border-radius: 10px; padding: 16px 18px;
+    }
+    .metric-val { display: block; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; }
+    .metric-lbl { display: block; margin-top: 4px; font-size: 12px; color: #64748b; }
+
+    .extra { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+    .spend {
+      display: flex; justify-content: space-between; align-items: center; gap: 12px;
+      .label { font-size: 13px; color: #64748b; }
+      strong { font-size: 16px; font-weight: 700; }
+    }
+
+    .charts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+    .panel {
+      border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; padding: 16px 18px;
+      h2 { margin: 0 0 14px; font-size: 15px; font-weight: 650; }
     }
     .chart-wrap { height: 280px; position: relative; }
+
+    table { width: 100%; border-collapse: collapse; }
+    th {
+      text-align: left; padding: 10px 8px; font-size: 11px; font-weight: 600;
+      text-transform: uppercase; letter-spacing: 0.04em; color: #94a3b8;
+      border-bottom: 1px solid #e2e8f0;
+    }
+    td { padding: 12px 8px; border-bottom: 1px solid #f1f5f9; font-size: 13px; }
+    td:last-child { text-align: right; font-weight: 600; }
+
     @media (max-width: 900px) {
-      .kpi-grid { grid-template-columns: repeat(2, 1fr); }
-      .charts-row { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
+      .charts, .extra { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 560px) {
+      .page { padding: 16px 16px 40px; }
+      h1 { font-size: 22px; }
     }
   `],
 })
@@ -139,6 +192,10 @@ export class EnterpriseAnalyticsComponent implements OnInit, OnDestroy {
 
   ngOnDestroy(): void {
     this.charts.forEach((c) => c.destroy());
+  }
+
+  statusLabel(status: string): string {
+    return STATUS_LABELS[status] || status;
   }
 
   load(): void {
@@ -184,13 +241,13 @@ export class EnterpriseAnalyticsComponent implements OnInit, OnDestroy {
 <html lang="fr"><head><meta charset="utf-8"><title>Rapport Analytics — ${this.companyName}</title>
 <style>
   body { font-family: Arial, sans-serif; color: #111; padding: 32px; max-width: 800px; margin: 0 auto; }
-  h1 { font-size: 22px; margin: 0 0 4px; color: #3CB371; }
+  h1 { font-size: 22px; margin: 0 0 4px; color: #0f172a; }
   .meta { color: #666; font-size: 13px; margin-bottom: 24px; }
   .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 28px; }
   .kpi { border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; text-align: center; }
   .kpi .val { font-size: 24px; font-weight: 700; display: block; }
   .kpi .lbl { font-size: 11px; color: #6b7280; }
-  h2 { font-size: 15px; margin: 24px 0 8px; border-bottom: 2px solid #3CB371; padding-bottom: 4px; }
+  h2 { font-size: 15px; margin: 24px 0 8px; border-bottom: 2px solid #0f172a; padding-bottom: 4px; }
   table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 16px; }
   th, td { border: 1px solid #e5e7eb; padding: 8px 10px; }
   th { background: #f9fafb; text-align: left; }
@@ -210,7 +267,7 @@ export class EnterpriseAnalyticsComponent implements OnInit, OnDestroy {
   <h2>Tendances (14 derniers jours)</h2>
   <table><thead><tr><th>Date</th><th>Créées</th><th>Terminées</th></tr></thead><tbody>${trendRows}</tbody></table>
   ${this.stats.spent_this_month != null ? `<p><strong>Dépenses du mois :</strong> ${this.stats.spent_this_month} XOF</p>` : ''}
-  <footer>Généré par BlockTask — blocktask</footer>
+  <footer>Généré par BlockTask</footer>
 </body></html>`;
 
     const win = window.open('', '_blank');
@@ -244,26 +301,33 @@ export class EnterpriseAnalyticsComponent implements OnInit, OnDestroy {
             {
               label: 'Créées',
               data: this.trends.daily.map((d) => d.created),
-              borderColor: '#6C5CE7',
-              backgroundColor: 'rgba(108, 92, 231, 0.1)',
+              borderColor: '#0f172a',
+              backgroundColor: 'rgba(15, 23, 42, 0.06)',
               fill: true,
-              tension: 0.3,
+              tension: 0.25,
+              borderWidth: 2,
+              pointRadius: 2,
             },
             {
               label: 'Terminées',
               data: this.trends.daily.map((d) => d.completed),
-              borderColor: '#3CB371',
-              backgroundColor: 'rgba(60, 179, 113, 0.1)',
+              borderColor: '#16a34a',
+              backgroundColor: 'rgba(22, 163, 74, 0.08)',
               fill: true,
-              tension: 0.3,
+              tension: 0.25,
+              borderWidth: 2,
+              pointRadius: 2,
             },
           ],
         },
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { position: 'bottom' } },
-          scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } },
+          plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } } },
+          scales: {
+            y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f1f5f9' } },
+            x: { grid: { display: false } },
+          },
         },
       }));
     }
@@ -285,7 +349,8 @@ export class EnterpriseAnalyticsComponent implements OnInit, OnDestroy {
         options: {
           responsive: true,
           maintainAspectRatio: false,
-          plugins: { legend: { position: 'bottom', labels: { font: { size: 11 } } } },
+          cutout: '58%',
+          plugins: { legend: { position: 'bottom', labels: { font: { size: 11 }, boxWidth: 12 } } },
         },
       }));
     }

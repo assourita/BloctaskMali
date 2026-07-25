@@ -57,6 +57,12 @@ class EnterpriseTeamMember(models.Model):
         default=False,
         help_text='Marqueur local (le chef officiel reste team.manager)',
     )
+    category = models.CharField(
+        max_length=100,
+        blank=True,
+        default='',
+        help_text='Catégorie / spécialité du membre dans l\'équipe (optionnel)',
+    )
     joined_at = models.DateTimeField(auto_now_add=True)
 
     class Meta:

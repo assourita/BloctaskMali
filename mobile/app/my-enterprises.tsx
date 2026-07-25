@@ -69,7 +69,11 @@ export default function MyEnterprisesScreen() {
               memberships.map((m) => {
                 const logo = m.enterprise?.logo;
                 return (
-                  <View key={m.id} style={styles.row}>
+                  <Pressable
+                    key={m.id}
+                    style={styles.row}
+                    onPress={() => router.push(`/my-enterprise/${m.enterprise_id}`)}
+                  >
                     {logo ? (
                       <Image source={{ uri: logo }} style={styles.logoImg} />
                     ) : (
@@ -87,11 +91,12 @@ export default function MyEnterprisesScreen() {
                           ? ` · depuis ${new Date(m.hired_at).toLocaleDateString('fr-FR')}`
                           : ''}
                       </Text>
+                      <Text style={[styles.meta, { color: colors.primary }]}>Voir le détail →</Text>
                     </View>
                     <View style={styles.badge}>
                       <Text style={styles.badgeText}>Lié</Text>
                     </View>
-                  </View>
+                  </Pressable>
                 );
               })
             )}

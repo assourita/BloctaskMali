@@ -90,6 +90,10 @@ class GPSLocationViewSet(viewsets.ModelViewSet):
                 qs = qs.filter(
                     Q(mission__client=request.user)
                     | Q(mission__assigned_enterprise=profile)
+                    | Q(
+                        user__employee_links__enterprise=profile,
+                        user__employee_links__is_active=True,
+                    )
                 )
             else:
                 qs = qs.filter(mission__client=request.user)

@@ -109,6 +109,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/provider/enterprises/enterprises.component').then(m => m.ProviderEnterprisesComponent)
       },
       {
+        path: 'enterprises/:id',
+        loadComponent: () => import('./features/provider/enterprises/enterprise-detail.component').then(m => m.ProviderEnterpriseDetailComponent)
+      },
+      {
         path: 'invitations',
         loadComponent: () => import('./features/provider/invitations/invitations.component').then(m => m.ProviderInvitationsComponent)
       },

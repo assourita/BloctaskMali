@@ -229,3 +229,140 @@ def my_enterprises(request):
         'enterprise', 'enterprise__user'
     )
     return Response([_serialize_membership(e, request) for e in links])
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def my_enterprise_detail(request, enterprise_id):
+    """
+    GET /users/me/enterprises/<enterprise_id>/
+    Détail de la liaison prestataire ↔ entreprise :
+    poste, équipes, missions attribuées (en cours / terminées…).
+    enterprise_id = EnterpriseProfile.pk (entier) ou UUID string compatible.
+    """
+    from apps.enterprises.models import EnterpriseTeamMember, EmployeeAssignment
+    from apps.missions.models import Mission
+
+    links = employee_links_qs(request.user, active_only=False).select_related(
+        'enterprise', 'enterprise__user',
+    )
+    emp = links.filter(enterprise_id=enterprise_id).first()
+    if not emp:
+        # Secours : accepter aussi l'id de la fiche employé (membership)
+        emp = links.filter(id=enterprise_id).first()
+    if not emp:
+        return Response({'error': 'Entreprise non liée'}, status=404)
+
+    memberships = (
+        EnterpriseTeamMember.objects.filter(employee=emp)
+        .select_related('team', 'team__manager')
+        .order_by('team__name')
+    )
+    teams = []
+    for m in memberships:
+        team = m.team
+        is_manager = bool(team.manager_id and team.manager_id == emp.id)
+        teams.append({
+            'id': str(team.id),
+            'name': team.name,
+            'description': team.description or '',
+            'is_active': team.is_active,
+            'category': m.category or '',
+            'is_manager': is_manager,
+            'is_lead': m.is_lead,
+            'manager_name': (
+                f"{team.manager.first_name or ''} {team.manager.last_name or ''}".strip()
+                if team.manager_id else None
+            ),
+            'members_count': team.memberships.count(),
+        })
+
+    assignments = (
+        EmployeeAssignment.objects.filter(employee=emp)
+        .select_related('mission', 'mission__category', 'mission__client')
+        .order_by('-assigned_at')[:100]
+    )
+    mission_ids = {a.mission_id for a in assignments}
+    # Missions où l'employé est exécutant principal sans ligne d'affectation
+    extra_missions = (
+        Mission.objects.filter(
+            assigned_enterprise_id=emp.enterprise_id,
+            executing_employee=emp,
+        )
+        .exclude(id__in=mission_ids)
+        .select_related('category', 'client')
+        .order_by('-created_at')[:50]
+    )
+
+    def _mission_row(mission, *, is_lead=False, assigned_at=None, assignment_status=None):
+        status = mission.status
+        if status in ('completed',):
+            bucket = 'completed'
+        elif status in ('cancelled', 'expired'):
+            bucket = 'cancelled'
+        elif status in ('disputed',):
+            bucket = 'disputed'
+        elif status in ('accepted', 'in_progress', 'submitted', 'funded'):
+            bucket = 'in_progress'
+        else:
+            bucket = 'other'
+        return {
+            'id': str(mission.id),
+            'title': mission.title,
+            'status': status,
+            'bucket': bucket,
+            'budget': str(mission.budget) if mission.budget is not None else None,
+            'currency': mission.currency or 'XOF',
+            'category': mission.category.name if mission.category_id else None,
+            'location': (mission.delivery_address or mission.pickup_address or '')[:120],
+            'is_lead': is_lead,
+            'assigned_at': assigned_at.isoformat() if assigned_at else None,
+            'assignment_status': assignment_status,
+            'deadline': mission.deadline.isoformat() if getattr(mission, 'deadline', None) else None,
+            'completed_at': (
+                mission.completed_at.isoformat()
+                if getattr(mission, 'completed_at', None) else None
+            ),
+        }
+
+    missions = []
+    for a in assignments:
+        if a.mission.assigned_enterprise_id and a.mission.assigned_enterprise_id != emp.enterprise_id:
+            # hors de cette entreprise
+            continue
+        if a.completed_at:
+            asst_status = 'completed'
+        elif a.rejected_at:
+            asst_status = 'rejected'
+        elif a.accepted_at:
+            asst_status = 'accepted'
+        else:
+            asst_status = 'pending'
+        missions.append(_mission_row(
+            a.mission,
+            is_lead=bool(a.is_lead) or (a.mission.executing_employee_id == emp.id),
+            assigned_at=a.assigned_at,
+            assignment_status=asst_status,
+        ))
+
+    for mission in extra_missions:
+        missions.append(_mission_row(
+            mission,
+            is_lead=mission.executing_employee_id == emp.id,
+            assigned_at=mission.created_at,
+            assignment_status=None,
+        ))
+
+    stats = {
+        'teams_count': len(teams),
+        'missions_total': len(missions),
+        'missions_in_progress': sum(1 for m in missions if m['bucket'] == 'in_progress'),
+        'missions_completed': sum(1 for m in missions if m['bucket'] == 'completed'),
+    }
+
+    return Response({
+        'membership': _serialize_membership(emp, request),
+        'teams': teams,
+        'missions': missions,
+        'stats': stats,
+    })

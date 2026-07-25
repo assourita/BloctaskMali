@@ -156,10 +156,14 @@ pip install -r requirements.txt
 cp .env.example .env          # puis éditez les variables
 python manage.py migrate
 python manage.py createsuperuser
-python manage.py runserver 0.0.0.0:8000
+# ASGI requis pour le GPS temps réel (WebSocket). Alternative HTTP seule :
+# python manage.py runserver 0.0.0.0:8000
+daphne -b 0.0.0.0 -p 8000 config.asgi:application
+# Windows : .\run_asgi.ps1
 ```
 
 > Utilisez `0.0.0.0:8000` pour que le mobile (émulateur ou téléphone) puisse joindre l'API.
+> Sans Daphne/ASGI, le suivi GPS bascule automatiquement sur le polling REST (toutes les 10 s).
 
 **Utilisateurs de test** (optionnel) :
 

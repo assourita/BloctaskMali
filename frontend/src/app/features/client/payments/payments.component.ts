@@ -19,454 +19,196 @@ import { PaymentService, Payment, PaymentMethod } from '../../../core/services/p
     MatProgressSpinnerModule, MatSnackBarModule, MatDividerModule,
   ],
   template: `
-    <div class="page-container">
-      <!-- Header - Stripe Style -->
-      <div class="page-header">
-        <div class="header-content">
-          <h1><mat-icon>credit_card</mat-icon> Paiements</h1>
-          <p>Historique Mobile Money et méthodes de paiement</p>
+    <div class="page">
+      <header class="page-header">
+        <div>
+          <p class="eyebrow">Trésorerie</p>
+          <h1>Paiements</h1>
+          <p class="sub">Historique Mobile Money et méthodes enregistrées</p>
         </div>
-        <button mat-stroked-button class="refresh-btn" (click)="load()">
+        <button mat-stroked-button (click)="load()">
           <mat-icon>refresh</mat-icon> Actualiser
         </button>
-      </div>
+      </header>
 
-      <!-- KPI Cards - Stripe Style -->
-      <div class="kpi-row" *ngIf="!loading">
-        <div class="kpi">
-          <div class="kpi-icon">
-            <mat-icon>check_circle</mat-icon>
-          </div>
-          <span class="val">{{ stats.completed }}</span>
-          <span class="lbl">Payés</span>
+      <div class="metrics" *ngIf="!loading">
+        <div class="metric">
+          <span class="metric-val">{{ stats.completed }}</span>
+          <span class="metric-lbl">Payés</span>
         </div>
-        <div class="kpi pending">
-          <div class="kpi-icon">
-            <mat-icon>hourglass_empty</mat-icon>
-          </div>
-          <span class="val">{{ stats.pending }}</span>
-          <span class="lbl">En attente</span>
+        <div class="metric">
+          <span class="metric-val">{{ stats.pending }}</span>
+          <span class="metric-lbl">En attente</span>
         </div>
-        <div class="kpi">
-          <div class="kpi-icon">
-            <mat-icon>account_balance_wallet</mat-icon>
-          </div>
-          <span class="val">{{ stats.totalPaid | number:'1.0-0' }}</span>
-          <span class="lbl">Total XOF</span>
+        <div class="metric">
+          <span class="metric-val">{{ stats.totalPaid | number:'1.0-0' }}</span>
+          <span class="metric-lbl">Total XOF</span>
         </div>
-        <div class="kpi">
-          <div class="kpi-icon">
-            <mat-icon>credit_card</mat-icon>
-          </div>
-          <span class="val">{{ methods.length }}</span>
-          <span class="lbl">Méthodes</span>
+        <div class="metric">
+          <span class="metric-val">{{ methods.length }}</span>
+          <span class="metric-lbl">Méthodes</span>
         </div>
       </div>
 
       <div class="loading" *ngIf="loading"><mat-spinner diameter="36"></mat-spinner></div>
 
       <div class="grid" *ngIf="!loading">
-        <!-- Payment History Card -->
-        <mat-card class="payment-card">
-          <mat-card-header>
-            <mat-card-title>Historique des paiements</mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="pay-list" *ngIf="payments.length; else noPay">
-              <div class="pay-item" *ngFor="let p of payments">
-                <div class="pay-main">
-                  <span class="pay-amount">{{ p.amount | number:'1.0-0' }} {{ p.currency }}</span>
-                  <span class="pay-meta">Mission {{ p.mission | slice:0:8 }}... · {{ p.created_at | date:'short' }}</span>
-                  <span class="pay-op" *ngIf="p.operator">{{ p.operator | uppercase }} {{ p.phone_number }}</span>
-                </div>
-                <div class="pay-actions">
-                  <mat-chip [class]="'st-' + p.status">{{ statusLabel(p.status) }}</mat-chip>
-                  <button mat-stroked-button color="warn" *ngIf="p.status === 'completed'" (click)="requestRefund(p)">
-                    Remboursement
-                  </button>
-                </div>
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Historique</h2>
+          </div>
+          <div class="pay-list" *ngIf="payments.length; else noPay">
+            <div class="pay-row" *ngFor="let p of payments">
+              <div class="pay-main">
+                <strong>{{ p.amount | number:'1.0-0' }} {{ p.currency }}</strong>
+                <span class="meta">
+                  Mission {{ p.mission | slice:0:8 }}…
+                  · {{ p.created_at | date:'medium' }}
+                </span>
+                <span class="meta" *ngIf="p.operator">
+                  {{ p.operator | uppercase }} {{ p.phone_number }}
+                </span>
               </div>
-            </div>
-            <ng-template #noPay><p class="empty">Aucun paiement enregistré</p></ng-template>
-          </mat-card-content>
-        </mat-card>
-
-        <!-- Payment Methods Card -->
-        <mat-card class="methods-card">
-          <mat-card-header>
-            <mat-card-title>Méthodes de paiement</mat-card-title>
-          </mat-card-header>
-          <mat-card-content>
-            <div class="method-list" *ngIf="methods.length; else noMethod">
-              <div class="method-item" *ngFor="let m of methods">
-                <div class="method-icon">
-                  <mat-icon>phone_android</mat-icon>
-                </div>
-                <div class="method-info">
-                  <strong>{{ m.operator | uppercase }} — {{ m.phone_number }}</strong>
-                  <span *ngIf="m.is_default" class="default-badge">Par défaut</span>
-                </div>
-                <button mat-icon-button *ngIf="!m.is_default" (click)="setDefault(m)">
-                  <mat-icon>star_outline</mat-icon>
+              <div class="pay-side">
+                <span class="status" [attr.data-status]="p.status">{{ statusLabel(p.status) }}</span>
+                <button mat-stroked-button *ngIf="p.status === 'completed'" (click)="requestRefund(p)">
+                  Remboursement
                 </button>
               </div>
             </div>
-            <ng-template #noMethod><p class="empty">Aucune méthode enregistrée</p></ng-template>
-            <mat-divider></mat-divider>
-            <div class="add-method">
-              <input class="field" [(ngModel)]="newPhone" placeholder="Téléphone (+223...)" />
+          </div>
+          <ng-template #noPay><p class="empty">Aucun paiement enregistré.</p></ng-template>
+        </section>
+
+        <section class="panel">
+          <div class="panel-head">
+            <h2>Méthodes de paiement</h2>
+          </div>
+          <div class="method-list" *ngIf="methods.length; else noMethod">
+            <div class="method-row" *ngFor="let m of methods">
+              <div class="method-icon">{{ (m.operator || 'MM').slice(0, 2).toUpperCase() }}</div>
+              <div class="method-info">
+                <strong>{{ m.operator | uppercase }} — {{ m.phone_number }}</strong>
+                <span class="default" *ngIf="m.is_default">Par défaut</span>
+              </div>
+              <button mat-button *ngIf="!m.is_default" (click)="setDefault(m)">Définir</button>
+            </div>
+          </div>
+          <ng-template #noMethod><p class="empty">Aucune méthode enregistrée.</p></ng-template>
+
+          <div class="add-method">
+            <p class="add-label">Ajouter un numéro Mobile Money</p>
+            <div class="add-row">
+              <input class="field" [(ngModel)]="newPhone" placeholder="Téléphone (+223…)" />
               <select class="field" [(ngModel)]="newOperator">
                 <option value="orange">Orange Money</option>
                 <option value="moov">Moov Money</option>
               </select>
-              <button mat-raised-button color="primary" (click)="addMethod()">Ajouter</button>
+              <button mat-flat-button color="primary" (click)="addMethod()">Ajouter</button>
             </div>
-          </mat-card-content>
-        </mat-card>
+          </div>
+        </section>
       </div>
     </div>
   `,
   styles: [`
-    .page-container {
-      max-width: 1200px;
+    .page {
+      max-width: 1080px;
       margin: 0 auto;
-      padding: 2rem;
-      font-family: system-ui, -apple-system, sans-serif;
+      padding: 28px 24px 56px;
+      color: #0f172a;
     }
-
-    /* Header - Stripe Style */
     .page-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 2rem;
-      flex-wrap: wrap;
-      gap: 1rem;
+      display: flex; justify-content: space-between; align-items: flex-end; gap: 16px;
+      flex-wrap: wrap; margin-bottom: 20px;
     }
-
-    .header-content h1 {
-      margin: 0 0 0.5rem;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      font-size: 1.875rem;
-      font-weight: 800;
-      color: #111827;
-
-      mat-icon {
-        font-size: 2rem;
-        width: 2rem;
-        height: 2rem;
-        color: #4f46e5;
-      }
+    .eyebrow {
+      margin: 0 0 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+      text-transform: uppercase; color: #64748b;
     }
+    h1 { margin: 0 0 4px; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+    .sub { margin: 0; color: #64748b; font-size: 14px; }
 
-    .header-content p {
-      margin: 0;
-      color: #9ca3af;
-      font-size: 1rem;
+    .metrics {
+      display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;
     }
-
-    .refresh-btn {
-      border: 2px solid #e5e7eb;
-      border-radius: 0.75rem;
-      padding: 0.75rem 1.5rem;
-      font-weight: 600;
-      font-size: 0.875rem;
-      transition: all 0.2s ease;
-
-      &:hover {
-        border-color: #6366f1;
-        background: #f9fafb;
-      }
-
-      mat-icon {
-        margin-right: 0.5rem;
-      }
+    .metric {
+      border: 1px solid #e2e8f0; background: #fff; border-radius: 10px; padding: 16px 18px;
     }
-
-    /* KPI Cards - Stripe Style */
-    .kpi-row {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 1.25rem;
-      margin-bottom: 2rem;
+    .metric-val {
+      display: block; font-size: 22px; font-weight: 700; letter-spacing: -0.02em;
     }
+    .metric-lbl { font-size: 12px; color: #64748b; margin-top: 4px; display: block; }
 
-    .kpi {
-      background: #ffffff;
-      border: 1px solid #e5e7eb;
-      border-radius: 1.5rem;
-      padding: 1.5rem;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 0.75rem;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-      transition: all 0.2s ease;
-
-      &:hover {
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        transform: translateY(-2px);
-      }
-
-      .kpi-icon {
-        width: 3rem;
-        height: 3rem;
-        border-radius: 0.75rem;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        background: linear-gradient(135deg, #818cf8 0%, #4f46e5 100%);
-
-        mat-icon {
-          font-size: 1.5rem;
-          width: 1.5rem;
-          height: 1.5rem;
-          color: #ffffff;
-        }
-      }
-
-      .val {
-        font-size: 1.5rem;
-        font-weight: 800;
-        color: #111827;
-      }
-
-      .lbl {
-        font-size: 0.875rem;
-        color: #9ca3af;
-        font-weight: 500;
-      }
-
-      &.pending .kpi-icon {
-        background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
-      }
-    }
-
-    .loading {
-      display: flex;
-      justify-content: center;
-      padding: 4rem;
-    }
+    .loading { display: flex; justify-content: center; padding: 48px; }
 
     .grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 1.5rem;
+      display: grid; grid-template-columns: 1.2fr 0.8fr; gap: 16px; align-items: start;
+    }
+    .panel {
+      border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; padding: 16px 18px;
+    }
+    .panel-head {
+      margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9;
+      h2 { margin: 0; font-size: 15px; font-weight: 650; }
     }
 
-    /* Cards */
-    .payment-card, .methods-card {
-      background: #ffffff;
-      border: 1px solid #e5e7eb;
-      border-radius: 1.5rem;
-      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-
-      ::ng-deep {
-        .mat-mdc-card-header {
-          padding: 1.5rem;
-          border-bottom: 1px solid #e5e7eb;
-        }
-
-        .mat-mdc-card-title {
-          font-size: 1.125rem;
-          font-weight: 600;
-          color: #111827;
-        }
-
-        .mat-mdc-card-content {
-          padding: 1.5rem;
-        }
-      }
+    .pay-list, .method-list { display: flex; flex-direction: column; }
+    .pay-row, .method-row {
+      display: flex; justify-content: space-between; gap: 12px; align-items: center;
+      padding: 12px 0; border-bottom: 1px solid #f1f5f9; flex-wrap: wrap;
+      &:last-child { border-bottom: 0; }
     }
+    .pay-main strong { display: block; font-size: 15px; font-weight: 650; }
+    .meta { display: block; font-size: 12px; color: #94a3b8; margin-top: 2px; }
+    .pay-side { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 
-    /* Payment Items */
-    .pay-list {
-      display: flex;
-      flex-direction: column;
-      gap: 1rem;
-    }
-
-    .pay-item {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 1rem;
-      background: #f9fafb;
-      border-radius: 0.75rem;
-      gap: 1rem;
-    }
-
-    .pay-main {
-      display: flex;
-      flex-direction: column;
-      gap: 0.25rem;
-    }
-
-    .pay-amount {
-      font-size: 1.125rem;
-      font-weight: 800;
-      color: #111827;
-    }
-
-    .pay-meta {
-      font-size: 0.875rem;
-      color: #9ca3af;
-    }
-
-    .pay-op {
-      font-size: 0.75rem;
-      color: #6b7280;
-      font-weight: 500;
-    }
-
-    .pay-actions {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-    }
-
-    mat-chip {
-      font-size: 0.75rem;
-      font-weight: 600;
-      padding: 0.375rem 0.875rem;
-      border-radius: 9999px;
-    }
-
-    .st-completed {
-      background: #dcfce7;
-      color: #16a34a;
-    }
-
-    .st-pending {
-      background: #fef3c7;
-      color: #d97706;
-    }
-
-    .st-failed {
-      background: #fee2e2;
-      color: #dc2626;
-    }
-
-    /* Method Items */
-    .method-list {
-      display: flex;
-      flex-direction: column;
-      gap: 0.75rem;
-    }
-
-    .method-item {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
-      padding: 1rem;
-      background: #f9fafb;
-      border-radius: 0.75rem;
+    .status {
+      display: inline-block; font-size: 11px; font-weight: 600; padding: 3px 8px;
+      border-radius: 4px; background: #f1f5f9; color: #475569;
+      &[data-status="completed"] { background: #ecfdf5; color: #166534; }
+      &[data-status="pending"], &[data-status="processing"] { background: #fff7ed; color: #9a3412; }
+      &[data-status="failed"] { background: #fef2f2; color: #991b1b; }
+      &[data-status="refunded"] { background: #f8fafc; color: #64748b; }
     }
 
     .method-icon {
-      width: 2.5rem;
-      height: 2.5rem;
-      border-radius: 0.5rem;
-      background: linear-gradient(135deg, #818cf8 0%, #4f46e5 100%);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-
-      mat-icon {
-        font-size: 1.25rem;
-        width: 1.25rem;
-        height: 1.25rem;
-        color: #ffffff;
-      }
+      width: 36px; height: 36px; border-radius: 8px; background: #0f172a; color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; flex-shrink: 0;
     }
-
-    .method-info {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-
-      strong {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: #111827;
-      }
+    .method-info { flex: 1; min-width: 140px;
+      strong { display: block; font-size: 13px; font-weight: 600; }
     }
-
-    .default-badge {
-      background: #dcfce7;
-      color: #16a34a;
-      padding: 0.125rem 0.5rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 600;
+    .default {
+      display: inline-block; margin-top: 4px; font-size: 11px; font-weight: 600;
+      color: #166534; background: #ecfdf5; padding: 2px 6px; border-radius: 4px;
     }
 
     .add-method {
-      display: flex;
-      gap: 0.75rem;
-      margin-top: 1.25rem;
+      margin-top: 16px; padding-top: 16px; border-top: 1px solid #f1f5f9;
     }
-
+    .add-label { margin: 0 0 8px; font-size: 12px; font-weight: 600; color: #64748b; }
+    .add-row { display: flex; gap: 8px; flex-wrap: wrap; }
     .field {
-      flex: 1;
-      padding: 0.75rem 1rem;
-      border: 2px solid #e5e7eb;
-      border-radius: 0.75rem;
-      font-size: 0.875rem;
-      font-family: system-ui, -apple-system, sans-serif;
-      outline: none;
-      transition: all 0.2s ease;
-
-      &:focus {
-        border-color: #6366f1;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-      }
+      flex: 1; min-width: 140px; padding: 10px 12px; border: 1px solid #e2e8f0;
+      border-radius: 8px; font: inherit; background: #fff;
+      &:focus { outline: none; border-color: #86efac; box-shadow: 0 0 0 3px rgba(22,163,74,.12); }
     }
 
-    .empty {
-      text-align: center;
-      padding: 2rem;
-      color: #9ca3af;
-      font-size: 0.875rem;
-      margin: 0;
+    .empty { margin: 0; padding: 24px 4px; color: #94a3b8; font-size: 13px; text-align: center; }
+
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(2, 1fr); }
     }
-
-    /* Responsive */
-    @media (max-width: 1024px) {
-      .grid {
-        grid-template-columns: 1fr;
-      }
+    @media (max-width: 560px) {
+      .page { padding: 16px 16px 40px; }
+      .metrics { grid-template-columns: 1fr 1fr; }
+      h1 { font-size: 22px; }
     }
-
-    @media (max-width: 768px) {
-      .page-container {
-        padding: 1rem;
-      }
-
-      .page-header {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .kpi-row {
-        grid-template-columns: repeat(2, 1fr);
-      }
-
-      .pay-item {
-        flex-direction: column;
-        align-items: flex-start;
-      }
-
-      .add-method {
-        flex-direction: column;
-      }
-    }
-  `]
+  `],
 })
-
 export class ClientPaymentsComponent implements OnInit {
   payments: Payment[] = [];
   methods: PaymentMethod[] = [];
@@ -497,7 +239,10 @@ export class ClientPaymentsComponent implements OnInit {
   }
 
   statusLabel(s: string): string {
-    const m: Record<string, string> = { completed: 'Payé', pending: 'En attente', processing: 'En cours', failed: 'Échoué', refunded: 'Remboursé' };
+    const m: Record<string, string> = {
+      completed: 'Payé', pending: 'En attente', processing: 'En cours',
+      failed: 'Échoué', refunded: 'Remboursé',
+    };
     return m[s] || s;
   }
 

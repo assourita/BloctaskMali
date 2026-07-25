@@ -50,20 +50,52 @@ class EnterpriseTeamViewSet(viewsets.ModelViewSet):
         profile = get_enterprise_profile(self.request.user)
         if not profile:
             raise ValidationError({'detail': 'Profil entreprise requis'})
+        members_payload = serializer.validated_data.pop('members_payload', None) or []
         team = serializer.save(enterprise=profile)
-        manager = team.manager
-        if manager and manager.enterprise_id == profile.id:
-            EnterpriseTeamMember.objects.get_or_create(team=team, employee=manager)
+        self._sync_members(team, profile, members_payload, ensure_manager=True)
 
     def perform_update(self, serializer):
         profile = get_enterprise_profile(self.request.user)
+        members_payload = serializer.validated_data.pop('members_payload', None)
         team = serializer.save()
-        if team.manager_id and profile and team.manager.enterprise_id == profile.id:
+        if members_payload is not None and profile:
+            self._sync_members(team, profile, members_payload, ensure_manager=True, replace=True)
+        elif team.manager_id and profile and team.manager.enterprise_id == profile.id:
+            EnterpriseTeamMember.objects.get_or_create(team=team, employee=team.manager)
+
+    def _sync_members(self, team, profile, members_payload, *, ensure_manager=False, replace=False):
+        if replace:
+            keep_ids = set()
+            for row in members_payload:
+                eid = row.get('employee_id') or row.get('employee')
+                if eid:
+                    keep_ids.add(str(eid))
+            if team.manager_id:
+                keep_ids.add(str(team.manager_id))
+            EnterpriseTeamMember.objects.filter(team=team).exclude(employee_id__in=keep_ids).delete()
+
+        for row in members_payload:
+            eid = row.get('employee_id') or row.get('employee')
+            if not eid:
+                continue
+            employee = Employee.objects.filter(id=eid, enterprise=profile, is_active=True).first()
+            if not employee:
+                continue
+            category = (row.get('category') or '')[:100]
+            membership, created = EnterpriseTeamMember.objects.get_or_create(
+                team=team, employee=employee,
+                defaults={'category': category},
+            )
+            if not created and category:
+                membership.category = category
+                membership.save(update_fields=['category'])
+
+        if ensure_manager and team.manager_id and team.manager.enterprise_id == profile.id:
             EnterpriseTeamMember.objects.get_or_create(team=team, employee=team.manager)
 
     @action(detail=True, methods=['post'])
     def members(self, request, pk=None):
-        """POST { employee_id } — ajoute un membre."""
+        """POST { employee_id, category? } — ajoute un membre."""
         team = self.get_object()
         profile = get_enterprise_profile(request.user)
         if not profile or team.enterprise_id != profile.id:
@@ -74,7 +106,14 @@ class EnterpriseTeamViewSet(viewsets.ModelViewSet):
         employee = Employee.objects.filter(id=employee_id, enterprise=profile, is_active=True).first()
         if not employee:
             return Response({'error': 'Employé introuvable'}, status=404)
-        EnterpriseTeamMember.objects.get_or_create(team=team, employee=employee)
+        category = (request.data.get('category') or '')[:100]
+        membership, created = EnterpriseTeamMember.objects.get_or_create(
+            team=team, employee=employee,
+            defaults={'category': category},
+        )
+        if not created and 'category' in request.data:
+            membership.category = category
+            membership.save(update_fields=['category'])
         return Response(EnterpriseTeamSerializer(team).data)
 
     @action(detail=True, methods=['post'], url_path=r'members/(?P<employee_id>[^/.]+)/remove')
@@ -238,11 +277,35 @@ class EmployeeAvailabilityViewSet(viewsets.ReadOnlyModelViewSet):
     def get_queryset(self):
         profile = get_enterprise_profile(self.request.user)
         if self.request.user.is_staff:
-            return EmployeeAvailability.objects.select_related('employee', 'employee__user', 'current_mission')
+            return EmployeeAvailability.objects.select_related(
+                'employee', 'employee__user', 'current_mission',
+            )
         if not profile:
             return EmployeeAvailability.objects.none()
+        # Garantit une fiche disponibilité pour chaque employé actif
+        from apps.users.models import Employee
+        active_ids = Employee.objects.filter(
+            enterprise=profile, is_active=True,
+        ).values_list('id', flat=True)
+        existing = set(
+            EmployeeAvailability.objects.filter(employee_id__in=active_ids)
+            .values_list('employee_id', flat=True)
+        )
+        missing = [eid for eid in active_ids if eid not in existing]
+        if missing:
+            EmployeeAvailability.objects.bulk_create(
+                [
+                    EmployeeAvailability(
+                        employee_id=eid,
+                        status=EmployeeAvailability.Status.OFFLINE,
+                    )
+                    for eid in missing
+                ],
+                ignore_conflicts=True,
+            )
         return EmployeeAvailability.objects.filter(
-            employee__enterprise=profile
+            employee__enterprise=profile,
+            employee__is_active=True,
         ).select_related('employee', 'employee__user', 'current_mission')
 
 

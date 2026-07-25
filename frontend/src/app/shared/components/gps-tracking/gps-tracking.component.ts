@@ -421,28 +421,54 @@ export class GpsTrackingComponent implements OnInit, OnDestroy, OnChanges, After
 
   private connectWebSocket(): void {
     if (!this.missionId || this.wsFailed || this.isProvider) return;
+    // Évite les multi-connexions (ngOnInit + ngOnChanges / HMR)
+    if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
+      return;
+    }
+    this.ws?.close();
+    this.ws = undefined;
+
     const token = this.authService.getToken();
+    if (!token) {
+      this.wsFailed = true;
+      return;
+    }
     const wsUrl = `${this.wsBase}/ws/tracking/mission/${this.missionId}/?token=${token}`;
     try {
-      this.ws = new WebSocket(wsUrl);
-      this.ws.onopen = () => { this.isLive = true; };
-      this.ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        if (data.type === 'gps_update' && data.location) {
-          this.applyLocationUpdate(data.location);
+      const socket = new WebSocket(wsUrl);
+      this.ws = socket;
+      socket.onopen = () => {
+        if (this.ws === socket) this.isLive = true;
+      };
+      socket.onmessage = (event) => {
+        if (this.ws !== socket) return;
+        try {
+          const data = JSON.parse(event.data);
+          if (data.type === 'gps_update' && data.location) {
+            this.applyLocationUpdate(data.location);
+          }
+        } catch {
+          /* ignore malformed */
         }
       };
-      this.ws.onerror = () => {
+      socket.onerror = () => {
+        // Le navigateur log déjà l'échec ; on bascule silencieusement sur le polling REST
         this.wsFailed = true;
-        this.ws?.close();
+        this.isLive = false;
+        try { socket.close(); } catch { /* noop */ }
+        if (this.ws === socket) this.ws = undefined;
       };
-      this.ws.onclose = () => {
-        if (!this.wsFailed) {
+      socket.onclose = () => {
+        if (this.ws === socket) {
+          this.ws = undefined;
+          this.isLive = false;
+          // Ne pas retenter en boucle si le serveur WS n'est pas dispo (runserver WSGI, etc.)
           this.wsFailed = true;
         }
       };
     } catch {
       this.wsFailed = true;
+      this.isLive = false;
     }
   }
 

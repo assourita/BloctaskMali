@@ -13,6 +13,11 @@ import {
   EnterpriseTeam,
 } from '../../../core/services/enterprise.service';
 
+interface MemberDraft {
+  employee_id: string;
+  category: string;
+}
+
 @Component({
   selector: 'app-enterprise-teams',
   standalone: true,
@@ -34,15 +39,37 @@ import {
       </header>
 
       <mat-card *ngIf="showForm" class="form-card">
-        <h3>{{ editingId ? 'Modifier l\'équipe' : 'Créer une équipe' }}</h3>
+        <h3>{{ formTitle }}</h3>
         <div class="form-grid">
           <input class="field full" [(ngModel)]="form.name" placeholder="Nom de l'équipe *" />
           <textarea class="field full" [(ngModel)]="form.description" rows="2" placeholder="Description"></textarea>
-          <select class="field" [(ngModel)]="form.manager">
+          <select class="field full" [(ngModel)]="form.manager">
             <option value="">Chef d'équipe (optionnel)</option>
             <option *ngFor="let e of employees" [value]="e.id">{{ e.first_name }} {{ e.last_name }}</option>
           </select>
         </div>
+
+        <div class="members-block">
+          <div class="members-head">
+            <h4>Membres de l'équipe</h4>
+            <span class="hint">Sélectionnez les employés. La catégorie est optionnelle.</span>
+          </div>
+          <div class="member-pick" *ngFor="let e of employees">
+            <label class="check">
+              <input type="checkbox"
+                [checked]="isSelected(e.id)"
+                (change)="toggleMember(e.id, $any($event.target).checked)" />
+              <span>{{ e.first_name }} {{ e.last_name }}</span>
+              <span class="meta" *ngIf="e.position">{{ e.position }}</span>
+            </label>
+            <input *ngIf="isSelected(e.id)"
+              class="field cat"
+              [(ngModel)]="memberCategories[e.id]"
+              placeholder="Catégorie (optionnel)" />
+          </div>
+          <p class="empty-inline" *ngIf="!employees.length">Aucun employé actif disponible.</p>
+        </div>
+
         <div class="form-actions">
           <button mat-button (click)="cancelForm()">Annuler</button>
           <button mat-raised-button color="primary" (click)="save()" [disabled]="saving">
@@ -82,6 +109,9 @@ import {
                   {{ e.first_name }} {{ e.last_name }}
                 </option>
               </select>
+              <input class="field cat"
+                [(ngModel)]="memberCategoryPick[team.id]"
+                placeholder="Catégorie (optionnel)" />
               <button mat-flat-button color="primary"
                 (click)="addMember(team)"
                 [disabled]="!memberPick[team.id] || busyId === team.id">
@@ -92,6 +122,7 @@ import {
               <div>
                 <strong>{{ m.first_name }} {{ m.last_name }}</strong>
                 <span class="meta">{{ m.email }}</span>
+                <span class="meta" *ngIf="m.category">Catégorie : {{ m.category }}</span>
                 <span class="badge chef" *ngIf="m.is_manager || team.manager === m.employee_id">Chef</span>
               </div>
               <div class="actions">
@@ -132,6 +163,21 @@ import {
       border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; font: inherit; width: 100%;
       box-sizing: border-box; background: #fff;
       &.full { grid-column: 1 / -1; }
+      &.cat { max-width: 220px; }
+    }
+    .members-block {
+      margin-top: 14px; padding-top: 14px; border-top: 1px solid #e2e8f0;
+      h4 { margin: 0 0 4px; font-size: 14px; }
+      .hint { display: block; font-size: 12px; color: #94a3b8; margin-bottom: 10px; }
+    }
+    .member-pick {
+      display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+      padding: 8px 0; border-bottom: 1px solid #f1f5f9;
+      .check {
+        display: flex; align-items: center; gap: 8px; flex: 1; min-width: 200px; cursor: pointer;
+        input { width: auto; }
+        .meta { font-size: 12px; color: #94a3b8; }
+      }
     }
     .form-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 12px; }
     .loading { display: flex; justify-content: center; padding: 32px; }
@@ -150,7 +196,9 @@ import {
     .desc { margin-top: 6px !important; color: #475569 !important; }
     .actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
     .members { margin-top: 14px; padding-top: 14px; border-top: 1px solid #e2e8f0; }
-    .add-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; .field { max-width: 280px; } }
+    .add-row { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; align-items: center;
+      .field:not(.cat) { max-width: 280px; }
+    }
     .member-row {
       display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
       padding: 10px 0; border-bottom: 1px solid #f1f5f9;
@@ -175,12 +223,19 @@ export class EnterpriseTeamsComponent implements OnInit {
   expandedId: string | null = null;
   busyId: string | null = null;
   memberPick: Record<string, string> = {};
+  memberCategoryPick: Record<string, string> = {};
+  selectedMemberIds: string[] = [];
+  memberCategories: Record<string, string> = {};
   form = { name: '', description: '', manager: '' };
 
   constructor(
     private enterpriseService: EnterpriseService,
     private snack: MatSnackBar,
   ) {}
+
+  get formTitle(): string {
+    return this.editingId ? "Modifier l'équipe" : 'Créer une équipe';
+  }
 
   ngOnInit(): void {
     this.load();
@@ -203,6 +258,34 @@ export class EnterpriseTeamsComponent implements OnInit {
     });
   }
 
+  isSelected(employeeId: string): boolean {
+    return this.selectedMemberIds.includes(employeeId);
+  }
+
+  toggleMember(employeeId: string, checked: boolean): void {
+    if (checked) {
+      if (!this.selectedMemberIds.includes(employeeId)) {
+        this.selectedMemberIds = [...this.selectedMemberIds, employeeId];
+      }
+      if (!(employeeId in this.memberCategories)) {
+        this.memberCategories[employeeId] = '';
+      }
+    } else {
+      this.selectedMemberIds = this.selectedMemberIds.filter((id) => id !== employeeId);
+      delete this.memberCategories[employeeId];
+      if (this.form.manager === employeeId) {
+        this.form.manager = '';
+      }
+    }
+  }
+
+  buildMembersPayload(): MemberDraft[] {
+    return this.selectedMemberIds.map((employee_id) => ({
+      employee_id,
+      category: (this.memberCategories[employee_id] || '').trim(),
+    }));
+  }
+
   availableEmployees(team: EnterpriseTeam): EnterpriseEmployee[] {
     const ids = new Set((team.members || []).map((m) => m.employee_id));
     return this.employees.filter((e) => !ids.has(e.id));
@@ -212,6 +295,8 @@ export class EnterpriseTeamsComponent implements OnInit {
     this.showForm = false;
     this.editingId = null;
     this.form = { name: '', description: '', manager: '' };
+    this.selectedMemberIds = [];
+    this.memberCategories = {};
   }
 
   edit(team: EnterpriseTeam): void {
@@ -221,6 +306,11 @@ export class EnterpriseTeamsComponent implements OnInit {
       description: team.description || '',
       manager: (team.manager as string) || '',
     };
+    this.selectedMemberIds = (team.members || []).map((m) => m.employee_id);
+    this.memberCategories = {};
+    for (const m of team.members || []) {
+      this.memberCategories[m.employee_id] = m.category || '';
+    }
     this.showForm = true;
   }
 
@@ -229,12 +319,22 @@ export class EnterpriseTeamsComponent implements OnInit {
       this.snack.open('Nom requis', 'Fermer', { duration: 2500 });
       return;
     }
+    if (!this.selectedMemberIds.length && !this.form.manager) {
+      this.snack.open('Ajoutez au moins un membre ou un chef', 'Fermer', { duration: 3000 });
+      return;
+    }
     this.saving = true;
+    const members_payload = this.buildMembersPayload();
+    // Si un chef est choisi mais pas coché membre, l'inclure
+    if (this.form.manager && !members_payload.some((m) => m.employee_id === this.form.manager)) {
+      members_payload.push({ employee_id: this.form.manager, category: '' });
+    }
     const payload = {
       name: this.form.name.trim(),
       description: this.form.description.trim(),
       manager: this.form.manager || null,
       is_active: true,
+      members_payload,
     };
     const req = this.editingId
       ? this.enterpriseService.updateTeam(this.editingId, payload)
@@ -271,11 +371,13 @@ export class EnterpriseTeamsComponent implements OnInit {
   addMember(team: EnterpriseTeam): void {
     const employeeId = this.memberPick[team.id];
     if (!employeeId) return;
+    const category = (this.memberCategoryPick[team.id] || '').trim();
     this.busyId = team.id;
-    this.enterpriseService.addTeamMember(team.id, employeeId).subscribe({
+    this.enterpriseService.addTeamMember(team.id, employeeId, category).subscribe({
       next: (updated) => {
         this.busyId = null;
         this.memberPick[team.id] = '';
+        this.memberCategoryPick[team.id] = '';
         this.replaceTeam(updated);
       },
       error: (err) => {

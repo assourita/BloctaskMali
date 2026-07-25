@@ -93,16 +93,26 @@ export default function ProviderAppelsScreen() {
             const applied = call.my_application?.status === 'pending' || call.my_application?.status === 'accepted';
             return (
               <SoftCard key={call.id} style={styles.card}>
-                <Text style={styles.badge}>Ouvert</Text>
+                <View style={styles.badgeRow}>
+                  <Text style={styles.badge}>Ouvert</Text>
+                  <Text style={styles.badgeMuted}>{ROLE_LABELS[call.role] || call.role}</Text>
+                </View>
                 <Text style={styles.title}>{call.title}</Text>
-                <Text style={styles.ent}>{call.enterprise_name}</Text>
-                <Text style={styles.meta}>
-                  {call.position || ROLE_LABELS[call.role] || call.role}
-                  {call.city ? ` · ${call.city}` : ''}
+                <Text style={styles.ent}>
+                  {call.enterprise_name}{call.city ? ` · ${call.city}` : ''}
                 </Text>
-                <Text style={styles.desc}>{call.description}</Text>
+                {!!call.position && <Text style={styles.meta}>{call.position}</Text>}
+                {!!call.description && <Text style={styles.desc}>{call.description}</Text>}
                 {!!call.requirements && (
-                  <Text style={styles.meta}>Prérequis : {call.requirements}</Text>
+                  <View style={styles.reqBox}>
+                    <Text style={styles.reqTitle}>Prérequis</Text>
+                    <Text style={styles.meta}>{call.requirements}</Text>
+                  </View>
+                )}
+                {!!call.expires_at && (
+                  <Text style={styles.meta}>
+                    Expire le {new Date(call.expires_at).toLocaleString('fr-FR')}
+                  </Text>
                 )}
                 {applied ? (
                   <Text style={styles.applied}>
@@ -157,7 +167,8 @@ function statusLabel(status: string): string {
 
 const styles = StyleSheet.create({
   link: { color: colors.primary, fontWeight: '600', marginBottom: spacing.md },
-  card: { marginBottom: spacing.sm },
+  card: { marginBottom: spacing.sm, paddingVertical: spacing.md },
+  badgeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 8 },
   badge: {
     alignSelf: 'flex-start',
     backgroundColor: '#FEF3C7',
@@ -168,15 +179,34 @@ const styles = StyleSheet.create({
     paddingVertical: 3,
     borderRadius: 999,
     overflow: 'hidden',
-    marginBottom: 6,
   },
-  title: { fontSize: 16, fontWeight: '700', color: colors.text },
-  ent: { fontWeight: '600', color: colors.text, marginTop: 2 },
-  meta: { color: colors.textMuted, fontSize: 13, marginTop: 2 },
-  desc: { color: colors.textMuted, marginTop: 8, fontSize: 13 },
+  badgeMuted: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#EEF2FF',
+    color: '#3730A3',
+    fontSize: 11,
+    fontWeight: '700',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    overflow: 'hidden',
+  },
+  title: { fontSize: 17, fontWeight: '700', color: colors.text, lineHeight: 22 },
+  ent: { fontWeight: '600', color: colors.text, marginTop: 4, fontSize: 13 },
+  meta: { color: colors.textMuted, fontSize: 13, marginTop: 4, lineHeight: 18 },
+  desc: { color: '#475569', marginTop: 10, fontSize: 14, lineHeight: 20 },
+  reqBox: {
+    marginTop: 10,
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 10,
+    padding: 10,
+  },
+  reqTitle: { fontSize: 12, fontWeight: '700', color: colors.text, marginBottom: 2 },
   message: { fontStyle: 'italic', color: colors.textMuted, marginTop: 4 },
   applied: { marginTop: 10, color: colors.primary, fontWeight: '600' },
-  apply: { marginTop: 10, gap: 8 },
+  apply: { marginTop: 12, gap: 8 },
   input: {
     borderWidth: 1,
     borderColor: colors.border,
@@ -185,6 +215,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     backgroundColor: '#fff',
   },
-  area: { minHeight: 64, textAlignVertical: 'top', marginBottom: 8 },
+  area: { minHeight: 72, textAlignVertical: 'top', marginBottom: 8 },
   empty: { color: colors.textMuted, textAlign: 'center', marginVertical: spacing.lg },
 });

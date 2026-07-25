@@ -28,9 +28,12 @@ export default function TeamsScreen() {
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [managerId, setManagerId] = useState('');
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [categories, setCategories] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [pickMember, setPickMember] = useState<Record<string, string>>({});
+  const [pickCategory, setPickCategory] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     const [t, e] = await Promise.all([
@@ -43,22 +46,55 @@ export default function TeamsScreen() {
 
   const { loading, refreshing, refresh } = useScreenLoad(load, [load]);
 
+  const toggleMember = (id: string) => {
+    setSelectedIds((prev) => {
+      if (prev.includes(id)) {
+        setCategories((c) => {
+          const next = { ...c };
+          delete next[id];
+          return next;
+        });
+        if (managerId === id) setManagerId('');
+        return prev.filter((x) => x !== id);
+      }
+      return [...prev, id];
+    });
+  };
+
+  const resetForm = () => {
+    setShowForm(false);
+    setName('');
+    setDescription('');
+    setManagerId('');
+    setSelectedIds([]);
+    setCategories({});
+  };
+
   const create = async () => {
     if (!name.trim()) {
-      Alert.alert('Nom requis', 'Donnez un nom à l\'équipe.');
+      Alert.alert('Nom requis', "Donnez un nom à l'équipe.");
+      return;
+    }
+    if (!selectedIds.length && !managerId) {
+      Alert.alert('Membres', 'Ajoutez au moins un membre ou un chef.');
       return;
     }
     setSaving(true);
     try {
+      const members_payload = selectedIds.map((employee_id) => ({
+        employee_id,
+        category: (categories[employee_id] || '').trim(),
+      }));
+      if (managerId && !members_payload.some((m) => m.employee_id === managerId)) {
+        members_payload.push({ employee_id: managerId, category: '' });
+      }
       await createTeam({
         name: name.trim(),
         description: description.trim(),
         manager: managerId || null,
+        members_payload,
       });
-      setShowForm(false);
-      setName('');
-      setDescription('');
-      setManagerId('');
+      resetForm();
       await load();
     } catch (e) {
       Alert.alert('Erreur', e instanceof ApiError ? e.message : 'Création impossible');
@@ -112,13 +148,36 @@ export default function TeamsScreen() {
           <Text style={styles.label}>Chef (optionnel)</Text>
           {employees.map((e) => (
             <Pressable
-              key={e.id}
+              key={`mgr-${e.id}`}
               style={[styles.pick, managerId === e.id && styles.pickActive]}
               onPress={() => setManagerId(managerId === e.id ? '' : e.id)}
             >
               <Text>{e.first_name} {e.last_name}</Text>
             </Pressable>
           ))}
+          <Text style={[styles.label, { marginTop: 8 }]}>Membres</Text>
+          <Text style={styles.hint}>Cochez les employés. Catégorie optionnelle.</Text>
+          {employees.map((e) => {
+            const selected = selectedIds.includes(e.id);
+            return (
+              <View key={`mem-${e.id}`} style={styles.memberPick}>
+                <Pressable
+                  style={[styles.pick, selected && styles.pickActive]}
+                  onPress={() => toggleMember(e.id)}
+                >
+                  <Text>{selected ? '✓ ' : ''}{e.first_name} {e.last_name}</Text>
+                </Pressable>
+                {selected ? (
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Catégorie (optionnel)"
+                    value={categories[e.id] || ''}
+                    onChangeText={(v) => setCategories((c) => ({ ...c, [e.id]: v }))}
+                  />
+                ) : null}
+              </View>
+            );
+          })}
           <PrimaryButton label={saving ? '…' : 'Créer'} onPress={create} disabled={saving} />
         </SoftCard>
       ) : null}
@@ -154,6 +213,7 @@ export default function TeamsScreen() {
                         {m.first_name} {m.last_name}
                         {(m.is_manager || team.manager === m.employee_id) ? ' · Chef' : ''}
                       </Text>
+                      {!!m.category && <Text style={styles.meta}>Catégorie : {m.category}</Text>}
                       <View style={styles.actions}>
                         {team.manager !== m.employee_id ? (
                           <SecondaryButton
@@ -186,13 +246,20 @@ export default function TeamsScreen() {
                           <Text>{e.first_name} {e.last_name}</Text>
                         </Pressable>
                       ))}
+                      <TextInput
+                        style={styles.input}
+                        placeholder="Catégorie (optionnel)"
+                        value={pickCategory[team.id] || ''}
+                        onChangeText={(v) => setPickCategory((p) => ({ ...p, [team.id]: v }))}
+                      />
                       <PrimaryButton
                         label="Ajouter le membre"
                         onPress={async () => {
                           const id = pickMember[team.id];
                           if (!id) return;
-                          await addTeamMember(team.id, id);
+                          await addTeamMember(team.id, id, pickCategory[team.id]);
                           setPickMember((p) => ({ ...p, [team.id]: '' }));
+                          setPickCategory((p) => ({ ...p, [team.id]: '' }));
                           await load();
                         }}
                       />
@@ -221,6 +288,7 @@ const styles = StyleSheet.create({
   },
   area: { minHeight: 64, textAlignVertical: 'top' },
   label: { fontWeight: '600', marginBottom: 6, color: colors.text },
+  hint: { color: colors.textMuted, fontSize: 12, marginBottom: 8 },
   pick: {
     padding: 10,
     borderWidth: 1,
@@ -229,6 +297,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   pickActive: { borderColor: colors.primary, backgroundColor: colors.primaryLight },
+  memberPick: { marginBottom: 4 },
   card: { marginBottom: spacing.sm },
   title: { fontSize: 16, fontWeight: '700', color: colors.text },
   meta: { color: colors.textMuted, marginTop: 2 },

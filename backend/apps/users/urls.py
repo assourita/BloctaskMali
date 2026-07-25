@@ -37,6 +37,8 @@ urlpatterns = [
     path('me/enterprise-invites/<uuid:invite_id>/accept/', invite_views.accept_my_enterprise_invite, name='accept-enterprise-invite'),
     path('me/enterprise-invites/<uuid:invite_id>/reject/', invite_views.reject_my_enterprise_invite, name='reject-enterprise-invite'),
     path('me/enterprises/', invite_views.my_enterprises, name='my-enterprises'),
+    # EnterpriseProfile.id est un AutoField (entier) — pas un UUID
+    path('me/enterprises/<str:enterprise_id>/', invite_views.my_enterprise_detail, name='my-enterprise-detail'),
 
     # Appels à candidature (ouverts — rejoindre l'entreprise)
     path('enterprise/recruitment-calls/', recruitment_views.enterprise_recruitment_calls, name='enterprise-recruitment-calls'),

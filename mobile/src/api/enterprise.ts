@@ -199,6 +199,7 @@ export interface EnterpriseTeamMember {
   last_name: string;
   email: string;
   position?: string;
+  category?: string;
   is_active?: boolean;
   is_lead?: boolean;
   is_manager?: boolean;
@@ -226,6 +227,7 @@ export async function createTeam(payload: {
   name: string;
   description?: string;
   manager?: string | null;
+  members_payload?: Array<{ employee_id: string; category?: string }>;
 }): Promise<EnterpriseTeam> {
   return apiRequest('/enterprises/teams/', {
     method: 'POST',
@@ -235,7 +237,13 @@ export async function createTeam(payload: {
 
 export async function updateTeam(
   id: string,
-  payload: Partial<{ name: string; description: string; manager: string | null; is_active: boolean }>,
+  payload: Partial<{
+    name: string;
+    description: string;
+    manager: string | null;
+    is_active: boolean;
+    members_payload: Array<{ employee_id: string; category?: string }>;
+  }>,
 ): Promise<EnterpriseTeam> {
   return apiRequest(`/enterprises/teams/${id}/`, {
     method: 'PATCH',
@@ -247,10 +255,14 @@ export async function deleteTeam(id: string): Promise<void> {
   await apiRequest(`/enterprises/teams/${id}/`, { method: 'DELETE' });
 }
 
-export async function addTeamMember(teamId: string, employeeId: string): Promise<EnterpriseTeam> {
+export async function addTeamMember(
+  teamId: string,
+  employeeId: string,
+  category?: string,
+): Promise<EnterpriseTeam> {
   return apiRequest(`/enterprises/teams/${teamId}/members/`, {
     method: 'POST',
-    body: JSON.stringify({ employee_id: employeeId }),
+    body: JSON.stringify({ employee_id: employeeId, category: category || '' }),
   });
 }
 
@@ -381,6 +393,50 @@ export async function getMyEnterprises(): Promise<ProviderEnterpriseMembership[]
     '/users/me/enterprises/',
   );
   return unwrap(data);
+}
+
+export interface ProviderEnterpriseTeam {
+  id: string;
+  name: string;
+  description?: string;
+  is_active: boolean;
+  category?: string;
+  is_manager?: boolean;
+  is_lead?: boolean;
+  manager_name?: string | null;
+  members_count?: number;
+}
+
+export interface ProviderEnterpriseMission {
+  id: string;
+  title: string;
+  status: string;
+  bucket: 'in_progress' | 'completed' | 'cancelled' | 'disputed' | 'other';
+  budget?: string | null;
+  currency?: string;
+  category?: string | null;
+  location?: string;
+  is_lead?: boolean;
+  assigned_at?: string | null;
+  assignment_status?: string | null;
+  deadline?: string | null;
+  completed_at?: string | null;
+}
+
+export interface ProviderEnterpriseDetail {
+  membership: ProviderEnterpriseMembership;
+  teams: ProviderEnterpriseTeam[];
+  missions: ProviderEnterpriseMission[];
+  stats: {
+    teams_count: number;
+    missions_total: number;
+    missions_in_progress: number;
+    missions_completed: number;
+  };
+}
+
+export async function getMyEnterpriseDetail(enterpriseId: string): Promise<ProviderEnterpriseDetail> {
+  return apiRequest(`/users/me/enterprises/${enterpriseId}/`);
 }
 
 export interface RecruitmentCall {

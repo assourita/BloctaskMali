@@ -18,7 +18,7 @@ class TeamMemberSerializer(serializers.ModelSerializer):
         model = EnterpriseTeamMember
         fields = [
             'id', 'employee_id', 'first_name', 'last_name', 'email',
-            'position', 'is_active', 'is_lead', 'is_manager', 'joined_at',
+            'position', 'category', 'is_active', 'is_lead', 'is_manager', 'joined_at',
         ]
 
     def get_is_manager(self, obj):
@@ -29,12 +29,19 @@ class EnterpriseTeamSerializer(serializers.ModelSerializer):
     manager_name = serializers.SerializerMethodField()
     members = serializers.SerializerMethodField()
     members_count = serializers.SerializerMethodField()
+    # Accepté à la création / mise à jour : [{ employee_id, category? }, ...]
+    members_payload = serializers.ListField(
+        child=serializers.DictField(),
+        required=False,
+        write_only=True,
+    )
 
     class Meta:
         model = EnterpriseTeam
         fields = [
             'id', 'name', 'description', 'manager', 'manager_name',
-            'is_active', 'members', 'members_count', 'created_at', 'updated_at',
+            'is_active', 'members', 'members_count', 'members_payload',
+            'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at']
 

@@ -38,7 +38,7 @@ const ROLE_LABELS: Record<string, string> = {
       <div class="page-header">
         <div>
           <h1><mat-icon>business</mat-icon> Mes entreprises</h1>
-          <p>Consultez les entreprises auxquelles vous êtes lié.</p>
+          <p>Consultez vos entreprises liées — cliquez une carte pour le détail (poste, équipes, missions).</p>
         </div>
         <div class="header-actions">
           <a mat-stroked-button routerLink="/provider/invitations">
@@ -70,11 +70,19 @@ const ROLE_LABELS: Record<string, string> = {
 
       <div class="list" *ngIf="!loading">
         <h2 *ngIf="memberships.length">Entreprises liées</h2>
-        <mat-card class="enterprise-card" *ngFor="let m of memberships" [class.open]="expandedMembershipId === m.id">
+        <mat-card class="enterprise-card clickable"
+          *ngFor="let m of memberships"
+          [routerLink]="['/provider/enterprises', m.enterprise_id]">
           <div class="enterprise-top">
             <div class="enterprise-info">
-              <div class="logo" *ngIf="!enterpriseOf(m)?.logo"><mat-icon>domain</mat-icon></div>
-              <img *ngIf="enterpriseOf(m)?.logo" class="logo-img" [src]="enterpriseOf(m)?.logo!" [alt]="m.enterprise_name" />
+              <div class="logo" *ngIf="!logoOk(m)">
+                {{ initials(m.enterprise_name) }}
+              </div>
+              <img *ngIf="logoOk(m)"
+                class="logo-img"
+                [src]="enterpriseOf(m)?.logo!"
+                [alt]="m.enterprise_name"
+                (error)="onLogoError(m.id)" />
               <div>
                 <h3>
                   {{ m.enterprise_name }}
@@ -85,32 +93,10 @@ const ROLE_LABELS: Record<string, string> = {
               </div>
             </div>
             <div class="membership-actions">
-              <button mat-stroked-button (click)="toggleMembershipDetails(m)">
-                {{ expandedMembershipId === m.id ? 'Masquer' : 'Détails' }}
-              </button>
+              <span class="open-hint">Voir le détail <mat-icon>chevron_right</mat-icon></span>
               <mat-chip [class]="m.is_active ? 'active-chip' : 'inactive-chip'">
                 {{ m.is_active ? 'Lié' : 'Inactif' }}
               </mat-chip>
-            </div>
-          </div>
-
-          <div class="invite-details" *ngIf="expandedMembershipId === m.id && enterpriseOf(m) as ent">
-            <div class="detail-grid">
-              <div class="detail-block" *ngIf="ent.description">
-                <h4><mat-icon>info</mat-icon> Présentation</h4>
-                <p>{{ ent.description }}</p>
-              </div>
-              <div class="detail-block">
-                <h4><mat-icon>place</mat-icon> Localisation</h4>
-                <p *ngIf="ent.address">{{ ent.address }}</p>
-                <p>{{ ent.city }}{{ ent.country ? ', ' + ent.country : '' }}</p>
-              </div>
-              <div class="detail-block">
-                <h4><mat-icon>call</mat-icon> Contact</h4>
-                <p *ngIf="ent.company_phone">Tél. {{ ent.company_phone }}</p>
-                <p *ngIf="ent.company_email">{{ ent.company_email }}</p>
-                <a *ngIf="ent.website" [href]="ent.website" target="_blank" rel="noopener">{{ ent.website }}</a>
-              </div>
             </div>
           </div>
         </mat-card>
@@ -225,12 +211,33 @@ const ROLE_LABELS: Record<string, string> = {
       width: 48px;
       height: 48px;
       border-radius: 10px;
-      background: #ecfdf3;
-      color: #16a34a;
+      background: #16a34a;
+      color: #fff;
+      font-weight: 700;
+      font-size: 14px;
       display: flex;
       align-items: center;
       justify-content: center;
       flex-shrink: 0;
+    }
+
+    .enterprise-card.clickable {
+      cursor: pointer;
+      transition: border-color .15s, box-shadow .15s;
+      &:hover {
+        border-color: #86efac;
+        box-shadow: 0 4px 14px rgba(22, 163, 74, 0.08);
+      }
+    }
+
+    .open-hint {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-size: 13px;
+      font-weight: 600;
+      color: #16a34a;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; }
     }
 
     .logo-img {
@@ -384,7 +391,7 @@ export class ProviderEnterprisesComponent implements OnInit {
   pendingInvites: EnterpriseInvite[] = [];
   memberships: ProviderEnterpriseMembership[] = [];
   loading = true;
-  expandedMembershipId: string | null = null;
+  brokenLogos = new Set<string>();
 
   constructor(private enterpriseService: EnterpriseService) {}
 
@@ -400,8 +407,19 @@ export class ProviderEnterprisesComponent implements OnInit {
     return ROLE_LABELS[role] || role;
   }
 
-  toggleMembershipDetails(m: ProviderEnterpriseMembership): void {
-    this.expandedMembershipId = this.expandedMembershipId === m.id ? null : m.id;
+  initials(name: string): string {
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return 'E';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  logoOk(m: ProviderEnterpriseMembership): boolean {
+    return !!(this.enterpriseOf(m)?.logo && !this.brokenLogos.has(m.id));
+  }
+
+  onLogoError(id: string): void {
+    this.brokenLogos.add(id);
   }
 
   load(): void {

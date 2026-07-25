@@ -24,6 +24,7 @@ export interface EnterpriseProfile {
 
 export interface EnterpriseEmployee {
   id: string;
+  user?: string | null;
   first_name: string;
   last_name: string;
   email: string;
@@ -42,6 +43,7 @@ export interface EnterpriseTeamMember {
   last_name: string;
   email: string;
   position?: string;
+  category?: string;
   is_active?: boolean;
   is_lead?: boolean;
   is_manager?: boolean;
@@ -103,9 +105,11 @@ export interface EmployeeAvailability {
   employee: string;
   employee_name?: string;
   status: string;
-  current_latitude?: number;
-  current_longitude?: number;
-  mission_title?: string;
+  current_latitude?: number | null;
+  current_longitude?: number | null;
+  location_updated_at?: string | null;
+  mission_title?: string | null;
+  current_mission?: string | null;
 }
 
 export interface EnterpriseContract {
@@ -303,11 +307,19 @@ export class EnterpriseService {
     });
   }
 
-  createTeam(data: { name: string; description?: string; manager?: string | null; is_active?: boolean }): Observable<EnterpriseTeam> {
+  createTeam(data: {
+    name: string;
+    description?: string;
+    manager?: string | null;
+    is_active?: boolean;
+    members_payload?: Array<{ employee_id: string; category?: string }>;
+  }): Observable<EnterpriseTeam> {
     return this.http.post<EnterpriseTeam>(`${this.apiUrl}/enterprises/teams/`, data);
   }
 
-  updateTeam(id: string, data: Partial<EnterpriseTeam>): Observable<EnterpriseTeam> {
+  updateTeam(id: string, data: Partial<EnterpriseTeam> & {
+    members_payload?: Array<{ employee_id: string; category?: string }>;
+  }): Observable<EnterpriseTeam> {
     return this.http.patch<EnterpriseTeam>(`${this.apiUrl}/enterprises/teams/${id}/`, data);
   }
 
@@ -315,9 +327,10 @@ export class EnterpriseService {
     return this.http.delete<void>(`${this.apiUrl}/enterprises/teams/${id}/`);
   }
 
-  addTeamMember(teamId: string, employeeId: string): Observable<EnterpriseTeam> {
+  addTeamMember(teamId: string, employeeId: string, category?: string): Observable<EnterpriseTeam> {
     return this.http.post<EnterpriseTeam>(`${this.apiUrl}/enterprises/teams/${teamId}/members/`, {
       employee_id: employeeId,
+      category: category || '',
     });
   }
 
@@ -439,6 +452,12 @@ export class EnterpriseService {
     return this.http.get<ProviderEnterpriseMembership[]>(`${this.apiUrl}/users/me/enterprises/`);
   }
 
+  getMyEnterpriseDetail(enterpriseId: string): Observable<ProviderEnterpriseDetail> {
+    return this.http.get<ProviderEnterpriseDetail>(
+      `${this.apiUrl}/users/me/enterprises/${enterpriseId}/`,
+    );
+  }
+
   listEnterpriseRecruitmentCalls(status: string = 'all'): Observable<RecruitmentCall[]> {
     const params = new HttpParams().set('status', status);
     return this.http.get<RecruitmentCall[]>(`${this.apiUrl}/users/enterprise/recruitment-calls/`, { params });
@@ -550,6 +569,46 @@ export interface ProviderEnterpriseMembership {
   position: string;
   is_active: boolean;
   hired_at?: string;
+}
+
+export interface ProviderEnterpriseTeam {
+  id: string;
+  name: string;
+  description?: string;
+  is_active: boolean;
+  category?: string;
+  is_manager?: boolean;
+  is_lead?: boolean;
+  manager_name?: string | null;
+  members_count?: number;
+}
+
+export interface ProviderEnterpriseMission {
+  id: string;
+  title: string;
+  status: string;
+  bucket: 'in_progress' | 'completed' | 'cancelled' | 'disputed' | 'other';
+  budget?: string | null;
+  currency?: string;
+  category?: string | null;
+  location?: string;
+  is_lead?: boolean;
+  assigned_at?: string | null;
+  assignment_status?: string | null;
+  deadline?: string | null;
+  completed_at?: string | null;
+}
+
+export interface ProviderEnterpriseDetail {
+  membership: ProviderEnterpriseMembership;
+  teams: ProviderEnterpriseTeam[];
+  missions: ProviderEnterpriseMission[];
+  stats: {
+    teams_count: number;
+    missions_total: number;
+    missions_in_progress: number;
+    missions_completed: number;
+  };
 }
 
 export interface RecruitmentCall {

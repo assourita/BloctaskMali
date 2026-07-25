@@ -54,38 +54,62 @@ type Tab = 'open' | 'mine';
       <div class="loading" *ngIf="loading"><mat-spinner diameter="36"></mat-spinner></div>
 
       <div class="list" *ngIf="!loading && tab === 'open'">
-        <mat-card class="call-card" *ngFor="let call of calls">
-          <div class="identity">
-            <div class="logo" *ngIf="!call.enterprise?.logo"><mat-icon>domain</mat-icon></div>
-            <img *ngIf="call.enterprise?.logo" class="logo-img" [src]="call.enterprise!.logo!" [alt]="call.enterprise_name" />
-            <div class="body">
+        <article class="call-card" *ngFor="let call of calls">
+          <header class="card-head">
+            <div class="avatar" *ngIf="!logoOk(call)">
+              {{ initials(call.enterprise_name) }}
+            </div>
+            <img *ngIf="logoOk(call)"
+              class="avatar-img"
+              [src]="call.enterprise!.logo!"
+              [alt]="call.enterprise_name"
+              (error)="onLogoError(call.id)" />
+            <div class="head-text">
               <div class="badges">
                 <span class="badge open">Ouvert</span>
                 <span class="badge muted">{{ roleLabel(call.role) }}</span>
                 <span class="badge applied" *ngIf="call.my_application?.status === 'pending'">Déjà postulé</span>
                 <span class="badge accepted" *ngIf="call.my_application?.status === 'accepted'">Accepté</span>
+                <span class="badge rejected" *ngIf="call.my_application?.status === 'rejected'">Refusé</span>
               </div>
               <h3>{{ call.title }}</h3>
-              <p class="ent">{{ call.enterprise_name }}<span *ngIf="call.city"> · {{ call.city }}</span></p>
-              <p>{{ call.position || roleLabel(call.role) }}</p>
-              <p class="desc">{{ call.description }}</p>
-              <p class="req" *ngIf="call.requirements"><strong>Prérequis :</strong> {{ call.requirements }}</p>
-              <p class="meta" *ngIf="call.expires_at">Expire le {{ call.expires_at | date:'short' }}</p>
-
-              <div class="apply" *ngIf="!call.my_application || call.my_application.status === 'rejected' || call.my_application.status === 'withdrawn'">
-                <textarea
-                  class="field"
-                  [(ngModel)]="messages[call.id]"
-                  placeholder="Message de candidature (optionnel)"
-                  rows="2"></textarea>
-                <button mat-raised-button class="accept-btn"
-                  (click)="apply(call)" [disabled]="actionId === call.id">
-                  {{ actionId === call.id ? 'Envoi…' : 'Postuler' }}
-                </button>
-              </div>
+              <p class="ent">
+                {{ call.enterprise_name }}
+                <span *ngIf="call.city"> · {{ call.city }}</span>
+              </p>
             </div>
+          </header>
+
+          <div class="card-body">
+            <div class="info-row" *ngIf="call.position">
+              <mat-icon>badge</mat-icon>
+              <span>{{ call.position }}</span>
+            </div>
+            <p class="desc" *ngIf="call.description">{{ call.description }}</p>
+            <div class="req-box" *ngIf="call.requirements">
+              <strong>Prérequis</strong>
+              <p>{{ call.requirements }}</p>
+            </div>
+            <p class="meta" *ngIf="call.expires_at">
+              <mat-icon>schedule</mat-icon>
+              Expire le {{ call.expires_at | date:'medium' }}
+            </p>
           </div>
-        </mat-card>
+
+          <footer class="card-foot"
+            *ngIf="!call.my_application || call.my_application.status === 'rejected' || call.my_application.status === 'withdrawn'">
+            <textarea
+              class="field"
+              [(ngModel)]="messages[call.id]"
+              placeholder="Message de candidature (optionnel)"
+              rows="3"></textarea>
+            <button mat-raised-button class="accept-btn"
+              (click)="apply(call)" [disabled]="actionId === call.id">
+              <mat-icon>send</mat-icon>
+              {{ actionId === call.id ? 'Envoi…' : 'Postuler' }}
+            </button>
+          </footer>
+        </article>
 
         <div class="empty" *ngIf="!calls.length">
           <mat-icon>campaign</mat-icon>
@@ -95,19 +119,20 @@ type Tab = 'open' | 'mine';
       </div>
 
       <div class="list" *ngIf="!loading && tab === 'mine'">
-        <mat-card class="call-card" *ngFor="let app of applications">
+        <article class="call-card app-card" *ngFor="let app of applications">
           <div class="badges">
-            <span class="badge" [class]="app.status">{{ appStatusLabel(app.status) }}</span>
+            <span class="badge" [ngClass]="app.status">{{ appStatusLabel(app.status) }}</span>
           </div>
           <h3>{{ app.call?.title || 'Appel' }}</h3>
           <p class="ent">{{ app.call?.enterprise_name }}</p>
-          <p>{{ app.call?.position || roleLabel(app.call?.role || '') }}</p>
+          <p class="pos">{{ app.call?.position || roleLabel(app.call?.role || '') }}</p>
           <p class="message" *ngIf="app.message">« {{ app.message }} »</p>
           <p class="meta">
-            Postulé le {{ app.created_at | date:'short' }}
-            <span *ngIf="app.reviewed_at"> · traité {{ app.reviewed_at | date:'short' }}</span>
+            <mat-icon>event</mat-icon>
+            Postulé le {{ app.created_at | date:'medium' }}
+            <span *ngIf="app.reviewed_at"> · traité {{ app.reviewed_at | date:'medium' }}</span>
           </p>
-        </mat-card>
+        </article>
 
         <div class="empty" *ngIf="!applications.length">
           <mat-icon>inbox</mat-icon>
@@ -118,52 +143,101 @@ type Tab = 'open' | 'mine';
     </div>
   `,
   styles: [`
-    .page { max-width: 920px; margin: 0 auto; padding: 24px; padding-bottom: 48px; }
+    .page { max-width: 820px; margin: 0 auto; padding: 24px; padding-bottom: 48px; }
     .page-header {
-      display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;
-      h1 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; font-size: 22px; }
-      p { margin: 0; color: #64748b; font-size: 14px; max-width: 520px; }
+      display: flex; justify-content: space-between; gap: 16px; flex-wrap: wrap; margin-bottom: 20px;
+      h1 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 22px; color: #0f172a; }
+      p { margin: 0; color: #64748b; font-size: 14px; max-width: 520px; line-height: 1.45; }
     }
-    .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px; }
+    .filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
     .filters button {
       border: 1px solid #e2e8f0; background: #fff; color: #64748b;
       border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 600; cursor: pointer;
       &.active { background: #ecfdf5; border-color: #86efac; color: #166534; }
     }
     .loading { display: flex; justify-content: center; padding: 40px; }
-    .call-card { padding: 16px 18px; margin-bottom: 10px; border: 1px solid #e2e8f0; border-radius: 12px; }
-    .identity { display: flex; gap: 12px; }
-    .logo, .logo-img { width: 48px; height: 48px; border-radius: 10px; flex-shrink: 0; }
-    .logo {
-      background: #ecfdf3; color: #16a34a; display: flex; align-items: center; justify-content: center;
+    .list { display: flex; flex-direction: column; gap: 14px; }
+
+    .call-card {
+      background: #fff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 0;
+      overflow: hidden;
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
     }
-    .logo-img { object-fit: cover; }
-    .body { flex: 1; min-width: 0; }
-    .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+    .card-head {
+      display: flex; gap: 14px; align-items: flex-start;
+      padding: 18px 18px 14px;
+      background: linear-gradient(180deg, #f8fafc 0%, #fff 100%);
+      border-bottom: 1px solid #f1f5f9;
+    }
+    .avatar, .avatar-img {
+      width: 52px; height: 52px; border-radius: 12px; flex-shrink: 0;
+    }
+    .avatar {
+      background: #16a34a; color: #fff; font-weight: 700; font-size: 15px;
+      display: flex; align-items: center; justify-content: center; letter-spacing: 0.02em;
+    }
+    .avatar-img { object-fit: cover; border: 1px solid #e2e8f0; }
+    .head-text { flex: 1; min-width: 0; }
+    .badges { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
     .badge {
-      font-size: 11px; font-weight: 600; padding: 3px 8px; border-radius: 999px;
+      font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 999px;
       &.open, &.pending { background: #fef3c7; color: #92400e; }
       &.accepted { background: #dcfce7; color: #166534; }
       &.rejected, &.withdrawn { background: #fee2e2; color: #991b1b; }
       &.muted { background: #eef2ff; color: #3730a3; }
       &.applied { background: #e0f2fe; color: #075985; }
     }
-    h3 { margin: 0 0 2px; font-size: 16px; }
-    p { margin: 0; font-size: 13px; color: #64748b; }
-    .ent { font-weight: 600; color: #334155 !important; margin-bottom: 2px !important; }
-    .desc { margin-top: 8px !important; color: #475569 !important; white-space: pre-wrap; }
-    .req { margin-top: 6px !important; }
-    .meta { margin-top: 4px !important; font-size: 12px !important; color: #94a3b8 !important; }
-    .message { margin-top: 6px !important; font-style: italic; color: #475569 !important; }
-    .apply { margin-top: 12px; display: grid; gap: 8px; }
-    .field {
-      border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; font: inherit; width: 100%;
-      box-sizing: border-box;
+    h3 { margin: 0 0 4px; font-size: 17px; color: #0f172a; line-height: 1.3; }
+    .ent { margin: 0; font-size: 13px; font-weight: 600; color: #334155; }
+    .pos { margin: 4px 0 0; font-size: 13px; color: #64748b; }
+
+    .card-body { padding: 14px 18px 8px; display: grid; gap: 10px; }
+    .info-row {
+      display: flex; align-items: center; gap: 8px; font-size: 13px; color: #475569;
+      mat-icon { font-size: 18px; width: 18px; height: 18px; color: #16a34a; }
     }
-    .accept-btn { background: #16a34a !important; color: #fff !important; justify-self: start; }
+    .desc {
+      margin: 0; font-size: 14px; color: #475569; line-height: 1.55; white-space: pre-wrap;
+    }
+    .req-box {
+      background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 10px 12px;
+      strong { display: block; font-size: 12px; color: #334155; margin-bottom: 4px; }
+      p { margin: 0; font-size: 13px; color: #64748b; line-height: 1.45; white-space: pre-wrap; }
+    }
+    .meta {
+      margin: 0; display: flex; align-items: center; gap: 6px;
+      font-size: 12px; color: #94a3b8;
+      mat-icon { font-size: 15px; width: 15px; height: 15px; }
+    }
+    .message { margin: 8px 0 0; font-style: italic; color: #475569; font-size: 13px; }
+
+    .card-foot {
+      padding: 12px 18px 18px; display: grid; gap: 10px;
+      border-top: 1px solid #f1f5f9; background: #fafafa;
+    }
+    .field {
+      border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; font: inherit; width: 100%;
+      box-sizing: border-box; background: #fff; resize: vertical; min-height: 72px;
+      &:focus { outline: none; border-color: #86efac; box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.12); }
+    }
+    .accept-btn {
+      background: #16a34a !important; color: #fff !important; justify-self: start;
+      display: inline-flex !important; align-items: center; gap: 6px;
+    }
+    .app-card { padding: 18px; }
+
     .empty { text-align: center; padding: 48px 16px; color: #94a3b8;
       mat-icon { font-size: 40px; width: 40px; height: 40px; }
       h3 { color: #334155; margin: 8px 0 4px; }
+      p { margin: 0; font-size: 14px; }
+    }
+    @media (max-width: 640px) {
+      .page { padding: 16px; }
+      .card-head { padding: 14px; }
+      .card-body, .card-foot { padding-left: 14px; padding-right: 14px; }
     }
   `],
 })
@@ -174,6 +248,7 @@ export class ProviderAppelsComponent implements OnInit {
   loading = true;
   actionId: string | null = null;
   messages: Record<string, string> = {};
+  brokenLogos = new Set<string>();
 
   constructor(
     private enterpriseService: EnterpriseService,
@@ -182,6 +257,21 @@ export class ProviderAppelsComponent implements OnInit {
 
   ngOnInit(): void {
     this.load();
+  }
+
+  initials(name: string): string {
+    const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return 'E';
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[1][0]).toUpperCase();
+  }
+
+  logoOk(call: RecruitmentCall): boolean {
+    return !!(call.enterprise?.logo && !this.brokenLogos.has(call.id));
+  }
+
+  onLogoError(callId: string): void {
+    this.brokenLogos.add(callId);
   }
 
   roleLabel(role: string): string {

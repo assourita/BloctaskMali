@@ -5,7 +5,7 @@ from .models import EnterpriseTeam, EnterpriseTeamMember, EmployeeAssignment
 class EnterpriseTeamMemberInline(admin.TabularInline):
     model = EnterpriseTeamMember
     extra = 0
-    fields = ('employee', 'is_lead', 'joined_at')
+    fields = ('employee', 'category', 'is_lead', 'joined_at')
     readonly_fields = ('joined_at',)
 
 
@@ -21,8 +21,8 @@ class EnterpriseTeamAdmin(admin.ModelAdmin):
 
 @admin.register(EnterpriseTeamMember)
 class EnterpriseTeamMemberAdmin(admin.ModelAdmin):
-    list_display = ['team', 'employee', 'is_lead', 'joined_at']
-    search_fields = ['team__name', 'employee__first_name', 'employee__last_name', 'employee__email']
+    list_display = ['team', 'employee', 'category', 'is_lead', 'joined_at']
+    search_fields = ['team__name', 'employee__first_name', 'employee__last_name', 'employee__email', 'category']
 
 
 @admin.register(EmployeeAssignment)
