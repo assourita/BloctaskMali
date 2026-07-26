@@ -276,7 +276,7 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
                   <div class="assignee-row" *ngIf="mission.executing_employee">
                     <mat-icon>person</mat-icon>
                     <div>
-                      <span class="assignee-label">{{ mission.assigned_team_name ? 'Chef d\'équipe' : 'Agent terrain' }}</span>
+                      <span class="assignee-label">{{ assigneeRoleLabel() }}</span>
                       <strong>{{ mission.executing_employee.first_name }} {{ mission.executing_employee.last_name }}</strong>
                       <span class="assignee-meta" *ngIf="mission.executing_employee.position">{{ mission.executing_employee.position }}</span>
                     </div>
