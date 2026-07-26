@@ -1462,9 +1462,10 @@ class MissionViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'])
     def tracking(self, request, pk=None):
-        """Données de suivi GPS pour une mission (client / prestataire)."""
+        """Données de suivi GPS pour une mission (client / prestataire / entreprise)."""
         mission = self.get_object()
-        if request.user not in (mission.client, mission.provider) and not request.user.is_staff:
+        from apps.missions.counterparty import user_can_access_mission_ops
+        if not user_can_access_mission_ops(request.user, mission):
             return Response({'error': 'Non autorisé'}, status=403)
 
         from apps.proofs.models import GPSLocation
@@ -1491,10 +1492,27 @@ class MissionViewSet(viewsets.ModelViewSet):
         ]
         current = path[-1] if path else None
 
+        provider_name = ''
+        if mission.provider:
+            provider_name = mission.provider.get_full_name() or mission.provider.username
+        elif mission.assigned_enterprise:
+            provider_name = mission.assigned_enterprise.company_name
+
+        executing = getattr(mission, 'executing_employee', None)
+        executor_name = ''
+        if executing:
+            executor_name = f'{executing.first_name} {executing.last_name}'.strip()
+
         return Response({
             'missionId': str(mission.id),
             'providerId': str(mission.provider_id) if mission.provider_id else '',
-            'providerName': mission.provider.get_full_name() if mission.provider else '',
+            'providerName': provider_name,
+            'executorName': executor_name,
+            'assignedTeamName': getattr(mission, 'assigned_team', None).name if getattr(mission, 'assigned_team', None) else '',
+            'enterpriseName': (
+                mission.assigned_enterprise.company_name
+                if mission.assigned_enterprise_id else ''
+            ),
             'pickup': pickup,
             'delivery': delivery,
             'currentPosition': current,

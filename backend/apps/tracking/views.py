@@ -42,7 +42,10 @@ class GPSLocationViewSet(viewsets.ModelViewSet):
         if not (self.request.user.is_staff or getattr(self.request.user, 'user_type', '') == 'admin'):
             user = self.request.user
             qs = qs.filter(
-                Q(mission__client=user) | Q(mission__provider=user) | Q(user=user)
+                Q(mission__client=user)
+                | Q(mission__provider=user)
+                | Q(mission__assigned_enterprise__user=user)
+                | Q(user=user)
             )
         return qs.distinct()
 
@@ -52,14 +55,14 @@ class GPSLocationViewSet(viewsets.ModelViewSet):
             return Response({'error': 'mission requis'}, status=status.HTTP_400_BAD_REQUEST)
 
         mission = get_object_or_404(Mission, id=mission_id)
-        allowed = (
+        from apps.missions.executor_helpers import user_is_mission_executor
+        # Seuls les exécutants / prestataire peuvent poster une position
+        if not (
             request.user.is_staff
-            or mission.provider == request.user
-            or mission.client == request.user
-        )
-        if not allowed:
+            or user_is_mission_executor(request.user, mission)
+            or mission.provider_id == request.user.id
+        ):
             return Response({'error': 'Non autorisé'}, status=403)
-
         serializer = self.get_serializer(
             data=request.data,
             context={'request': request, 'mission_id': mission_id}

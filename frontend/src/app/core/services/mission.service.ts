@@ -45,6 +45,7 @@ export interface Mission {
   applications_open?: boolean;
   pending_applications_count?: number;
   assigned_enterprise_id?: string | null;
+  assigned_enterprise_name?: string | null;
   requires_verified_provider?: boolean;
   requires_gps_tracking?: boolean;
   enterprise_only?: boolean;

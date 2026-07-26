@@ -22,8 +22,20 @@ def user_is_mission_participant(user, mission) -> bool:
     ent = getattr(mission, 'assigned_enterprise', None)
     if ent and ent.user_id == user.id:
         return True
+    # Employé exécutant rattaché (lead / équipe)
+    executing = getattr(mission, 'executing_employee', None)
+    if executing and getattr(executing, 'user_id', None) == user.id:
+        return True
     return False
 
+
+def user_can_access_mission_ops(user, mission) -> bool:
+    """Lecture ops mission (tracking GPS, chat, etc.) pour client, prestataire, entreprise assignée."""
+    if not user or not user.is_authenticated:
+        return False
+    if getattr(user, 'is_staff', False) or getattr(user, 'user_type', '') == 'admin':
+        return True
+    return user_is_mission_participant(user, mission)
 
 def can_view_counterparty_profile(user, mission) -> bool:
     if not mission_is_active_for_counterparty(mission):

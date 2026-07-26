@@ -259,6 +259,44 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
               </mat-card-content>
             </mat-card>
 
+            <!-- Assignation entreprise (employé / équipe) -->
+            <mat-card class="section-card" *ngIf="enterpriseReceived && showAssigneeCard()">
+              <mat-card-header>
+                <mat-card-title><mat-icon>groups</mat-icon> Prestataire / équipe assignés</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="assignee-card" *ngIf="mission.executing_employee || mission.assigned_team_name; else noAssigneeYet">
+                  <div class="assignee-row" *ngIf="mission.assigned_team_name">
+                    <mat-icon>group</mat-icon>
+                    <div>
+                      <span class="assignee-label">Équipe</span>
+                      <strong>{{ mission.assigned_team_name }}</strong>
+                    </div>
+                  </div>
+                  <div class="assignee-row" *ngIf="mission.executing_employee">
+                    <mat-icon>person</mat-icon>
+                    <div>
+                      <span class="assignee-label">{{ mission.assigned_team_name ? 'Chef d\'équipe' : 'Agent terrain' }}</span>
+                      <strong>{{ mission.executing_employee.first_name }} {{ mission.executing_employee.last_name }}</strong>
+                      <span class="assignee-meta" *ngIf="mission.executing_employee.position">{{ mission.executing_employee.position }}</span>
+                    </div>
+                  </div>
+                  <div class="assignee-team" *ngIf="mission.executing_employees?.length">
+                    <span class="assignee-label">Exécutants ({{ mission.executing_employees?.length }})</span>
+                    <ul>
+                      <li *ngFor="let e of mission.executing_employees">
+                        {{ e.first_name }} {{ e.last_name }}
+                        <span *ngIf="e.is_lead"> · chef</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+                <ng-template #noAssigneeYet>
+                  <p class="action-hint">Aucun employé ou équipe n'est encore assigné à cette mission.</p>
+                </ng-template>
+              </mat-card-content>
+            </mat-card>
+
             <!-- GPS tracking -->
             <mat-card class="section-card" *ngIf="showGpsTracking()">
               <mat-card-header>
@@ -676,6 +714,40 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
     .action-list { display: flex; flex-direction: column; gap: 12px; }
     .full-width { width: 100%; }
     .action-hint { font-size: 13px; color: #6b7280; margin: 0; }
+
+    .assignee-card {
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+    .assignee-row {
+      display: flex;
+      gap: 12px;
+      align-items: flex-start;
+      mat-icon { color: #16a34a; margin-top: 2px; }
+      .assignee-label {
+        display: block;
+        font-size: 11px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+        color: #64748b;
+        margin-bottom: 2px;
+      }
+      strong { display: block; color: #0f172a; font-size: 15px; }
+      .assignee-meta { display: block; font-size: 12px; color: #64748b; margin-top: 2px; }
+    }
+    .assignee-team {
+      padding-top: 8px;
+      border-top: 1px solid #e2e8f0;
+      .assignee-label {
+        display: block;
+        font-size: 11px;
+        text-transform: uppercase;
+        color: #64748b;
+        margin-bottom: 6px;
+      }
+      ul { margin: 0; padding-left: 18px; color: #334155; font-size: 14px; }
+    }
     .applied-banner, .info-banner, .success-banner {
       display: flex; align-items: center; gap: 8px;
       padding: 12px; border-radius: 8px; font-size: 13px;
@@ -1094,12 +1166,20 @@ export class ProviderMissionDetailComponent implements OnInit {
   }
 
   showGpsTracking(): boolean {
+    // Entreprise : toujours voir le suivi dès que la mission est en cours
+    if (this.enterpriseReceived && ['in_progress', 'submitted'].includes(this.mission?.status || '')) {
+      return true;
+    }
     return ['in_progress', 'submitted'].includes(this.mission?.status || '')
       && !!this.mission?.requires_gps_tracking;
   }
 
   showChat(): boolean {
     return ['in_progress', 'submitted', 'disputed', 'completed'].includes(this.mission?.status || '');
+  }
+
+  showAssigneeCard(): boolean {
+    return ['accepted', 'in_progress', 'submitted', 'completed', 'disputed'].includes(this.mission?.status || '');
   }
 
   showClientContact(): boolean {

@@ -111,10 +111,24 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
                 <span>
                   <ng-container *ngIf="mission.executing_employee; else noEmployee">
                     Employé assigné : {{ mission.executing_employee.first_name }} {{ mission.executing_employee.last_name }}
+                    <ng-container *ngIf="mission.assigned_team_name">
+                      · équipe {{ mission.assigned_team_name }}
+                    </ng-container>
                   </ng-container>
                   <ng-template #noEmployee>Assignation employé en cours</ng-template>
                 </span>
               </div>
+              <div class="ep-team" *ngIf="mission.executing_employees?.length">
+                <span class="ep-team-label">Équipe terrain</span>
+                <ul>
+                  <li *ngFor="let e of mission.executing_employees">
+                    {{ e.first_name }} {{ e.last_name }}<span *ngIf="e.is_lead"> (chef)</span>
+                  </li>
+                </ul>
+              </div>
+              <p class="ep-hint" *ngIf="mission.assigned_enterprise_name">
+                Entreprise : {{ mission.assigned_enterprise_name }}
+              </p>
               <div class="ep-step" [class.done]="mission.status === 'in_progress' || mission.status === 'submitted' || mission.status === 'completed'">
                 <mat-icon>{{ ['in_progress','submitted','completed'].includes(mission.status) ? 'check_circle' : 'hourglass_empty' }}</mat-icon>
                 <span>Mission démarrée sur le terrain</span>
@@ -579,6 +593,21 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
     .ep-step.done { color: #059669; background: #ecfdf5; }
     .ep-step mat-icon { font-size: 20px; width: 20px; height: 20px; }
     .ep-hint { margin: 12px 0 0; font-size: 13px; color: #64748b; }
+    .ep-team {
+      margin-top: 8px;
+      padding: 10px 12px;
+      background: #f8fafc;
+      border-radius: 10px;
+      border: 1px solid #e2e8f0;
+    }
+    .ep-team-label {
+      display: block;
+      font-size: 11px;
+      text-transform: uppercase;
+      color: #64748b;
+      margin-bottom: 4px;
+    }
+    .ep-team ul { margin: 0; padding-left: 18px; font-size: 13px; color: #334155; }
 
     .route { background: #f9fafb; border-radius: 12px; padding: 16px; }
     .route-point { display: flex; gap: 12px; }
@@ -878,12 +907,16 @@ export class MissionDetailComponent implements OnInit {
   }
 
   showChat(): boolean {
-    return !!this.mission?.provider && ['in_progress', 'submitted', 'disputed', 'completed'].includes(this.mission?.status || '');
+    const hasParty = !!(this.mission?.provider || this.mission?.assigned_enterprise_id);
+    return hasParty && ['in_progress', 'submitted', 'disputed', 'completed'].includes(this.mission?.status || '');
   }
 
   showEnterpriseProgress(): boolean {
-    if (!this.mission?.provider) return false;
-    const isEnterprise = !!(this.mission.counterparty?.enterprise_name);
+    if (!this.mission?.assigned_enterprise_id && !this.mission?.provider) return false;
+    const isEnterprise =
+      !!this.mission.assigned_enterprise_id
+      || !!this.mission.assigned_enterprise_name
+      || !!this.mission.counterparty?.enterprise_name;
     return isEnterprise && ['accepted', 'in_progress', 'submitted'].includes(this.mission.status || '');
   }
 
