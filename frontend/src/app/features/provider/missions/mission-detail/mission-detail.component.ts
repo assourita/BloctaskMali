@@ -1182,6 +1182,10 @@ export class ProviderMissionDetailComponent implements OnInit {
     return ['accepted', 'in_progress', 'submitted', 'completed', 'disputed'].includes(this.mission?.status || '');
   }
 
+  assigneeRoleLabel(): string {
+    return this.mission?.assigned_team_name ? "Chef d'équipe" : 'Agent terrain';
+  }
+
   showClientContact(): boolean {
     return !!this.mission?.can_view_counterparty;
   }
