@@ -60,6 +60,7 @@ const ENTERPRISE_NAV: NavItem[] = [
   { label: 'Affectations', href: '/assignments', match: '/assignments' },
   { label: 'Suivi en temps réel', href: '/tracking', match: '/tracking' },
   { label: 'Finances', href: '/finances', match: '/finances' },
+  { label: 'Salaires', href: '/payroll', match: '/payroll' },
   { label: 'Analytics', href: '/analytics', match: '/analytics' },
   { label: 'Caution', href: '/deposit', match: '/deposit' },
   { label: 'Mon entreprise', href: '/enterprise-profile', match: '/enterprise-profile' },

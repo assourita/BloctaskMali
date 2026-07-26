@@ -69,6 +69,8 @@ export default function RootLayout() {
               <Stack.Screen name="assignments" />
               <Stack.Screen name="enterprise-profile" />
               <Stack.Screen name="finances" />
+              <Stack.Screen name="payroll/index" />
+              <Stack.Screen name="payroll/[employeeId]" />
               <Stack.Screen name="analytics" />
               <Stack.Screen name="reputation" />
               <Stack.Screen name="profile-edit" />
@@ -85,7 +87,8 @@ export default function RootLayout() {
               <Stack.Screen name="appels" />
               <Stack.Screen name="invitations" />
               <Stack.Screen name="my-enterprises" />
-              <Stack.Screen name="my-enterprise/[id]" />
+              <Stack.Screen name="my-enterprise/[id]/index" />
+              <Stack.Screen name="my-enterprise/[id]/salaires" />
             </Stack>
             <Sidebar />
             <AppFooter />

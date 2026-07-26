@@ -199,6 +199,8 @@ export default function EmployeesScreen() {
         }
       />
 
+      <SecondaryButton label="Gérer les salaires" onPress={() => router.push('/payroll')} />
+
       <TabBar
         value={pageTab}
         onChange={(id) => setPageTab(id as PageTab)}

@@ -35,6 +35,8 @@ export interface EnterpriseEmployee {
   missions_completed?: number;
   is_active: boolean;
   hired_at?: string;
+  pay_weight?: number | string;
+  pay_phone?: string;
 }
 
 export interface EmployeeAssignment {
@@ -176,7 +178,7 @@ export async function createEmployee(payload: {
 
 export async function updateEmployee(
   id: string,
-  payload: Partial<Pick<EnterpriseEmployee, 'first_name' | 'last_name' | 'email' | 'phone' | 'position' | 'role' | 'is_active'>>,
+  payload: Partial<Pick<EnterpriseEmployee, 'first_name' | 'last_name' | 'email' | 'phone' | 'position' | 'role' | 'is_active' | 'pay_weight' | 'pay_phone'>>,
 ): Promise<EnterpriseEmployee> {
   return apiRequest(`/users/enterprise/employees/${id}/`, {
     method: 'PATCH',
@@ -469,10 +471,281 @@ export interface ProviderEnterpriseDetail {
     missions_in_progress: number;
     missions_completed: number;
   };
+  payroll?: PayrollEmployeeDetail | null;
 }
 
 export async function getMyEnterpriseDetail(enterpriseId: string): Promise<ProviderEnterpriseDetail> {
   return apiRequest(`/users/me/enterprises/${enterpriseId}/`);
+}
+
+export async function getMyEnterprisePayroll(enterpriseId: string): Promise<ProviderEnterprisePayroll> {
+  return apiRequest(`/users/me/enterprises/${enterpriseId}/payroll/`);
+}
+
+export async function updateMyEnterprisePayroll(
+  enterpriseId: string,
+  data: { pay_phone?: string },
+): Promise<ProviderEnterprisePayroll> {
+  return apiRequest(`/users/me/enterprises/${enterpriseId}/payroll/`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+/* ─── Paie employés (entreprise) ─── */
+
+export interface EnterprisePayrollSettings {
+  is_enabled: boolean;
+  frequency: 'weekly' | 'monthly' | string;
+  payment_mode: 'automatic' | 'manual' | string;
+  employee_pool_percent: string | number;
+  lead_weight_multiplier: string | number;
+  notes?: string;
+  updated_at?: string;
+}
+
+export interface PayrollLine {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  missions_count: number;
+  solo_missions: number;
+  team_missions: number;
+  lead_missions: number;
+  gross_amount: string | number;
+  adjustment: string | number;
+  net_amount: string | number;
+  status: string;
+  paid_at?: string | null;
+  payment_reference?: string;
+}
+
+export interface PayrollPeriod {
+  id: string;
+  company_name?: string;
+  frequency: string;
+  payment_mode: string;
+  period_start: string;
+  period_end: string;
+  status: string;
+  employees_count: number;
+  missions_count: number;
+  total_amount: string | number;
+  approved_at?: string | null;
+  paid_at?: string | null;
+  notes?: string;
+  created_at?: string;
+  lines: PayrollLine[];
+}
+
+export interface PayrollEmployeeStats {
+  employee_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  position: string;
+  role: string;
+  is_active: boolean;
+  pay_weight: string | number;
+  pay_phone: string;
+  missions_completed_profile: number;
+  missions_assigned: number;
+  missions_completed_assignments: number;
+  earnings_total: string | number;
+  earnings_paid: string | number;
+  earnings_pending: string | number;
+  earnings_count: number;
+  solo_missions: number;
+  team_missions: number;
+  lead_missions: number;
+  last_earning_at?: string | null;
+  last_paid_at?: string | null;
+}
+
+export interface PayrollPaymentHistoryItem {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  period_id: string;
+  period_start: string;
+  period_end: string;
+  frequency: string;
+  missions_count: number;
+  solo_missions: number;
+  team_missions: number;
+  net_amount: string | number;
+  paid_at?: string | null;
+  payment_reference?: string;
+  status: string;
+}
+
+export interface PayrollDashboard {
+  settings: EnterprisePayrollSettings;
+  suggested_period: { start: string; end: string; frequency: string };
+  summary: {
+    employees_count: number;
+    active_employees: number;
+    pending_total: string | number;
+    pending_earnings_count: number;
+    paid_total: string | number;
+    lifetime_total: string | number;
+    periods_count: number;
+  };
+  employees: PayrollEmployeeStats[];
+  payment_history: PayrollPaymentHistoryItem[];
+  periods: Array<{
+    id: string;
+    period_start: string;
+    period_end: string;
+    frequency: string;
+    payment_mode: string;
+    status: string;
+    employees_count: number;
+    missions_count: number;
+    total_amount: string | number;
+    paid_at?: string | null;
+  }>;
+  pending_by_employee: Array<{
+    employee_id: string;
+    first_name: string;
+    last_name: string;
+    missions_count: number;
+    solo_missions: number;
+    team_missions: number;
+    total_amount: string;
+  }>;
+}
+
+export interface PayrollEmployeeDetail {
+  employee: PayrollEmployeeStats;
+  earnings: Array<{
+    id: string;
+    mission_id: string;
+    mission_title: string;
+    mission_price: string | number;
+    amount: string | number;
+    is_team: boolean;
+    is_lead: boolean;
+    team_size: number;
+    share_ratio: string | number;
+    status: string;
+    accrued_at?: string | null;
+    paid_at?: string | null;
+  }>;
+  payments: Array<{
+    id: string;
+    period_id: string;
+    period_start: string;
+    period_end: string;
+    frequency: string;
+    missions_count: number;
+    solo_missions: number;
+    team_missions: number;
+    lead_missions: number;
+    gross_amount: string | number;
+    net_amount: string | number;
+    status: string;
+    paid_at?: string | null;
+    payment_reference?: string;
+  }>;
+  assignments: Array<{
+    id: string;
+    mission_id: string;
+    mission_title: string;
+    mission_status: string;
+    is_lead: boolean;
+    assigned_at?: string | null;
+    completed_at?: string | null;
+    rejected_at?: string | null;
+  }>;
+}
+
+export interface ProviderEnterprisePayroll extends PayrollEmployeeDetail {
+  enterprise?: { id: string; company_name: string };
+  membership_id?: string;
+}
+
+export async function getPayrollDashboard(): Promise<PayrollDashboard> {
+  return apiRequest('/enterprises/payroll/dashboard/');
+}
+
+export async function getPayrollSettings(): Promise<EnterprisePayrollSettings> {
+  return apiRequest('/enterprises/payroll/settings/');
+}
+
+export async function updatePayrollSettings(
+  data: Partial<EnterprisePayrollSettings>,
+): Promise<EnterprisePayrollSettings> {
+  return apiRequest('/enterprises/payroll/settings/', {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function resetPayrollSettings(): Promise<EnterprisePayrollSettings> {
+  return apiRequest('/enterprises/payroll/settings/', { method: 'DELETE' });
+}
+
+export async function getPayrollPeriods(): Promise<PayrollPeriod[]> {
+  const data = await apiRequest<PayrollPeriod[] | { results: PayrollPeriod[] }>(
+    '/enterprises/payroll/periods/',
+  );
+  return unwrap(data);
+}
+
+export async function generatePayrollPeriod(data?: {
+  frequency?: string;
+  period_start?: string;
+  period_end?: string;
+  payment_mode?: string;
+}): Promise<PayrollPeriod> {
+  return apiRequest('/enterprises/payroll/periods/', {
+    method: 'POST',
+    body: JSON.stringify(data || {}),
+  });
+}
+
+export async function updatePayrollPeriod(
+  id: string,
+  data: {
+    period_start?: string;
+    period_end?: string;
+    frequency?: string;
+    payment_mode?: string;
+    notes?: string;
+  },
+): Promise<PayrollPeriod> {
+  return apiRequest(`/enterprises/payroll/periods/${id}/`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
+export async function approvePayrollPeriod(id: string): Promise<PayrollPeriod> {
+  return apiRequest(`/enterprises/payroll/periods/${id}/approve/`, {
+    method: 'POST',
+    body: '{}',
+  });
+}
+
+export async function payPayrollPeriod(id: string): Promise<PayrollPeriod> {
+  return apiRequest(`/enterprises/payroll/periods/${id}/pay/`, {
+    method: 'POST',
+    body: '{}',
+  });
+}
+
+export async function deletePayrollPeriod(
+  id: string,
+  force = false,
+): Promise<{ deleted: boolean; cancelled: boolean; id: string }> {
+  const suffix = force ? '?force=true' : '';
+  return apiRequest(`/enterprises/payroll/periods/${id}/${suffix}`, { method: 'DELETE' });
+}
+
+export async function getPayrollEmployeeDetail(employeeId: string): Promise<PayrollEmployeeDetail> {
+  return apiRequest(`/enterprises/payroll/employees/${employeeId}/`);
 }
 
 export interface RecruitmentCall {

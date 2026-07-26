@@ -37,13 +37,18 @@ function buildEmployeePayload(form: {
   phone: string;
   position: string;
   role: string;
+  pay_weight: string;
+  pay_phone: string;
 }) {
+  const weight = Number(form.pay_weight);
   return {
     first_name: form.first_name.trim(),
     last_name: form.last_name.trim(),
     phone: normalizePhone(form.phone),
     position: form.position.trim() || 'Agent terrain',
     role: form.role,
+    pay_weight: Number.isFinite(weight) && weight > 0 ? weight : 1,
+    pay_phone: normalizePhone(form.pay_phone),
   };
 }
 
@@ -61,6 +66,8 @@ export default function EmployeeDetailScreen() {
     phone: '',
     position: '',
     role: 'agent',
+    pay_weight: '1',
+    pay_phone: '',
   });
 
   const load = useCallback(async () => {
@@ -75,6 +82,8 @@ export default function EmployeeDetailScreen() {
         phone: e.phone || '',
         position: e.position || '',
         role: e.role || 'agent',
+        pay_weight: String(e.pay_weight ?? 1),
+        pay_phone: e.pay_phone || '',
       });
     } catch {
       setEmployee(null);
@@ -197,6 +206,18 @@ export default function EmployeeDetailScreen() {
             <Input placeholder="Email" value={form.email} editable={false} />
             <Input placeholder="Téléphone" value={form.phone} onChangeText={(v) => setForm({ ...form, phone: v })} />
             <Input placeholder="Poste" value={form.position} onChangeText={(v) => setForm({ ...form, position: v })} />
+            <Input
+              placeholder="Coefficient paie"
+              value={form.pay_weight}
+              onChangeText={(v) => setForm({ ...form, pay_weight: v })}
+              keyboardType="decimal-pad"
+            />
+            <Input
+              placeholder="Tél. Mobile Money (paie)"
+              value={form.pay_phone}
+              onChangeText={(v) => setForm({ ...form, pay_phone: v })}
+              keyboardType="phone-pad"
+            />
             <View style={styles.roleRow}>
               {ROLE_OPTIONS.map((r) => (
                 <Pressable
@@ -214,6 +235,8 @@ export default function EmployeeDetailScreen() {
             <InfoRow label="Email" value={employee.email} />
             <InfoRow label="Téléphone" value={employee.phone || '—'} />
             <InfoRow label="Poste" value={employee.position || '—'} />
+            <InfoRow label="Coefficient paie" value={String(employee.pay_weight ?? 1)} />
+            <InfoRow label="Tél. paie" value={employee.pay_phone || '—'} />
             <InfoRow label="Missions terminées" value={String(employee.missions_completed ?? 0)} />
             {employee.hired_at ? (
               <InfoRow label="Embauché le" value={new Date(employee.hired_at).toLocaleDateString('fr-FR')} />
@@ -231,6 +254,10 @@ export default function EmployeeDetailScreen() {
         ) : (
           <>
             <PrimaryButton label="Modifier" onPress={() => setEditing(true)} />
+            <SecondaryButton
+              label="Voir salaires"
+              onPress={() => router.push(`/payroll/${employee.id}`)}
+            />
             <SecondaryButton
               label={employee.is_active ? 'Désactiver' : 'Activer'}
               onPress={toggleActive}

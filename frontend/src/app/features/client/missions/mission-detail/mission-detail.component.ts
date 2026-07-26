@@ -442,7 +442,15 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
     </ng-template>
   `,
   styles: [`
-    .page { padding: 24px; max-width: 1200px; margin: 0 auto; }
+    .page {
+      padding: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
     .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     .back-btn { color: #4b5563; }
     .loading-page { padding: 80px 24px; text-align: center; color: #6b7280; }
@@ -515,8 +523,19 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
     .step-label { font-size: 11px; color: #6b7280; margin-top: 8px; text-align: center; }
     .step.active .step-label { color: #6C5CE7; font-weight: 600; }
 
-    .layout { display: grid; grid-template-columns: 1fr 320px; gap: 24px; }
-    .section-card { margin-bottom: 20px; border-radius: 12px; }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 24px;
+      min-width: 0;
+    }
+    .section-card {
+      margin-bottom: 20px;
+      border-radius: 12px;
+      max-width: 100%;
+      min-width: 0;
+      overflow: hidden;
+    }
     .section-card mat-card-title { display: flex; align-items: center; gap: 8px; font-size: 16px; }
     .section-card mat-card-title mat-icon { color: #16a34a; }
     .route { background: #f9fafb; border-radius: 12px; padding: 16px; }
@@ -594,11 +613,44 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
     .contact-lock { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #6b7280; margin: 0; }
     .escrow-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-size: 14px; }
     .escrow-row .ok { color: #059669; }
-    .chat-wrap { min-height: 300px; max-height: 520px; overflow: hidden; padding: 0; }
+    .chat-wrap {
+      min-height: 300px;
+      max-height: 520px;
+      overflow: hidden;
+      padding: 0;
+      min-width: 0;
+      max-width: 100%;
+    }
 
     @media (max-width: 960px) {
-      .layout { grid-template-columns: 1fr; }
+      .layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
       .action-card { position: static; }
+      .page { padding: 0; max-width: 100%; }
+      .page-header { flex-wrap: wrap; gap: 8px; }
+      .hero { padding: 16px; }
+      .hero h1 { font-size: 1.35rem; word-break: break-word; }
+      .hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+      .stat-card { padding: 10px 12px; min-width: 0; }
+      .stat-value { font-size: 16px; word-break: break-word; }
+      .timeline-card { padding: 12px; margin-bottom: 16px; }
+      .timeline { min-width: 320px; }
+      .detail-row { grid-template-columns: 1fr; gap: 4px; }
+      .media-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .section-card { margin-bottom: 14px; }
+      .chat-wrap { min-height: 280px; max-height: 420px; }
+      .expiry-actions { flex-direction: column; align-items: stretch; }
+      .full-width, button.full-width { width: 100%; }
+      .history-item { min-width: 0; }
+      .history-item p, .history-item small { word-break: break-word; }
+      .waiting-card mat-card-content {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .hero-stats { grid-template-columns: 1fr 1fr; }
+      .media-grid { grid-template-columns: minmax(0, 1fr); }
     }
   `]
 })

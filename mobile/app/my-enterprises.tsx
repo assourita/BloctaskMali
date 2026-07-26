@@ -69,34 +69,41 @@ export default function MyEnterprisesScreen() {
               memberships.map((m) => {
                 const logo = m.enterprise?.logo;
                 return (
-                  <Pressable
-                    key={m.id}
-                    style={styles.row}
-                    onPress={() => router.push(`/my-enterprise/${m.enterprise_id}`)}
-                  >
-                    {logo ? (
-                      <Image source={{ uri: logo }} style={styles.logoImg} />
-                    ) : (
-                      <View style={styles.logo}>
-                        <Text style={styles.logoText}>
-                          {(m.enterprise_name || 'E')[0]}
+                  <View key={m.id} style={styles.rowWrap}>
+                    <Pressable
+                      style={styles.row}
+                      onPress={() => router.push(`/my-enterprise/${m.enterprise_id}`)}
+                    >
+                      {logo ? (
+                        <Image source={{ uri: logo }} style={styles.logoImg} />
+                      ) : (
+                        <View style={styles.logo}>
+                          <Text style={styles.logoText}>
+                            {(m.enterprise_name || 'E')[0]}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.title}>{m.enterprise_name}</Text>
+                        <Text style={styles.meta}>
+                          {m.position || m.role}
+                          {m.hired_at
+                            ? ` · depuis ${new Date(m.hired_at).toLocaleDateString('fr-FR')}`
+                            : ''}
                         </Text>
+                        <Text style={[styles.meta, { color: colors.primary }]}>Voir le détail →</Text>
                       </View>
-                    )}
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.title}>{m.enterprise_name}</Text>
-                      <Text style={styles.meta}>
-                        {m.position || m.role}
-                        {m.hired_at
-                          ? ` · depuis ${new Date(m.hired_at).toLocaleDateString('fr-FR')}`
-                          : ''}
-                      </Text>
-                      <Text style={[styles.meta, { color: colors.primary }]}>Voir le détail →</Text>
-                    </View>
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeText}>Lié</Text>
-                    </View>
-                  </Pressable>
+                      <View style={styles.badge}>
+                        <Text style={styles.badgeText}>Lié</Text>
+                      </View>
+                    </Pressable>
+                    <Pressable
+                      style={styles.salaryLink}
+                      onPress={() => router.push(`/my-enterprise/${m.enterprise_id}/salaires`)}
+                    >
+                      <Text style={styles.salaryLinkText}>Mes salaires</Text>
+                    </Pressable>
+                  </View>
                 );
               })
             )}
@@ -122,9 +129,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     paddingVertical: spacing.sm,
+  },
+  rowWrap: {
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    paddingBottom: spacing.sm,
+    marginBottom: spacing.xs,
   },
+  salaryLink: {
+    alignSelf: 'flex-start',
+    marginLeft: 56,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 8,
+    backgroundColor: colors.primaryLight,
+  },
+  salaryLinkText: { fontSize: 12, fontWeight: '700', color: colors.primary },
   logo: {
     width: 40,
     height: 40,

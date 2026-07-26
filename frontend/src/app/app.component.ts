@@ -58,7 +58,12 @@ import { SidebarService } from './core/services/sidebar.service';
       flex: 1;
       padding: 32px;
       overflow-y: auto;
+      overflow-x: hidden;
       min-height: calc(100vh - 64px);
+      min-width: 0;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
       transition: margin-left 0.3s ease, padding 0.3s ease;
     }
 
@@ -108,7 +113,8 @@ import { SidebarService } from './core/services/sidebar.service';
         min-height: calc(100vh - 56px);
         min-width: 0;
         width: 100%;
-        max-width: 100vw;
+        max-width: 100%;
+        box-sizing: border-box;
         overflow-x: hidden;
       }
 

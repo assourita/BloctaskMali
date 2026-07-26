@@ -8,7 +8,7 @@ import {
   type EnterpriseFinancesSummary,
 } from '../src/api/enterprise';
 import { getPaymentMethods } from '../src/api/payments';
-import { PrimaryButton } from '../src/components/buttons';
+import { PrimaryButton, SecondaryButton } from '../src/components/buttons';
 import { Card, Loader } from '../src/components/ui';
 import { AppLayout } from '../src/components/layout/AppLayout';
 import { PageHeader, SoftCard, StatGrid } from '../src/components/widgets';
@@ -149,7 +149,8 @@ export default function FinancesScreen() {
         </Card>
       ))}
 
-      <PrimaryButton label="Voir la caution" onPress={() => router.push('/deposit')} />
+      <PrimaryButton label="Gérer les salaires" onPress={() => router.push('/payroll')} />
+      <SecondaryButton label="Voir la caution" onPress={() => router.push('/deposit')} />
     </AppLayout>
   );
 }

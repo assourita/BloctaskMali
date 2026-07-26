@@ -184,10 +184,12 @@ const BAMAKO_CENTER: L.LatLngExpression = [12.6392, -8.0029];
     @import 'leaflet/dist/leaflet.css';
 
     .tracking-container {
-      padding: 24px; max-width: 1200px; margin: 0 auto;
+      padding: 16px; max-width: 100%; margin: 0 auto;
+      width: 100%; min-width: 0; box-sizing: border-box; overflow-x: hidden;
       
       .tracking-header {
         display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;
+        gap: 12px; flex-wrap: wrap; min-width: 0;
         .mission-info {
           h2 { margin: 0; display: flex; align-items: center; gap: 12px; }
           p { margin: 4px 0 0; color: #666; }
@@ -202,8 +204,9 @@ const BAMAKO_CENTER: L.LatLngExpression = [12.6392, -8.0029];
       
       .provider-bar {
         display: flex; justify-content: space-between; align-items: center;
-        background: #fff; padding: 16px 24px; border-radius: 12px;
+        background: #fff; padding: 16px; border-radius: 12px;
         margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        gap: 12px; flex-wrap: wrap; min-width: 0;
         
         .provider-info {
           display: flex; align-items: center; gap: 12px;
@@ -237,11 +240,11 @@ const BAMAKO_CENTER: L.LatLngExpression = [12.6392, -8.0029];
       }
       
       .map-wrapper {
-        position: relative; margin-bottom: 20px;
+        position: relative; margin-bottom: 20px; min-width: 0; max-width: 100%;
         
         .map-container {
           height: 500px; background: #f5f5f5; border-radius: 16px;
-          overflow: hidden; position: relative; z-index: 0;
+          overflow: hidden; position: relative; z-index: 0; max-width: 100%;
           
           .map-placeholder, .map-error {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
@@ -281,36 +284,67 @@ const BAMAKO_CENTER: L.LatLngExpression = [12.6392, -8.0029];
       }
       
       .tracking-stats {
-        display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 24px;
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 16px;
+        margin-bottom: 24px;
+        min-width: 0;
+        width: 100%;
         
         .stat-item {
-          background: #fff; padding: 20px; border-radius: 12px;
-          display: flex; align-items: center; gap: 16px;
+          background: #fff; padding: 16px; border-radius: 12px;
+          display: flex; align-items: center; gap: 12px;
           box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+          min-width: 0;
           
-          mat-icon { font-size: 28px; width: 28px; height: 28px; color: #6C5CE7; }
+          mat-icon { font-size: 28px; width: 28px; height: 28px; color: #6C5CE7; flex-shrink: 0; }
           
-          .value { display: block; font-size: 20px; font-weight: 700; color: #1f2937; }
+          > div { min-width: 0; }
+          .value {
+            display: block; font-size: 18px; font-weight: 700; color: #1f2937;
+            overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+          }
           .label { font-size: 12px; color: #6b7280; }
         }
       }
       
       .provider-controls {
+        min-width: 0; max-width: 100%;
         .location-sharing {
           display: flex; flex-direction: column; gap: 16px;
           
           .current-coords {
-            display: flex; gap: 16px; font-size: 13px; color: #666;
+            display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 13px; color: #666;
+            word-break: break-all;
             .accuracy { color: #10b981; font-weight: 500; }
           }
           
-          button { align-self: flex-start; }
+          button { align-self: stretch; }
         }
       }
     }
     
-    @media (max-width: 768px) {
-      .tracking-stats { grid-template-columns: repeat(2, 1fr); }
+    @media (max-width: 960px) {
+      .tracking-container {
+        padding: 0;
+        .map-container { height: 320px; border-radius: 12px; }
+        .map-legend { max-width: calc(100% - 24px); font-size: 11px; }
+        .tracking-stats {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+          gap: 10px;
+          .stat-item { padding: 12px; gap: 10px; }
+          .stat-item mat-icon { font-size: 22px; width: 22px; height: 22px; }
+          .stat-item .value { font-size: 15px; }
+          .stat-item .label { font-size: 11px; }
+        }
+      }
+    }
+
+    @media (max-width: 420px) {
+      .tracking-container .tracking-stats {
+        grid-template-columns: 1fr 1fr;
+        .stat-item { flex-direction: column; align-items: flex-start; gap: 6px; }
+      }
     }
   `]
 })

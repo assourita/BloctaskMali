@@ -1201,6 +1201,15 @@ a:hover {
   .mat-mdc-card,
   mat-card {
     max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .mat-mdc-card-content,
+  mat-card-content {
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
+    box-sizing: border-box;
   }
 
   .mat-mdc-dialog-container,
@@ -1212,6 +1221,7 @@ a:hover {
 
   .mat-mdc-form-field {
     width: 100%;
+    max-width: 100%;
   }
 
   .mat-mdc-raised-button,
@@ -1235,5 +1245,19 @@ a:hover {
     padding-left: 0 !important;
     padding-right: 0 !important;
     max-width: 100%;
+    min-width: 0;
+    width: 100%;
+    overflow-x: hidden;
+    box-sizing: border-box;
+  }
+
+  app-mission-detail,
+  app-provider-mission-detail,
+  app-gps-tracking,
+  app-chat {
+    display: block;
+    max-width: 100%;
+    min-width: 0;
+    overflow-x: hidden;
   }
 }

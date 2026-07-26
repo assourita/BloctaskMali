@@ -5,13 +5,13 @@ import {
   getMyEnterpriseDetail,
   type ProviderEnterpriseDetail,
   type ProviderEnterpriseMission,
-} from '../../src/api/enterprise';
-import { AppLayout } from '../../src/components/layout/AppLayout';
-import { PageHeader, SoftCard } from '../../src/components/widgets';
-import { Loader } from '../../src/components/ui';
-import { colors, spacing } from '../../src/constants/theme';
-import { useScreenLoad } from '../../src/utils/useScreenLoad';
-import { useAuth } from '../../src/context/AuthContext';
+} from '../../../src/api/enterprise';
+import { AppLayout } from '../../../src/components/layout/AppLayout';
+import { PageHeader, SoftCard } from '../../../src/components/widgets';
+import { Loader } from '../../../src/components/ui';
+import { colors, spacing } from '../../../src/constants/theme';
+import { useScreenLoad } from '../../../src/utils/useScreenLoad';
+import { useAuth } from '../../../src/context/AuthContext';
 
 const ROLE_LABELS: Record<string, string> = {
   agent: 'Agent terrain',
@@ -95,6 +95,12 @@ export default function MyEnterpriseDetailScreen() {
             {!!m.enterprise?.city && (
               <Text style={styles.meta}>{m.enterprise.city}{m.enterprise.country ? `, ${m.enterprise.country}` : ''}</Text>
             )}
+            <Pressable
+              style={styles.salaryCta}
+              onPress={() => router.push(`/my-enterprise/${id}/salaires`)}
+            >
+              <Text style={styles.salaryCtaText}>Mes salaires & paie</Text>
+            </Pressable>
           </SoftCard>
 
           <SoftCard style={styles.block}>
@@ -203,4 +209,15 @@ const styles = StyleSheet.create({
   chipTextActive: { color: '#166534' },
   empty: { textAlign: 'center', color: colors.textMuted, marginTop: spacing.xl },
   emptyInline: { color: colors.textMuted, fontSize: 13 },
+  salaryCta: {
+    marginTop: spacing.md,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    backgroundColor: colors.primaryLight,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    alignItems: 'center',
+  },
+  salaryCtaText: { fontWeight: '700', color: colors.primary, fontSize: 14 },
 });

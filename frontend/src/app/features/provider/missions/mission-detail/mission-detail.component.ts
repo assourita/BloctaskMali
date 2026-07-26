@@ -508,7 +508,15 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
     </ng-template>
   `,
   styles: [`
-    .page { padding: 24px; max-width: 1200px; margin: 0 auto; }
+    .page {
+      padding: 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
     .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
     .back-btn { color: #4b5563; }
     .loading-page { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 400px; gap: 16px; color: #6b7280; }
@@ -592,8 +600,20 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
     .step-label { font-size: 11px; color: #6b7280; margin-top: 8px; text-align: center; max-width: 80px; }
     .step.active .step-label { color: #059669; font-weight: 600; }
 
-    .layout { display: grid; grid-template-columns: 1fr 320px; gap: 24px; align-items: start; }
-    .section-card { margin-bottom: 20px; border-radius: 12px; }
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 320px;
+      gap: 24px;
+      align-items: start;
+      min-width: 0;
+    }
+    .section-card {
+      margin-bottom: 20px;
+      border-radius: 12px;
+      max-width: 100%;
+      min-width: 0;
+      overflow: hidden;
+    }
     .section-card mat-card-title { display: flex; align-items: center; gap: 8px; font-size: 16px; }
     .section-card mat-card-title mat-icon { color: #3CB371; }
 
@@ -685,7 +705,15 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
     .meta-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: #6b7280; padding: 6px 0; }
     .meta-row mat-icon { font-size: 16px; width: 16px; height: 16px; color: #9ca3af; }
 
-    .chat-wrap { padding: 0; min-height: 320px; max-height: 520px; overflow: hidden; border-radius: 0 0 12px 12px; }
+    .chat-wrap {
+      padding: 0;
+      min-height: 320px;
+      max-height: 520px;
+      overflow: hidden;
+      border-radius: 0 0 12px 12px;
+      min-width: 0;
+      max-width: 100%;
+    }
 
     .success-banner { display: flex; align-items: center; gap: 8px; padding: 12px; background: #ecfdf5; border-radius: 8px; color: #065f46; font-size: 14px; margin-bottom: 8px; }
     .deposit-alert { background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 12px; margin-bottom: 12px; }
@@ -695,29 +723,35 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
     .employee-select { width: 100%; padding: 10px 12px; border: 1px solid #d1d5db; border-radius: 8px; margin-bottom: 10px; font-size: 14px; }
 
     @media (max-width: 960px) {
-      .layout { grid-template-columns: 1fr; }
+      .layout { grid-template-columns: minmax(0, 1fr); gap: 16px; }
       .action-card { position: static; }
       .hero { padding: 16px; }
-      .hero h1 { font-size: 1.35rem; }
+      .hero h1 { font-size: 1.35rem; word-break: break-word; }
       .page { padding: 0; max-width: 100%; }
       .page-header { flex-wrap: wrap; gap: 8px; }
       .hero-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
       .stat-card { padding: 10px 12px; min-width: 0; }
       .stat-value { font-size: 16px; word-break: break-word; }
-      .timeline { min-width: 360px; }
+      .timeline-card { padding: 12px; margin-bottom: 16px; }
+      .timeline { min-width: 320px; }
       .detail-row { grid-template-columns: 1fr; gap: 4px; }
       .media-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .proof-actions { flex-direction: column; align-items: stretch; }
       .full-width, button.full-width { width: 100%; }
+      .section-card { margin-bottom: 14px; }
+      .chat-wrap { min-height: 280px; max-height: 420px; }
       .info-banner, .success-banner, .applied-banner {
         align-items: flex-start;
         line-height: 1.4;
       }
+      .history-item { min-width: 0; }
+      .history-item p, .history-item small { word-break: break-word; }
     }
 
     @media (max-width: 420px) {
       .hero-stats { grid-template-columns: 1fr 1fr; }
       .category-badge, .status-badge { font-size: 11px; }
+      .media-grid { grid-template-columns: minmax(0, 1fr); }
     }
   `]
 })

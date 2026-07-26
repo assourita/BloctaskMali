@@ -197,7 +197,8 @@ interface Conversation {
   styles: [`
     .chat-container {
       display: flex; height: calc(100vh - 64px); background: #f5f5f5;
-      min-width: 0; overflow: hidden;
+      min-width: 0; max-width: 100%; width: 100%; overflow: hidden;
+      box-sizing: border-box;
 
       &.embedded {
         height: 420px;
@@ -257,10 +258,12 @@ interface Conversation {
       
       .chat-area {
         flex: 1; display: flex; flex-direction: column;
+        min-width: 0; max-width: 100%; overflow: hidden;
         
         .chat-header {
-          display: flex; align-items: center; gap: 16px;
-          padding: 16px 24px; background: #fff; border-bottom: 1px solid #e0e0e0;
+          display: flex; align-items: center; gap: 12px;
+          padding: 12px 16px; background: #fff; border-bottom: 1px solid #e0e0e0;
+          min-width: 0;
           
           &.placeholder { color: #999; }
           
@@ -280,7 +283,8 @@ interface Conversation {
         }
         
         .messages-container {
-          flex: 1; overflow-y: auto; padding: 24px;
+          flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px;
+          min-width: 0;
           .loading-messages { display: flex; justify-content: center; padding: 40px; }
           
           .messages-list {
@@ -300,7 +304,9 @@ interface Conversation {
               }
               
               .message-content {
-                max-width: 70%;
+                max-width: min(70%, 100%);
+                min-width: 0;
+                word-break: break-word;
                 .bubble {
                   background: #fff; padding: 12px 16px; border-radius: 18px;
                   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
@@ -337,26 +343,31 @@ interface Conversation {
         }
         
         .input-area {
-          padding: 16px 24px; background: #fff; border-top: 1px solid #e0e0e0;
+          padding: 12px 16px; background: #fff; border-top: 1px solid #e0e0e0;
+          min-width: 0; max-width: 100%; box-sizing: border-box;
 
           .chat-closed {
             text-align: center; color: #6b7280; font-size: 13px; margin: 0;
           }
           
           .input-container {
-            display: flex; align-items: center; gap: 12px;
+            display: flex; align-items: center; gap: 8px;
+            min-width: 0; width: 100%;
             
-            .attach-btn { color: #666; }
+            .attach-btn { color: #666; flex-shrink: 0; }
             
             .message-input {
-              flex: 1;
+              flex: 1 1 0%;
+              min-width: 0;
+              width: auto;
+              ::ng-deep .mat-mdc-form-field { width: 100%; }
               ::ng-deep .mat-mdc-form-field-subscript-wrapper { display: none; }
-              ::ng-deep .mat-mdc-text-field-wrapper { padding: 0 16px; }
+              ::ng-deep .mat-mdc-text-field-wrapper { padding: 0 12px; }
               input { font-size: 15px; }
             }
             
             .send-btn {
-              width: 48px; height: 48px;
+              width: 44px; height: 44px; flex-shrink: 0;
               mat-icon { margin: 0; }
             }
           }
@@ -368,6 +379,12 @@ interface Conversation {
       .chat-container:not(.sidebar-open) .conversations-sidebar { display: none; }
       .chat-container.sidebar-open .chat-area { display: none; }
       .conversations-sidebar { width: 100% !important; }
+      .chat-container.embedded {
+        height: 360px;
+        max-height: 50vh;
+      }
+      .chat-container .input-area { padding: 10px 12px; }
+      .chat-container .messages-container { padding: 12px; }
     }
   `]
 })
