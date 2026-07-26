@@ -65,6 +65,8 @@ export interface EmployeeDetailDialogResult {
               <option value="hr">Ressources humaines</option>
               <option value="accountant">Comptable</option>
             </select>
+            <input class="field" type="number" min="0.1" step="0.1" [(ngModel)]="form.pay_weight" placeholder="Coefficient paie (ex. 1.0)" />
+            <input class="field" [(ngModel)]="form.pay_phone" placeholder="Mobile Money paie" />
           </div>
         </ng-container>
 
@@ -88,6 +90,14 @@ export interface EmployeeDetailDialogResult {
           <div class="detail-row">
             <span class="label">Missions terminées</span>
             <span>{{ data.employee.missions_completed }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Coefficient paie</span>
+            <span>{{ data.employee.pay_weight || 1 }}</span>
+          </div>
+          <div class="detail-row">
+            <span class="label">Mobile Money paie</span>
+            <span>{{ data.employee.pay_phone || '—' }}</span>
           </div>
         </ng-template>
       </div>
@@ -155,6 +165,8 @@ export class EmployeeDetailPanelComponent {
     phone: '',
     position: '',
     role: 'agent',
+    pay_weight: 1 as number | string,
+    pay_phone: '',
   };
 
   constructor(
@@ -178,6 +190,8 @@ export class EmployeeDetailPanelComponent {
       phone: e.phone || '',
       position: e.position || '',
       role: e.role || 'agent',
+      pay_weight: Number(e.pay_weight ?? 1),
+      pay_phone: e.pay_phone || '',
     };
   }
 

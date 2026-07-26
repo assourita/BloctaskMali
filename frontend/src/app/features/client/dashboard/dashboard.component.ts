@@ -162,6 +162,11 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
     /* Component-specific tweaks only — layout lives in styles/dashboard.scss */
     app-mission-applications {
       display: block;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      margin-top: 8px;
+      overflow-x: hidden;
     }
   `]
 })

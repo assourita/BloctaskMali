@@ -105,7 +105,7 @@ interface Mission {
           <a routerLink="/provider/missions/available">Trouver des missions</a>
         </div>
 
-        <div class="dash-list" *ngIf="activeMissions.length > 0">
+        <div class="dash-list dash-list--cards" *ngIf="activeMissions.length > 0">
           <div
             class="dash-row pm-row"
             [class.pm-row--highlight]="highlightMissionId === mission.id"
@@ -185,7 +185,7 @@ interface Mission {
           Aucun historique pour le moment.
         </div>
 
-        <div class="dash-list" *ngIf="completedMissions.length > 0">
+        <div class="dash-list dash-list--cards" *ngIf="completedMissions.length > 0">
           <div class="dash-row" *ngFor="let mission of completedMissions">
             <div class="dash-row__main">
               <div class="dash-row__title">
@@ -215,7 +215,7 @@ interface Mission {
           Aucune candidature en attente.
         </div>
 
-        <div class="dash-list" *ngIf="pendingApplications.length > 0">
+        <div class="dash-list dash-list--cards" *ngIf="pendingApplications.length > 0">
           <div class="dash-row" *ngFor="let app of pendingApplications">
             <div class="dash-row__main">
               <div class="dash-row__title">

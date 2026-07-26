@@ -4,13 +4,17 @@
    ======================================== */
 
 .dash-page {
-  max-width: 1120px;
+  width: 100%;
+  max-width: min(1120px, 100%);
   margin: 0 auto;
   padding: var(--space-6) var(--space-6) var(--space-12);
   display: flex;
   flex-direction: column;
   gap: var(--space-8);
   font-family: var(--font-sans);
+  min-width: 0;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .dash-header {
@@ -163,6 +167,60 @@
   border: 1px solid var(--bt-border);
   border-radius: var(--radius-xl);
   overflow: hidden;
+}
+
+/* Grille 2 cartes / ligne (listes missions) */
+.dash-list--cards {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  background: transparent;
+  border: none;
+  border-radius: 0;
+  overflow: visible;
+
+  .dash-row {
+    flex-direction: column;
+    align-items: stretch;
+    height: 100%;
+    background: var(--bt-surface);
+    border: 1px solid var(--bt-border);
+    border-radius: var(--radius-xl);
+    border-bottom: 1px solid var(--bt-border);
+    padding: var(--space-4);
+    gap: var(--space-3);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+
+    &:last-child {
+      border-bottom: 1px solid var(--bt-border);
+    }
+
+    &:hover {
+      border-color: #86efac;
+      box-shadow: 0 8px 20px rgba(15, 23, 42, 0.06);
+    }
+  }
+
+  .dash-row__side {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .dash-row__actions {
+    width: 100%;
+
+    button {
+      flex: 1 1 auto;
+    }
+  }
+}
+
+@media (max-width: 900px) {
+  .dash-list--cards {
+    grid-template-columns: 1fr;
+  }
 }
 
 .dash-row {

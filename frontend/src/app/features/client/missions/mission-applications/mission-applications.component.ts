@@ -140,13 +140,18 @@ interface Application {
   `,
   styles: [`
     .applications-container {
-      padding: 20px;
+      padding: 0;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
+
       .header {
-        display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+        display: flex; align-items: center; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;
         h2 {
           margin: 0; display: flex; align-items: center; gap: 8px;
-          font-size: 20px; font-weight: 600;
-          mat-icon { color: #6C5CE7; }
+          font-size: 18px; font-weight: 650; color: #0f172a;
+          mat-icon { color: #16a34a; }
         }
         .badge {
           background: #ef4444; color: #fff; font-size: 12px; font-weight: 600;
@@ -154,84 +159,161 @@ interface Application {
         }
       }
     }
-    
+
     .empty-state {
-      text-align: center; padding: 40px; color: #9ca3af;
+      text-align: center; padding: 32px 16px; color: #9ca3af;
       mat-icon { font-size: 48px; width: 48px; height: 48px; margin-bottom: 12px; }
       p { margin: 0 0 8px; font-size: 16px; }
       .hint { font-size: 13px; }
     }
-    
+
     .applications-list {
-      display: flex; flex-direction: column; gap: 16px;
+      display: flex; flex-direction: column; gap: 12px;
+      width: 100%;
+      min-width: 0;
     }
-    
+
     .application-card {
-      border-radius: 16px;
+      border-radius: 14px;
+      border: 1px solid #e2e8f0;
+      overflow: hidden;
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+
       .provider-header {
-        display: flex; justify-content: space-between; align-items: flex-start;
-        padding: 16px;
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 14px 16px;
+        flex-wrap: wrap;
+
         .provider-info {
-          display: flex; align-items: center; gap: 12px;
+          display: flex; align-items: flex-start; gap: 12px; min-width: 0; flex: 1 1 220px;
+
           .avatar {
-            width: 50px; height: 50px; border-radius: 50%;
-            background: linear-gradient(135deg, #6C5CE7, #a29bfe);
+            width: 48px; height: 48px; border-radius: 50%; flex-shrink: 0;
+            background: linear-gradient(135deg, #166534, #16a34a);
             display: flex; align-items: center; justify-content: center;
             color: #fff; font-weight: 600; overflow: hidden;
             img { width: 100%; height: 100%; object-fit: cover; }
           }
+
           .provider-details {
-            h4 { margin: 0 0 4px; font-size: 16px; }
+            min-width: 0;
+            h4 {
+              margin: 0 0 6px; font-size: 15px; font-weight: 650; color: #0f172a;
+              overflow-wrap: anywhere;
+            }
             .badges {
-              display: flex; gap: 8px;
-              .badge-verified {
-                display: flex; align-items: center; gap: 4px;
-                background: #d1fae5; color: #065f46;
-                padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600;
+              display: flex; flex-wrap: wrap; gap: 6px;
+              .badge-verified, .badge-reputation, .badge-missions {
+                display: inline-flex; align-items: center; gap: 4px;
+                padding: 2px 8px; border-radius: 10px; font-size: 11px; font-weight: 600;
                 mat-icon { font-size: 14px; width: 14px; height: 14px; }
               }
-              .badge-reputation {
-                display: flex; align-items: center; gap: 4px;
-                background: #fef3c7; color: #92400e;
-                padding: 2px 8px; border-radius: 10px; font-size: 12px; font-weight: 600;
-                mat-icon { font-size: 14px; width: 14px; height: 14px; }
-              }
-              .badge-missions {
-                background: #e0e7ff; color: #3730a3;
-                padding: 2px 8px; border-radius: 10px; font-size: 12px;
-              }
+              .badge-verified { background: #d1fae5; color: #065f46; }
+              .badge-reputation { background: #fef3c7; color: #92400e; }
+              .badge-missions { background: #f1f5f9; color: #334155; }
             }
           }
         }
-        .price-block { text-align: right;
-          .label { display: block; font-size: 11px; color: #9ca3af; text-transform: uppercase; }
-          .value { font-size: 18px; font-weight: 700; color: #3CB371; display: block; }
+
+        .price-block {
+          text-align: right;
+          flex: 0 0 auto;
+          .label { display: block; font-size: 11px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.04em; }
+          .value { font-size: 16px; font-weight: 700; color: #16a34a; display: block; }
           .price-hint { font-size: 10px; color: #6b7280; }
         }
       }
-      
+
       .application-content {
-        padding: 16px;
+        padding: 12px 16px 14px;
         .mission-ref {
-          margin: 0 0 12px; font-size: 14px; color: #6b7280;
-          strong { color: #1f2937; }
+          margin: 0 0 10px; font-size: 13px; color: #6b7280;
+          strong { color: #0f172a; overflow-wrap: anywhere; }
         }
         .message-box {
-          display: flex; gap: 12px;
-          background: #f9fafb; padding: 12px; border-radius: 8px;
-          mat-icon { color: #9ca3af; flex-shrink: 0; }
-          p { margin: 0; font-size: 14px; line-height: 1.5; color: #374151; font-style: italic; }
+          display: flex; gap: 10px;
+          background: #f8fafc; padding: 10px 12px; border-radius: 8px;
+          min-width: 0;
+          mat-icon { color: #94a3b8; flex-shrink: 0; }
+          p {
+            margin: 0; font-size: 13px; line-height: 1.45; color: #334155; font-style: italic;
+            overflow-wrap: anywhere; word-break: break-word;
+          }
         }
-        .date { margin: 12px 0 0; font-size: 12px; color: #9ca3af; }
+        .date { margin: 10px 0 0; font-size: 12px; color: #94a3b8; }
       }
-      
+
       .actions {
-        display: flex; justify-content: space-between; padding: 12px 16px;
-        border-top: 1px solid #f3f4f6; align-items: center;
-        .action-buttons { display: flex; gap: 8px; }
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        padding: 12px 16px;
+        border-top: 1px solid #f1f5f9;
+        align-items: center;
+        flex-wrap: wrap;
+
+        .action-buttons {
+          display: flex; gap: 8px; flex-wrap: wrap; margin-left: auto;
+          button { white-space: nowrap; }
+        }
         .status-pill {
           font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 12px;
-          background: #e5e7eb; color: #374151;
+          background: #e5e7eb; color: #374151; margin-left: auto;
+        }
+      }
+    }
+
+    @media (max-width: 640px) {
+      .applications-container {
+        padding: 0;
+      }
+
+      .application-card {
+        .provider-header {
+          flex-direction: column;
+          align-items: stretch;
+
+          .provider-info {
+            flex: 1 1 auto;
+          }
+
+          .price-block {
+            text-align: left;
+            padding-top: 4px;
+            border-top: 1px dashed #e2e8f0;
+            width: 100%;
+            .value { font-size: 18px; }
+          }
+        }
+
+        .actions {
+          flex-direction: column;
+          align-items: stretch;
+
+          > button {
+            width: 100%;
+            justify-content: center;
+          }
+
+          .action-buttons {
+            margin-left: 0;
+            width: 100%;
+
+            button {
+              flex: 1 1 0;
+              min-width: 0;
+            }
+          }
+
+          .status-pill {
+            margin-left: 0;
+            text-align: center;
+          }
         }
       }
     }

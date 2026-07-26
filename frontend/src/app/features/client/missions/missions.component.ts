@@ -450,11 +450,12 @@ interface Mission {
       }
     }
 
-    /* Missions List - Airbnb Style */
+    /* Missions List — 2 cartes par ligne */
     .missions-list {
-      display: flex;
-      flex-direction: column;
-      gap: 1.5rem;
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1.25rem;
+      align-items: stretch;
     }
 
     .mission-card {
@@ -466,6 +467,9 @@ interface Mission {
       transition: all 0.2s ease;
       cursor: pointer;
       position: relative;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
 
       &:hover {
         box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
@@ -573,9 +577,10 @@ interface Mission {
       padding: 1rem 1.25rem;
       padding-top: 2.75rem;
       display: grid;
-      grid-template-columns: 1fr auto;
+      grid-template-columns: 1fr;
       gap: 1rem;
       align-items: start;
+      flex: 1;
     }
 
     .mission-main {
@@ -686,9 +691,11 @@ interface Mission {
 
     .mission-meta {
       display: flex;
-      flex-direction: column;
+      flex-direction: row;
+      flex-wrap: wrap;
+      align-items: center;
       gap: 0.75rem;
-      min-width: 140px;
+      min-width: 0;
     }
 
     .meta-box {
@@ -753,12 +760,15 @@ interface Mission {
     }
 
     .mission-footer {
-      padding: 1rem 1.5rem;
+      padding: 1rem 1.25rem;
       border-top: 1px solid #e5e7eb;
       display: flex;
       justify-content: space-between;
       align-items: center;
       background: #f9fafb;
+      margin-top: auto;
+      flex-wrap: wrap;
+      gap: 0.75rem;
     }
 
     .provider-section {
@@ -878,6 +888,10 @@ interface Mission {
     @media (max-width: 1024px) {
       .stats-grid {
         grid-template-columns: repeat(2, 1fr);
+      }
+
+      .missions-list {
+        grid-template-columns: 1fr;
       }
 
       .mission-content {

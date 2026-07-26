@@ -113,6 +113,10 @@ export const routes: Routes = [
         loadComponent: () => import('./features/provider/enterprises/enterprise-detail.component').then(m => m.ProviderEnterpriseDetailComponent)
       },
       {
+        path: 'enterprises/:id/salaires',
+        loadComponent: () => import('./features/provider/enterprises/enterprise-payroll.component').then(m => m.ProviderEnterprisePayrollComponent)
+      },
+      {
         path: 'invitations',
         loadComponent: () => import('./features/provider/invitations/invitations.component').then(m => m.ProviderInvitationsComponent)
       },
@@ -266,6 +270,14 @@ export const routes: Routes = [
       {
         path: 'finances',
         loadComponent: () => import('./features/enterprise/finances/finances.component').then(m => m.EnterpriseFinancesComponent)
+      },
+      {
+        path: 'payroll',
+        loadComponent: () => import('./features/enterprise/payroll/payroll.component').then(m => m.EnterprisePayrollComponent)
+      },
+      {
+        path: 'payroll/:employeeId',
+        loadComponent: () => import('./features/enterprise/payroll/payroll-employee.component').then(m => m.EnterprisePayrollEmployeeComponent)
       },
       {
         path: 'disputes',

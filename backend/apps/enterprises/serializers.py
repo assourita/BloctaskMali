@@ -2,6 +2,7 @@ from rest_framework import serializers
 from .models import (
     EnterpriseTeam, EnterpriseTeamMember, EmployeeAssignment,
     EnterpriseContract, EnterpriseInvoice, EmployeeAvailability,
+    EnterprisePayrollSettings, MissionEmployeeEarning, PayrollPeriod, PayrollLine,
 )
 
 
@@ -162,3 +163,63 @@ class EmployeeAssignmentCreateSerializer(serializers.Serializer):
         if employee and team:
             raise serializers.ValidationError('Choisissez soit un employé, soit une équipe')
         return attrs
+
+
+class EnterprisePayrollSettingsSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = EnterprisePayrollSettings
+        fields = [
+            'is_enabled', 'frequency', 'payment_mode',
+            'employee_pool_percent', 'lead_weight_multiplier', 'notes',
+            'updated_at',
+        ]
+        read_only_fields = ['updated_at']
+
+
+class MissionEmployeeEarningSerializer(serializers.ModelSerializer):
+    employee_name = serializers.SerializerMethodField()
+    mission_title = serializers.CharField(source='mission.title', read_only=True)
+
+    class Meta:
+        model = MissionEmployeeEarning
+        fields = [
+            'id', 'mission', 'mission_title', 'employee', 'employee_name',
+            'mission_price', 'mission_net', 'pool_amount', 'amount',
+            'is_team', 'is_lead', 'team_size', 'share_weight', 'share_ratio',
+            'status', 'accrued_at', 'paid_at',
+        ]
+
+    def get_employee_name(self, obj):
+        return f"{obj.employee.first_name} {obj.employee.last_name}".strip()
+
+
+class PayrollLineSerializer(serializers.ModelSerializer):
+    employee_name = serializers.SerializerMethodField()
+    employee_id = serializers.UUIDField(source='employee.id', read_only=True)
+
+    class Meta:
+        model = PayrollLine
+        fields = [
+            'id', 'employee_id', 'employee_name',
+            'missions_count', 'solo_missions', 'team_missions', 'lead_missions',
+            'gross_amount', 'adjustment', 'net_amount',
+            'status', 'paid_at', 'payment_reference', 'notes',
+        ]
+
+    def get_employee_name(self, obj):
+        return f"{obj.employee.first_name} {obj.employee.last_name}".strip()
+
+
+class PayrollPeriodSerializer(serializers.ModelSerializer):
+    lines = PayrollLineSerializer(many=True, read_only=True)
+    company_name = serializers.CharField(source='enterprise.company_name', read_only=True)
+
+    class Meta:
+        model = PayrollPeriod
+        fields = [
+            'id', 'company_name', 'frequency', 'payment_mode',
+            'period_start', 'period_end', 'status',
+            'employees_count', 'missions_count', 'total_amount',
+            'approved_at', 'paid_at', 'notes', 'created_at', 'lines',
+        ]
+        read_only_fields = fields

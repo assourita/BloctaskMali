@@ -34,6 +34,185 @@ export interface EnterpriseEmployee {
   missions_completed: number;
   is_active: boolean;
   hired_at: string;
+  pay_weight?: number | string;
+  pay_phone?: string;
+}
+
+export interface EnterprisePayrollSettings {
+  is_enabled: boolean;
+  frequency: 'weekly' | 'monthly';
+  payment_mode: 'automatic' | 'manual';
+  employee_pool_percent: string | number;
+  lead_weight_multiplier: string | number;
+  notes?: string;
+  updated_at?: string;
+}
+
+export interface PayrollPreviewEmployee {
+  employee_id: string;
+  first_name: string;
+  last_name: string;
+  missions_count: number;
+  solo_missions: number;
+  team_missions: number;
+  total_amount: string;
+}
+
+export interface PayrollPreview {
+  settings: EnterprisePayrollSettings;
+  suggested_period: { start: string; end: string; frequency: string };
+  pending_earnings_count: number;
+  pending_total: string;
+  by_employee: PayrollPreviewEmployee[];
+}
+
+export interface PayrollLine {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  missions_count: number;
+  solo_missions: number;
+  team_missions: number;
+  lead_missions: number;
+  gross_amount: string | number;
+  adjustment: string | number;
+  net_amount: string | number;
+  status: string;
+  paid_at?: string | null;
+  payment_reference?: string;
+}
+
+export interface PayrollPeriod {
+  id: string;
+  company_name?: string;
+  frequency: string;
+  payment_mode: string;
+  period_start: string;
+  period_end: string;
+  status: string;
+  employees_count: number;
+  missions_count: number;
+  total_amount: string | number;
+  approved_at?: string | null;
+  paid_at?: string | null;
+  notes?: string;
+  created_at: string;
+  lines: PayrollLine[];
+}
+
+export interface PayrollEmployeeStats {
+  employee_id: string;
+  first_name: string;
+  last_name: string;
+  email: string;
+  phone: string;
+  position: string;
+  role: string;
+  is_active: boolean;
+  pay_weight: string | number;
+  pay_phone: string;
+  missions_completed_profile: number;
+  missions_assigned: number;
+  missions_completed_assignments: number;
+  earnings_total: string | number;
+  earnings_paid: string | number;
+  earnings_pending: string | number;
+  earnings_count: number;
+  solo_missions: number;
+  team_missions: number;
+  lead_missions: number;
+  last_earning_at?: string | null;
+  last_paid_at?: string | null;
+}
+
+export interface PayrollPaymentHistoryItem {
+  id: string;
+  employee_id: string;
+  employee_name: string;
+  period_id: string;
+  period_start: string;
+  period_end: string;
+  frequency: string;
+  missions_count: number;
+  solo_missions: number;
+  team_missions: number;
+  net_amount: string | number;
+  paid_at?: string | null;
+  payment_reference?: string;
+  status: string;
+}
+
+export interface PayrollDashboard {
+  settings: EnterprisePayrollSettings;
+  suggested_period: { start: string; end: string; frequency: string };
+  summary: {
+    employees_count: number;
+    active_employees: number;
+    pending_total: string | number;
+    pending_earnings_count: number;
+    paid_total: string | number;
+    lifetime_total: string | number;
+    periods_count: number;
+  };
+  employees: PayrollEmployeeStats[];
+  payment_history: PayrollPaymentHistoryItem[];
+  periods: {
+    id: string;
+    period_start: string;
+    period_end: string;
+    frequency: string;
+    payment_mode: string;
+    status: string;
+    employees_count: number;
+    missions_count: number;
+    total_amount: string | number;
+    paid_at?: string | null;
+  }[];
+  pending_by_employee: PayrollPreviewEmployee[];
+}
+
+export interface PayrollEmployeeDetail {
+  employee: PayrollEmployeeStats;
+  earnings: {
+    id: string;
+    mission_id: string;
+    mission_title: string;
+    mission_price: string | number;
+    amount: string | number;
+    is_team: boolean;
+    is_lead: boolean;
+    team_size: number;
+    share_ratio: string | number;
+    status: string;
+    accrued_at?: string | null;
+    paid_at?: string | null;
+  }[];
+  payments: {
+    id: string;
+    period_id: string;
+    period_start: string;
+    period_end: string;
+    frequency: string;
+    missions_count: number;
+    solo_missions: number;
+    team_missions: number;
+    lead_missions: number;
+    gross_amount: string | number;
+    net_amount: string | number;
+    status: string;
+    paid_at?: string | null;
+    payment_reference?: string;
+  }[];
+  assignments: {
+    id: string;
+    mission_id: string;
+    mission_title: string;
+    mission_status: string;
+    is_lead: boolean;
+    assigned_at?: string | null;
+    completed_at?: string | null;
+    rejected_at?: string | null;
+  }[];
 }
 
 export interface EnterpriseTeamMember {
@@ -405,6 +584,70 @@ export class EnterpriseService {
     return this.http.get<EnterpriseFinancesSummary>(`${this.apiUrl}/enterprises/finances/summary/`);
   }
 
+  getPayrollSettings(): Observable<EnterprisePayrollSettings> {
+    return this.http.get<EnterprisePayrollSettings>(`${this.apiUrl}/enterprises/payroll/settings/`);
+  }
+
+  updatePayrollSettings(data: Partial<EnterprisePayrollSettings>): Observable<EnterprisePayrollSettings> {
+    return this.http.patch<EnterprisePayrollSettings>(`${this.apiUrl}/enterprises/payroll/settings/`, data);
+  }
+
+  resetPayrollSettings(): Observable<EnterprisePayrollSettings> {
+    return this.http.delete<EnterprisePayrollSettings>(`${this.apiUrl}/enterprises/payroll/settings/`);
+  }
+
+  getPayrollPreview(): Observable<PayrollPreview> {
+    return this.http.get<PayrollPreview>(`${this.apiUrl}/enterprises/payroll/preview/`);
+  }
+
+  getPayrollPeriods(): Observable<PayrollPeriod[]> {
+    return this.http.get<PayrollPeriod[]>(`${this.apiUrl}/enterprises/payroll/periods/`);
+  }
+
+  getPayrollDashboard(): Observable<PayrollDashboard> {
+    return this.http.get<PayrollDashboard>(`${this.apiUrl}/enterprises/payroll/dashboard/`);
+  }
+
+  getPayrollEmployeeDetail(employeeId: string): Observable<PayrollEmployeeDetail> {
+    return this.http.get<PayrollEmployeeDetail>(
+      `${this.apiUrl}/enterprises/payroll/employees/${employeeId}/`,
+    );
+  }
+
+  generatePayrollPeriod(data?: {
+    frequency?: string;
+    period_start?: string;
+    period_end?: string;
+    payment_mode?: string;
+  }): Observable<PayrollPeriod> {
+    return this.http.post<PayrollPeriod>(`${this.apiUrl}/enterprises/payroll/periods/`, data || {});
+  }
+
+  approvePayrollPeriod(id: string): Observable<PayrollPeriod> {
+    return this.http.post<PayrollPeriod>(`${this.apiUrl}/enterprises/payroll/periods/${id}/approve/`, {});
+  }
+
+  payPayrollPeriod(id: string): Observable<PayrollPeriod> {
+    return this.http.post<PayrollPeriod>(`${this.apiUrl}/enterprises/payroll/periods/${id}/pay/`, {});
+  }
+
+  updatePayrollPeriod(id: string, data: {
+    period_start?: string;
+    period_end?: string;
+    frequency?: string;
+    payment_mode?: string;
+    notes?: string;
+  }): Observable<PayrollPeriod> {
+    return this.http.patch<PayrollPeriod>(`${this.apiUrl}/enterprises/payroll/periods/${id}/`, data);
+  }
+
+  deletePayrollPeriod(id: string, force = false): Observable<{ deleted: boolean; cancelled: boolean; id: string }> {
+    const suffix = force ? '?force=true' : '';
+    return this.http.delete<{ deleted: boolean; cancelled: boolean; id: string }>(
+      `${this.apiUrl}/enterprises/payroll/periods/${id}/${suffix}`,
+    );
+  }
+
   inviteProvider(data: {
     email: string;
     role?: string;
@@ -455,6 +698,22 @@ export class EnterpriseService {
   getMyEnterpriseDetail(enterpriseId: string): Observable<ProviderEnterpriseDetail> {
     return this.http.get<ProviderEnterpriseDetail>(
       `${this.apiUrl}/users/me/enterprises/${enterpriseId}/`,
+    );
+  }
+
+  getMyEnterprisePayroll(enterpriseId: string): Observable<ProviderEnterprisePayroll> {
+    return this.http.get<ProviderEnterprisePayroll>(
+      `${this.apiUrl}/users/me/enterprises/${enterpriseId}/payroll/`,
+    );
+  }
+
+  updateMyEnterprisePayroll(
+    enterpriseId: string,
+    data: { pay_phone?: string },
+  ): Observable<ProviderEnterprisePayroll> {
+    return this.http.patch<ProviderEnterprisePayroll>(
+      `${this.apiUrl}/users/me/enterprises/${enterpriseId}/payroll/`,
+      data,
     );
   }
 
@@ -609,6 +868,12 @@ export interface ProviderEnterpriseDetail {
     missions_in_progress: number;
     missions_completed: number;
   };
+  payroll?: PayrollEmployeeDetail | null;
+}
+
+export interface ProviderEnterprisePayroll extends PayrollEmployeeDetail {
+  enterprise?: { id: string; company_name: string };
+  membership_id?: string;
 }
 
 export interface RecruitmentCall {

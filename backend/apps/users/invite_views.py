@@ -360,9 +360,54 @@ def my_enterprise_detail(request, enterprise_id):
         'missions_completed': sum(1 for m in missions if m['bucket'] == 'completed'),
     }
 
+    payroll = None
+    try:
+        from apps.enterprises.payroll_services import payroll_employee_detail
+        payroll = payroll_employee_detail(emp.enterprise, emp.id)
+    except Exception:
+        payroll = None
+
     return Response({
         'membership': _serialize_membership(emp, request),
         'teams': teams,
         'missions': missions,
         'stats': stats,
+        'payroll': payroll,
     })
+
+
+@api_view(['GET', 'PATCH'])
+@permission_classes([IsAuthenticated])
+def my_enterprise_payroll(request, enterprise_id):
+    """
+    GET/PATCH /users/me/enterprises/<enterprise_id>/payroll/
+    Salaires du prestataire pour cette entreprise (consultation + MAJ pay_phone).
+    """
+    from apps.enterprises.payroll_services import payroll_employee_detail
+
+    links = employee_links_qs(request.user, active_only=False).select_related(
+        'enterprise', 'enterprise__user',
+    )
+    emp = links.filter(enterprise_id=enterprise_id).first()
+    if not emp:
+        emp = links.filter(id=enterprise_id).first()
+    if not emp:
+        return Response({'error': 'Entreprise non liée'}, status=404)
+
+    if request.method == 'PATCH':
+        pay_phone = request.data.get('pay_phone')
+        if pay_phone is not None:
+            emp.pay_phone = str(pay_phone).strip()[:17]
+            emp.save(update_fields=['pay_phone', 'updated_at'])
+        # Les coefficients restent gérés par l'entreprise
+
+    data = payroll_employee_detail(emp.enterprise, emp.id)
+    if not data:
+        return Response({'error': 'Données de paie introuvables'}, status=404)
+
+    data['enterprise'] = {
+        'id': str(emp.enterprise_id),
+        'company_name': emp.enterprise.company_name,
+    }
+    data['membership_id'] = str(emp.id)
+    return Response(data)

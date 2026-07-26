@@ -96,6 +96,32 @@ type MissionFilter = 'all' | 'in_progress' | 'completed' | 'other';
           </div>
         </div>
 
+        <section class="section payroll-cta" *ngIf="d.payroll as pay">
+          <div class="cta-left">
+            <h2><mat-icon>payments</mat-icon> Mes salaires chez cette entreprise</h2>
+            <p>
+              En attente <strong>{{ pay.employee.earnings_pending | number:'1.0-0' }} XOF</strong>
+              · Payé <strong>{{ pay.employee.earnings_paid | number:'1.0-0' }} XOF</strong>
+              · {{ pay.employee.solo_missions }} solo / {{ pay.employee.team_missions }} équipe
+            </p>
+          </div>
+          <a mat-flat-button color="primary"
+            [routerLink]="['/provider/enterprises', enterpriseRouteId, 'salaires']">
+            Gérer mes salaires
+          </a>
+        </section>
+
+        <section class="section payroll-cta" *ngIf="!d.payroll">
+          <div class="cta-left">
+            <h2><mat-icon>payments</mat-icon> Mes salaires chez cette entreprise</h2>
+            <p>Consultez vos gains, l’historique des versements et vos coordonnées de paie.</p>
+          </div>
+          <a mat-flat-button color="primary"
+            [routerLink]="['/provider/enterprises', enterpriseRouteId, 'salaires']">
+            Voir mes salaires
+          </a>
+        </section>
+
         <section class="section" *ngIf="ent as e">
           <h2><mat-icon>info</mat-icon> Entreprise</h2>
           <div class="info-grid">
@@ -226,6 +252,13 @@ type MissionFilter = 'all' | 'in_progress' | 'completed' | 'other';
     }
 
     .section { margin-bottom: 24px; }
+    .section.payroll-cta {
+      display: flex; justify-content: space-between; gap: 16px; align-items: center;
+      flex-wrap: wrap; border: 1px solid #e2e8f0; background: #f8fafc;
+      border-radius: 12px; padding: 16px 18px;
+      h2 { margin: 0 0 6px; }
+      p { margin: 0; color: #64748b; font-size: 13px; }
+    }
     .section-head {
       display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: center;
       margin-bottom: 10px;
@@ -290,6 +323,7 @@ export class ProviderEnterpriseDetailComponent implements OnInit {
   loading = true;
   logoBroken = false;
   missionFilter: MissionFilter = 'all';
+  enterpriseRouteId = '';
 
   constructor(
     private route: ActivatedRoute,
@@ -316,6 +350,7 @@ export class ProviderEnterpriseDetailComponent implements OnInit {
 
   ngOnInit(): void {
     const id = (this.route.snapshot.paramMap.get('id') || '').trim();
+    this.enterpriseRouteId = id;
     if (!id || id === 'undefined' || id === 'null') {
       this.loading = false;
       this.snack.open('Identifiant entreprise invalide', 'Fermer', { duration: 3500 });
@@ -324,6 +359,7 @@ export class ProviderEnterpriseDetailComponent implements OnInit {
     this.enterpriseService.getMyEnterpriseDetail(id).subscribe({
       next: (detail) => {
         this.detail = detail;
+        this.enterpriseRouteId = detail.membership?.enterprise_id || id;
         this.loading = false;
       },
       error: (err) => {

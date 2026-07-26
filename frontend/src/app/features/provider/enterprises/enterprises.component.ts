@@ -92,7 +92,12 @@ const ROLE_LABELS: Record<string, string> = {
                 <span class="hired-at" *ngIf="m.hired_at">Membre depuis {{ m.hired_at | date:'mediumDate' }}</span>
               </div>
             </div>
-            <div class="membership-actions">
+            <div class="membership-actions" (click)="$event.stopPropagation()">
+              <a mat-stroked-button
+                [routerLink]="['/provider/enterprises', m.enterprise_id, 'salaires']"
+                class="salary-btn">
+                <mat-icon>payments</mat-icon> Salaires
+              </a>
               <span class="open-hint">Voir le détail <mat-icon>chevron_right</mat-icon></span>
               <mat-chip [class]="m.is_active ? 'active-chip' : 'inactive-chip'">
                 {{ m.is_active ? 'Lié' : 'Inactif' }}
@@ -284,6 +289,10 @@ const ROLE_LABELS: Record<string, string> = {
       gap: 8px;
       flex-wrap: wrap;
       align-items: center;
+    }
+    .salary-btn {
+      font-size: 12px !important;
+      mat-icon { font-size: 16px; width: 16px; height: 16px; margin-right: 2px; }
     }
 
     .accept-btn { background: #16a34a !important; color: #fff !important; }

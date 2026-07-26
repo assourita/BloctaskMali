@@ -11,11 +11,14 @@ from apps.missions.models import Mission
 from .models import (
     EnterpriseTeam, EnterpriseTeamMember, EmployeeAssignment,
     EnterpriseContract, EnterpriseInvoice, EmployeeAvailability,
+    MissionEmployeeEarning, PayrollPeriod,
 )
 from .serializers import (
     EnterpriseTeamSerializer, EmployeeAssignmentSerializer,
     EnterpriseContractSerializer, EnterpriseInvoiceSerializer,
     EmployeeAvailabilitySerializer, EmployeeAssignmentCreateSerializer,
+    EnterprisePayrollSettingsSerializer, MissionEmployeeEarningSerializer,
+    PayrollPeriodSerializer,
 )
 
 
@@ -399,10 +402,201 @@ def enterprise_finances_summary(request):
         'mission_pending_total': float(pending_total),
         'missions_count': missions.count(),
         'missions': mission_rows,
-        'invoices': EnterpriseInvoiceSerializer(invoices_qs, many=True).data,
-        'contracts': EnterpriseContractSerializer(contracts_qs, many=True).data,
         'total_invoiced': float(invoices_qs.aggregate(t=Sum('total_amount'))['t'] or 0),
-        'pending_invoices': invoices_qs.filter(
-            status__in=[EnterpriseInvoice.Status.SENT, EnterpriseInvoice.Status.DRAFT, EnterpriseInvoice.Status.OVERDUE]
-        ).count(),
+        'pending_invoices': invoices_qs.exclude(status='paid').count(),
+        'invoices': EnterpriseInvoiceSerializer(invoices_qs[:50], many=True).data,
+        'contracts': EnterpriseContractSerializer(contracts_qs[:20], many=True).data,
     })
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def payroll_settings_view(request):
+    """Paramètres de paie du gérant (fréquence, mode auto/manuel, pool %)."""
+    profile = get_enterprise_profile(request.user)
+    if not profile:
+        return Response({'error': 'Profil entreprise introuvable'}, status=404)
+
+    from .payroll_services import get_or_create_payroll_settings, reset_payroll_settings
+    settings = get_or_create_payroll_settings(profile)
+
+    if request.method == 'GET':
+        return Response(EnterprisePayrollSettingsSerializer(settings).data)
+
+    if request.method == 'DELETE':
+        settings = reset_payroll_settings(profile)
+        return Response(EnterprisePayrollSettingsSerializer(settings).data)
+
+    ser = EnterprisePayrollSettingsSerializer(settings, data=request.data, partial=True)
+    ser.is_valid(raise_exception=True)
+    ser.save()
+    return Response(ser.data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def payroll_preview_view(request):
+    profile = get_enterprise_profile(request.user)
+    if not profile:
+        return Response({'error': 'Profil entreprise introuvable'}, status=404)
+    from .payroll_services import payroll_preview
+    return Response(payroll_preview(profile))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def payroll_dashboard_view(request):
+    """Page dédiée paie : stats, employés, historique global."""
+    profile = get_enterprise_profile(request.user)
+    if not profile:
+        return Response({'error': 'Profil entreprise introuvable'}, status=404)
+    from .payroll_services import payroll_dashboard
+    return Response(payroll_dashboard(profile))
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def payroll_employee_detail_view(request, employee_id):
+    """Détail salaire + stats travail d'un employé."""
+    profile = get_enterprise_profile(request.user)
+    if not profile:
+        return Response({'error': 'Profil entreprise introuvable'}, status=404)
+    from .payroll_services import payroll_employee_detail
+    data = payroll_employee_detail(profile, employee_id)
+    if not data:
+        return Response({'error': 'Employé introuvable'}, status=404)
+    return Response(data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def payroll_earnings_list(request):
+    profile = get_enterprise_profile(request.user)
+    if not profile:
+        return Response({'error': 'Profil entreprise introuvable'}, status=404)
+    qs = MissionEmployeeEarning.objects.filter(enterprise=profile).select_related(
+        'employee', 'mission',
+    )[:200]
+    return Response(MissionEmployeeEarningSerializer(qs, many=True).data)
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def payroll_periods_view(request):
+    profile = get_enterprise_profile(request.user)
+    if not profile:
+        return Response({'error': 'Profil entreprise introuvable'}, status=404)
+
+    if request.method == 'GET':
+        qs = PayrollPeriod.objects.filter(enterprise=profile).prefetch_related(
+            'lines', 'lines__employee',
+        )[:50]
+        return Response(PayrollPeriodSerializer(qs, many=True).data)
+
+    from .payroll_services import generate_payroll_period
+    from datetime import date as date_cls
+
+    frequency = request.data.get('frequency')
+    period_start = request.data.get('period_start')
+    period_end = request.data.get('period_end')
+    force_mode = request.data.get('payment_mode')
+
+    try:
+        start = date_cls.fromisoformat(period_start) if period_start else None
+        end = date_cls.fromisoformat(period_end) if period_end else None
+        period = generate_payroll_period(
+            profile,
+            frequency=frequency,
+            period_start=start,
+            period_end=end,
+            generated_by=request.user,
+            force_mode=force_mode,
+        )
+    except ValueError as exc:
+        return Response({'error': str(exc)}, status=400)
+    except Exception as exc:
+        return Response({'error': str(exc)}, status=400)
+
+    period = PayrollPeriod.objects.prefetch_related('lines', 'lines__employee').get(pk=period.pk)
+    return Response(PayrollPeriodSerializer(period).data, status=201)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def payroll_period_approve(request, period_id):
+    profile = get_enterprise_profile(request.user)
+    if not profile:
+        return Response({'error': 'Profil entreprise introuvable'}, status=404)
+    period = PayrollPeriod.objects.filter(id=period_id, enterprise=profile).first()
+    if not period:
+        return Response({'error': 'Période introuvable'}, status=404)
+    from .payroll_services import approve_payroll_period
+    try:
+        period = approve_payroll_period(period, approved_by=request.user)
+    except ValueError as exc:
+        return Response({'error': str(exc)}, status=400)
+    period = PayrollPeriod.objects.prefetch_related('lines', 'lines__employee').get(pk=period.pk)
+    return Response(PayrollPeriodSerializer(period).data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def payroll_period_pay(request, period_id):
+    profile = get_enterprise_profile(request.user)
+    if not profile:
+        return Response({'error': 'Profil entreprise introuvable'}, status=404)
+    period = PayrollPeriod.objects.filter(id=period_id, enterprise=profile).first()
+    if not period:
+        return Response({'error': 'Période introuvable'}, status=404)
+    from .payroll_services import pay_payroll_period
+    try:
+        period = pay_payroll_period(period, paid_by=request.user)
+    except ValueError as exc:
+        return Response({'error': str(exc)}, status=400)
+    period = PayrollPeriod.objects.prefetch_related('lines', 'lines__employee').get(pk=period.pk)
+    return Response(PayrollPeriodSerializer(period).data)
+
+
+@api_view(['GET', 'PATCH', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def payroll_period_detail(request, period_id):
+    """Consulter, modifier ou supprimer une période de paie."""
+    profile = get_enterprise_profile(request.user)
+    if not profile:
+        return Response({'error': 'Profil entreprise introuvable'}, status=404)
+    period = PayrollPeriod.objects.filter(id=period_id, enterprise=profile).first()
+    if not period:
+        return Response({'error': 'Période introuvable'}, status=404)
+
+    if request.method == 'GET':
+        period = PayrollPeriod.objects.prefetch_related('lines', 'lines__employee').get(pk=period.pk)
+        return Response(PayrollPeriodSerializer(period).data)
+
+    if request.method == 'DELETE':
+        from .payroll_services import delete_payroll_period
+        force = str(request.query_params.get('force', '')).lower() in ('1', 'true', 'yes')
+        try:
+            result = delete_payroll_period(period, force=force)
+        except ValueError as exc:
+            return Response({'error': str(exc)}, status=400)
+        return Response(result)
+
+    from datetime import date as date_cls
+    from .payroll_services import update_payroll_period
+
+    period_start = request.data.get('period_start')
+    period_end = request.data.get('period_end')
+    try:
+        period = update_payroll_period(
+            period,
+            period_start=date_cls.fromisoformat(period_start) if period_start else None,
+            period_end=date_cls.fromisoformat(period_end) if period_end else None,
+            frequency=request.data.get('frequency'),
+            payment_mode=request.data.get('payment_mode'),
+            notes=request.data.get('notes'),
+        )
+    except ValueError as exc:
+        return Response({'error': str(exc)}, status=400)
+
+    period = PayrollPeriod.objects.prefetch_related('lines', 'lines__employee').get(pk=period.pk)
+    return Response(PayrollPeriodSerializer(period).data)

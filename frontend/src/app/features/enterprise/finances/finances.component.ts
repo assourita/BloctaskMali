@@ -1,6 +1,7 @@
 import { Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { RouterModule } from '@angular/router';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
@@ -21,7 +22,7 @@ type TabKey = 'missions' | 'invoices' | 'contracts';
   selector: 'app-enterprise-finances',
   standalone: true,
   imports: [
-    CommonModule, FormsModule, MatButtonModule, MatIconModule,
+    CommonModule, FormsModule, RouterModule, MatButtonModule, MatIconModule,
     MatProgressSpinnerModule, DepositFundingPanelComponent,
   ],
   template: `
@@ -63,6 +64,16 @@ type TabKey = 'missions' | 'invoices' | 'contracts';
           <span class="metric-lbl">Factures en attente</span>
         </div>
       </div>
+
+      <section class="panel payroll-cta" *ngIf="!loading">
+        <div>
+          <strong>Salaires des employés</strong>
+          <p>Gérez la paie, les fiches individuelles, les stats de travail et l’historique des versements.</p>
+        </div>
+        <a mat-flat-button color="primary" routerLink="/enterprise/payroll">
+          <mat-icon>payments</mat-icon> Ouvrir Salaires
+        </a>
+      </section>
 
       <section class="panel deposit" *ngIf="!loading">
         <app-deposit-funding-panel
@@ -150,6 +161,12 @@ type TabKey = 'missions' | 'invoices' | 'contracts';
     .panel {
       border: 1px solid #e2e8f0; background: #fff; border-radius: 12px; padding: 16px 18px; margin-bottom: 16px;
       &.deposit { padding: 8px 12px; }
+      &.payroll-cta {
+        display: flex; justify-content: space-between; gap: 16px; align-items: center; flex-wrap: wrap;
+        background: #f8fafc;
+        strong { display: block; font-size: 15px; margin-bottom: 4px; }
+        p { margin: 0; color: #64748b; font-size: 13px; max-width: 520px; }
+      }
     }
     .loading { display: flex; justify-content: center; padding: 40px; }
 

@@ -301,6 +301,7 @@ export class SidebarComponent implements OnInit {
         { path: '/enterprise/tracking', label: 'Carte GPS', icon: 'my_location' },
         { path: '/enterprise/analytics', label: 'Analytics', icon: 'analytics' },
         { path: '/enterprise/finances', label: 'Finances', icon: 'account_balance' },
+        { path: '/enterprise/payroll', label: 'Salaires', icon: 'payments' },
         { path: '/enterprise/deposit', label: 'Caution', icon: 'security' },
         { path: '/enterprise/payments', label: 'Paiements', icon: 'payment' },
         { path: '/enterprise/disputes', label: 'Litiges', icon: 'gavel' },

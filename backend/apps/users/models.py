@@ -343,6 +343,19 @@ class Employee(models.Model):
     missions_completed = models.PositiveIntegerField(default=0)
     missions_failed = models.PositiveIntegerField(default=0)
 
+    # Paie interne (coefficient relatif — les salaires diffèrent selon missions + poids)
+    pay_weight = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=1,
+        help_text='Poids relatif pour le partage des gains (1.0 = normal)',
+    )
+    pay_phone = models.CharField(
+        max_length=17,
+        blank=True,
+        help_text='Numéro Mobile Money pour la rémunération employé',
+    )
+
     # Statut
     is_active = models.BooleanField(default=True)
     hired_at = models.DateTimeField(auto_now_add=True)
@@ -574,6 +587,7 @@ class WalletTransaction(models.Model):
         COMMISSION = 'commission', 'Commission'
         DEPOSIT_LOCK = 'deposit_lock', 'Blocage Caution'
         DEPOSIT_RELEASE = 'deposit_release', 'Libération Caution'
+        EMPLOYEE_PAYROLL = 'employee_payroll', 'Paie employé'
     
     class Status(models.TextChoices):
         PENDING = 'pending', 'En attente'

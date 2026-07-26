@@ -377,11 +377,21 @@ def complete_mission_and_payout(mission, *, changed_by=None, reason: str = '') -
         mission=mission,
     )
 
+    # Paie interne employés (entreprise) — accrual selon solo / équipe
+    payroll_earnings = []
+    if getattr(mission, 'assigned_enterprise_id', None):
+        try:
+            from apps.enterprises.payroll_services import accrue_employee_earnings_for_mission
+            payroll_earnings = accrue_employee_earnings_for_mission(mission)
+        except Exception:
+            payroll_earnings = []
+
     return {
         'ok': True,
         'payout': payout,
         'payout_error': payout_error,
         'status': Mission.Status.COMPLETED,
+        'employee_earnings_count': len(payroll_earnings),
     }
 
 

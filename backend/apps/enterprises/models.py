@@ -336,6 +336,253 @@ class EmployeeAvailability(models.Model):
         return f"{self.employee} - {self.status}"
 
 
+class EnterprisePayrollSettings(models.Model):
+    """Paramètres de paie des employés (décisions du gérant)."""
+
+    class Frequency(models.TextChoices):
+        WEEKLY = 'weekly', 'Hebdomadaire'
+        MONTHLY = 'monthly', 'Mensuelle'
+
+    class PaymentMode(models.TextChoices):
+        AUTOMATIC = 'automatic', 'Automatique'
+        MANUAL = 'manual', 'Manuel'
+
+    enterprise = models.OneToOneField(
+        'users.EnterpriseProfile',
+        on_delete=models.CASCADE,
+        related_name='payroll_settings',
+    )
+    is_enabled = models.BooleanField(default=True)
+    frequency = models.CharField(
+        max_length=20,
+        choices=Frequency.choices,
+        default=Frequency.WEEKLY,
+    )
+    payment_mode = models.CharField(
+        max_length=20,
+        choices=PaymentMode.choices,
+        default=PaymentMode.MANUAL,
+    )
+    # % du net mission (après commission plateforme) redistribué aux employés
+    employee_pool_percent = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=70,
+        help_text='% du montant net mission versé au pool employés (le reste reste à l\'entreprise)',
+    )
+    # Multiplicateur du poids pour le chef d'équipe / lead
+    lead_weight_multiplier = models.DecimalField(
+        max_digits=5,
+        decimal_places=2,
+        default=1.5,
+        help_text='Poids relatif du lead en mission équipe (ex. 1.5 = +50%)',
+    )
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'enterprise_payroll_settings'
+
+    def __str__(self):
+        return f"Paie {self.enterprise.company_name} ({self.frequency}/{self.payment_mode})"
+
+
+class MissionEmployeeEarning(models.Model):
+    """Gain accrû pour un employé à la validation d'une mission entreprise."""
+
+    class Status(models.TextChoices):
+        ACCRUED = 'accrued', 'Accru'
+        INCLUDED = 'included', 'Inclus dans une période'
+        PAID = 'paid', 'Payé'
+        CANCELLED = 'cancelled', 'Annulé'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    enterprise = models.ForeignKey(
+        'users.EnterpriseProfile',
+        on_delete=models.CASCADE,
+        related_name='employee_earnings',
+    )
+    mission = models.ForeignKey(
+        'missions.Mission',
+        on_delete=models.CASCADE,
+        related_name='employee_earnings',
+    )
+    employee = models.ForeignKey(
+        'users.Employee',
+        on_delete=models.CASCADE,
+        related_name='earnings',
+    )
+    payroll_line = models.ForeignKey(
+        'enterprises.PayrollLine',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='earnings',
+    )
+
+    mission_price = models.DecimalField(max_digits=15, decimal_places=2)
+    mission_net = models.DecimalField(max_digits=15, decimal_places=2)
+    pool_amount = models.DecimalField(max_digits=15, decimal_places=2)
+    amount = models.DecimalField(max_digits=15, decimal_places=2)
+
+    is_team = models.BooleanField(default=False)
+    is_lead = models.BooleanField(default=False)
+    team_size = models.PositiveIntegerField(default=1)
+    share_weight = models.DecimalField(max_digits=8, decimal_places=4, default=1)
+    share_ratio = models.DecimalField(max_digits=8, decimal_places=6, default=1)
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.ACCRUED,
+    )
+    accrued_at = models.DateTimeField(auto_now_add=True)
+    paid_at = models.DateTimeField(blank=True, null=True)
+
+    class Meta:
+        db_table = 'mission_employee_earnings'
+        ordering = ['-accrued_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['mission', 'employee'],
+                name='uniq_earning_mission_employee',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.employee} · {self.amount} XOF · {self.mission_id}"
+
+
+class PayrollPeriod(models.Model):
+    """Période de paie (semaine ou mois) générée pour une entreprise."""
+
+    class Status(models.TextChoices):
+        DRAFT = 'draft', 'Brouillon'
+        PENDING_APPROVAL = 'pending_approval', 'En attente validation'
+        APPROVED = 'approved', 'Approuvée'
+        PAID = 'paid', 'Payée'
+        CANCELLED = 'cancelled', 'Annulée'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    enterprise = models.ForeignKey(
+        'users.EnterpriseProfile',
+        on_delete=models.CASCADE,
+        related_name='payroll_periods',
+    )
+    frequency = models.CharField(
+        max_length=20,
+        choices=EnterprisePayrollSettings.Frequency.choices,
+    )
+    payment_mode = models.CharField(
+        max_length=20,
+        choices=EnterprisePayrollSettings.PaymentMode.choices,
+    )
+    period_start = models.DateField()
+    period_end = models.DateField()
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.DRAFT,
+    )
+
+    employees_count = models.PositiveIntegerField(default=0)
+    missions_count = models.PositiveIntegerField(default=0)
+    total_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+
+    generated_by = models.ForeignKey(
+        'users.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='payroll_periods_generated',
+    )
+    approved_by = models.ForeignKey(
+        'users.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='payroll_periods_approved',
+    )
+    paid_by = models.ForeignKey(
+        'users.User',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='payroll_periods_paid',
+    )
+    approved_at = models.DateTimeField(blank=True, null=True)
+    paid_at = models.DateTimeField(blank=True, null=True)
+    notes = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'payroll_periods'
+        ordering = ['-period_start', '-created_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['enterprise', 'period_start', 'period_end', 'frequency'],
+                name='uniq_payroll_period_enterprise_range',
+            ),
+        ]
+
+    def __str__(self):
+        return f"Paie {self.enterprise.company_name} {self.period_start}→{self.period_end}"
+
+
+class PayrollLine(models.Model):
+    """Ligne de paie d'un employé pour une période."""
+
+    class Status(models.TextChoices):
+        PENDING = 'pending', 'En attente'
+        PAID = 'paid', 'Payée'
+        SKIPPED = 'skipped', 'Ignorée'
+
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    period = models.ForeignKey(
+        PayrollPeriod,
+        on_delete=models.CASCADE,
+        related_name='lines',
+    )
+    employee = models.ForeignKey(
+        'users.Employee',
+        on_delete=models.CASCADE,
+        related_name='payroll_lines',
+    )
+
+    missions_count = models.PositiveIntegerField(default=0)
+    solo_missions = models.PositiveIntegerField(default=0)
+    team_missions = models.PositiveIntegerField(default=0)
+    lead_missions = models.PositiveIntegerField(default=0)
+
+    gross_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    adjustment = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+    net_amount = models.DecimalField(max_digits=15, decimal_places=2, default=0)
+
+    status = models.CharField(
+        max_length=20,
+        choices=Status.choices,
+        default=Status.PENDING,
+    )
+    paid_at = models.DateTimeField(blank=True, null=True)
+    payment_reference = models.CharField(max_length=100, blank=True)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        db_table = 'payroll_lines'
+        ordering = ['-net_amount']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['period', 'employee'],
+                name='uniq_payroll_line_period_employee',
+            ),
+        ]
+
+    def __str__(self):
+        return f"{self.employee} · {self.net_amount} XOF ({self.period_id})"
+
+
 class EnterpriseAnalytics(models.Model):
     """Statistiques entreprise (matérialisées)"""
     

@@ -4,6 +4,9 @@ from .views import (
     EnterpriseTeamViewSet, EmployeeAssignmentViewSet,
     EnterpriseContractViewSet, EnterpriseInvoiceViewSet,
     EmployeeAvailabilityViewSet, enterprise_finances_summary,
+    payroll_settings_view, payroll_preview_view, payroll_earnings_list,
+    payroll_periods_view, payroll_period_approve, payroll_period_pay,
+    payroll_dashboard_view, payroll_employee_detail_view, payroll_period_detail,
 )
 from .validation_views import (
     validate_employee, validate_employee_for_mission, enterprise_employee_health,
@@ -19,6 +22,16 @@ router.register(r'availability', EmployeeAvailabilityViewSet, basename='employee
 
 urlpatterns = [
     path('finances/summary/', enterprise_finances_summary, name='enterprise-finances-summary'),
+    # Paie employés
+    path('payroll/settings/', payroll_settings_view, name='payroll-settings'),
+    path('payroll/preview/', payroll_preview_view, name='payroll-preview'),
+    path('payroll/dashboard/', payroll_dashboard_view, name='payroll-dashboard'),
+    path('payroll/employees/<uuid:employee_id>/', payroll_employee_detail_view, name='payroll-employee-detail'),
+    path('payroll/earnings/', payroll_earnings_list, name='payroll-earnings'),
+    path('payroll/periods/', payroll_periods_view, name='payroll-periods'),
+    path('payroll/periods/<uuid:period_id>/', payroll_period_detail, name='payroll-period-detail'),
+    path('payroll/periods/<uuid:period_id>/approve/', payroll_period_approve, name='payroll-period-approve'),
+    path('payroll/periods/<uuid:period_id>/pay/', payroll_period_pay, name='payroll-period-pay'),
     # Endpoints de validation et remédiation
     path('employees/<uuid:employee_id>/validate/', validate_employee, name='validate-employee'),
     path('employees/<uuid:employee_id>/missions/<uuid:mission_id>/validate/', validate_employee_for_mission, name='validate-employee-mission'),

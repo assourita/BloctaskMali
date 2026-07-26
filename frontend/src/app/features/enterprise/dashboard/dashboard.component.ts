@@ -68,6 +68,7 @@ import {
           <a routerLink="/enterprise/tracking"><mat-icon>my_location</mat-icon> Suivi terrain</a>
           <a routerLink="/enterprise/missions"><mat-icon>assignment</mat-icon> Missions</a>
           <a routerLink="/enterprise/employees"><mat-icon>badge</mat-icon> Employés</a>
+          <a routerLink="/enterprise/payroll"><mat-icon>payments</mat-icon> Salaires</a>
           <a routerLink="/enterprise/finances"><mat-icon>account_balance</mat-icon> Finances</a>
           <a routerLink="/enterprise/analytics"><mat-icon>insights</mat-icon> Rapports</a>
         </nav>

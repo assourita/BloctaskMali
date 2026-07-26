@@ -246,8 +246,9 @@ class EmployeeSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'enterprise', 'user', 'user_email', 'first_name', 'last_name',
             'email', 'phone', 'position', 'role', 'nina', 'photo',
-            'missions_completed', 'missions_failed', 'is_active',
-            'hired_at', 'created_at'
+            'missions_completed', 'missions_failed',
+            'pay_weight', 'pay_phone',
+            'is_active', 'hired_at', 'created_at'
         ]
         read_only_fields = [
             'id', 'enterprise', 'user', 'user_email', 'email', 'created_at',
