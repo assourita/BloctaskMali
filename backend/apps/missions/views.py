@@ -177,6 +177,7 @@ class CategoryViewSet(viewsets.ModelViewSet):
                 'deposit_cap': rule.deposit_cap,
                 'deposit_reason': rule.deposit_reason,
                 'requires_merchandise_value': rule.requires_merchandise_value,
+                'client_funds_purchase': rule.client_funds_purchase,
             },
         }
         

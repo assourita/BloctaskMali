@@ -28,6 +28,7 @@ interface CategoryRuleInfo {
   deposit_cap?: number | null;
   deposit_reason?: string;
   requires_merchandise_value?: boolean;
+  client_funds_purchase?: boolean;
   requires_vehicle?: boolean;
   requires_photo?: boolean;
   requires_signature?: boolean;
@@ -165,6 +166,10 @@ interface CategorySchema {
               <li *ngIf="rule.requires_merchandise_value">
                 <mat-icon>inventory_2</mat-icon>
                 <span>Le client doit indiquer la valeur de la marchandise</span>
+              </li>
+              <li *ngIf="rule.client_funds_purchase">
+                <mat-icon>shopping_cart</mat-icon>
+                <span>Le client bloque aussi le montant des courses (remboursé au prestataire à la livraison)</span>
               </li>
             </ul>
 
@@ -319,8 +324,10 @@ export class ServiceCategoryDialogComponent implements OnInit {
     const mode = this.rule?.deposit_mode || '';
     const map: Record<string, string> = {
       percent_budget: 'Caution = pourcentage du budget',
+      merchandise_value: 'Caution = valeur marchandise',
       merchandise_or_budget: 'Caution liée à la valeur marchandise',
       fixed: 'Caution à montant fixe',
+      none: 'Sans caution',
       percent: 'Caution proportionnelle',
     };
     return map[mode] || (this.rule?.requires_deposit ? 'Caution requise' : 'Sans caution');

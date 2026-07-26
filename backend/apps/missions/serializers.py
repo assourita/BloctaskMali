@@ -579,6 +579,20 @@ class MissionCreateSerializer(serializers.ModelSerializer):
         if missing_fields:
             raise serializers.ValidationError({'custom_data': missing_fields})
 
+        if rule.client_funds_purchase:
+            try:
+                advance = Decimal(str(custom_data.get('estimated_amount') or 0))
+            except Exception:
+                advance = Decimal('0')
+            if advance < 1000:
+                raise serializers.ValidationError({
+                    'custom_data': {
+                        'estimated_amount': (
+                            'Indiquez le montant des courses à bloquer (minimum 1 000 XOF).'
+                        ),
+                    },
+                })
+
         req_payload = {**data, 'requires_vehicle': rule.requires_vehicle or data.get('requires_vehicle')}
         req_payload.update(custom_data)
         data['custom_data'] = custom_data
@@ -640,28 +654,47 @@ class MissionCreateSerializer(serializers.ModelSerializer):
 
         mission = super().create(validated_data)
 
-        from .category_rules import calculate_category_deposit
+        from .category_rules import calculate_category_deposit, get_category_rule, get_purchase_advance_amount
         deposit = calculate_category_deposit(mission)
         if deposit and (not mission.required_deposit or float(mission.required_deposit) <= 0):
             mission.required_deposit = deposit
             mission.deposit_amount = deposit
             mission.save(update_fields=['required_deposit', 'deposit_amount', 'updated_at'])
-        
+
+        rule = get_category_rule(mission.category)
+        shopping = get_purchase_advance_amount(requirements_dict, rule)
+        budget = Decimal(str(mission.budget or 0))
+        try:
+            fee = Decimal(str(platform_fee))
+        except Exception:
+            fee = (budget * Decimal('0.05')).quantize(Decimal('1'))
+        if fee < 0:
+            fee = Decimal('0')
+        if fee > budget:
+            fee = budget
+        total_charged = budget + shopping
+        provider_payout = (budget - fee) + shopping
+
         # Create associated payment
         try:
             Payment.objects.create(
                 mission=mission,
                 client=request.user,
-                amount=mission.budget,
-                platform_fee=platform_fee,
-                escrow_amount=escrow_amount,
-                provider_amount=mission.budget - platform_fee,
+                amount=total_charged,
+                platform_fee=fee,
+                escrow_amount=total_charged,
+                provider_amount=provider_payout,
                 currency=mission.currency,
                 payment_method=payment_method,
                 country_code=country_code,
                 phone_number=phone_number,
                 operator=operator,
-                status=Payment.Status.PENDING
+                status=Payment.Status.PENDING,
+                metadata={
+                    'service_budget': str(budget),
+                    'shopping_advance': str(shopping),
+                    'client_funds_purchase': bool(rule.client_funds_purchase),
+                },
             )
         except Exception as e:
             # Log error but don't fail mission creation

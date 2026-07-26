@@ -623,3 +623,118 @@ def purge_old_completed_missions(*, retention_days: int = COMPLETED_RETENTION_DA
     stats['deleted'] = len(ids)
     stats['cascaded_objects'] = deleted
     return stats
+
+
+def purge_all_mission_related_data(*, dry_run: bool = False, reset_balances: bool = True) -> dict:
+    """Supprime TOUTES les missions et les données liées (chats, preuves, litiges, paiements, cautions…).
+
+    Conservé : utilisateurs, catégories, paramètres plateforme, slides landing, règles litige.
+    """
+    from django.db import transaction
+
+    from apps.chat.models import Conversation
+    from apps.disputes.models import Dispute
+    from apps.escrow.models import (
+        BlockchainEvent,
+        EnterpriseDeposit,
+        EscrowTransaction,
+        PaymentLog,
+        ProviderDeposit,
+    )
+    from apps.notifications.models import Notification
+    from apps.payments.models import Payment
+    from apps.proofs.models import GPSLocation, MissionProof
+    from apps.reputation.models import ReputationHistory, ReputationPenalty
+    from apps.users.models import EnterpriseProfile, ProviderProfile, WalletTransaction
+
+    mission_count = Mission.objects.count()
+    counts = {
+        'missions': mission_count,
+        'conversations': Conversation.objects.count(),
+        'disputes': Dispute.objects.count(),
+        'payments': Payment.objects.count(),
+        'payment_logs': PaymentLog.objects.count(),
+        'escrow_transactions': EscrowTransaction.objects.count(),
+        'provider_deposits': ProviderDeposit.objects.count(),
+        'enterprise_deposits': EnterpriseDeposit.objects.count(),
+        'proofs': MissionProof.objects.count(),
+        'gps_locations': GPSLocation.objects.count(),
+        'blockchain_events': BlockchainEvent.objects.filter(mission__isnull=False).count(),
+        'notifications_mission': Notification.objects.filter(mission__isnull=False).count(),
+        'reputation_history_mission': ReputationHistory.objects.filter(mission__isnull=False).count(),
+        'reputation_penalties_mission': ReputationPenalty.objects.filter(mission__isnull=False).count(),
+        'wallet_mission_tx': WalletTransaction.objects.filter(
+            transaction_type__in=[
+                WalletTransaction.TransactionType.MISSION_PAYMENT,
+                WalletTransaction.TransactionType.REFUND,
+                WalletTransaction.TransactionType.COMMISSION,
+                WalletTransaction.TransactionType.DEPOSIT_LOCK,
+                WalletTransaction.TransactionType.DEPOSIT_RELEASE,
+            ]
+        ).count(),
+    }
+
+    stats = {
+        'dry_run': dry_run,
+        'reset_balances': reset_balances,
+        'before': counts,
+        'deleted': {},
+    }
+
+    if dry_run:
+        return stats
+
+    with transaction.atomic():
+        # Nettoyage explicite des liens SET_NULL / cautions / fonds mission
+        deleted = {}
+        deleted['wallet_mission_tx'], _ = WalletTransaction.objects.filter(
+            transaction_type__in=[
+                WalletTransaction.TransactionType.MISSION_PAYMENT,
+                WalletTransaction.TransactionType.REFUND,
+                WalletTransaction.TransactionType.COMMISSION,
+                WalletTransaction.TransactionType.DEPOSIT_LOCK,
+                WalletTransaction.TransactionType.DEPOSIT_RELEASE,
+            ]
+        ).delete()
+        deleted['payment_logs'], _ = PaymentLog.objects.all().delete()
+        deleted['provider_deposits'], _ = ProviderDeposit.objects.all().delete()
+        deleted['enterprise_deposits'], _ = EnterpriseDeposit.objects.all().delete()
+        deleted['reputation_history_mission'], _ = ReputationHistory.objects.filter(
+            mission__isnull=False
+        ).delete()
+        deleted['reputation_penalties_mission'], _ = ReputationPenalty.objects.filter(
+            mission__isnull=False
+        ).delete()
+        deleted['notifications_mission'], _ = Notification.objects.filter(
+            mission__isnull=False
+        ).delete()
+        deleted['blockchain_events_mission'], _ = BlockchainEvent.objects.filter(
+            mission__isnull=False
+        ).delete()
+
+        # Cascade : chat, preuves, litiges, payments, applications, media, earnings…
+        deleted['missions_cascade'], _ = Mission.objects.all().delete()
+
+        if reset_balances:
+            ProviderProfile.objects.update(
+                deposit_balance=0,
+                deposit_locked=0,
+                total_missions_completed=0,
+            )
+            EnterpriseProfile.objects.update(
+                deposit_balance=0,
+                total_missions_posted=0,
+            )
+            try:
+                from apps.enterprises.models import EmployeeAvailability
+                EmployeeAvailability.objects.filter(current_mission__isnull=False).update(
+                    current_mission=None,
+                    status='offline',
+                )
+            except Exception:
+                pass
+
+        stats['deleted'] = deleted
+        stats['after_missions'] = Mission.objects.count()
+
+    return stats

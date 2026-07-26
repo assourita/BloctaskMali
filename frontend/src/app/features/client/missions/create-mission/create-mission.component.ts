@@ -34,8 +34,10 @@ interface CategoryRules {
   requires_deposit: boolean;
   deposit_mode: string;
   deposit_percent: number;
+  deposit_fixed?: number;
   deposit_reason: string;
   requires_merchandise_value: boolean;
+  client_funds_purchase?: boolean;
   requires_vehicle: boolean;
   requires_photo: boolean;
   requires_signature: boolean;
@@ -256,11 +258,11 @@ interface CategoryConfig {
                   <div class="location-section">
                     <h3>
                       <mat-icon>location_on</mat-icon>
-                      Point de départ
+                      {{ pickupSectionTitle }}
                     </h3>
                     <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>Adresse de retrait</mat-label>
-                      <input matInput formControlName="pickup_address" placeholder="Ex: Cocody, Rue des Jardins">
+                      <mat-label>{{ pickupAddressLabel }}</mat-label>
+                      <input matInput formControlName="pickup_address" [placeholder]="pickupAddressPlaceholder">
                       <mat-error *ngIf="locationsForm.get('pickup_address')?.hasError('required')">
                         L'adresse est requise
                       </mat-error>
@@ -281,11 +283,11 @@ interface CategoryConfig {
                   <div class="location-section" *ngIf="requiresDeliveryLocation || isDeliveryType">
                     <h3>
                       <mat-icon>flag</mat-icon>
-                      Point d'arrivée
+                      {{ deliverySectionTitle }}
                     </h3>
                     <mat-form-field appearance="outline" class="full-width">
-                      <mat-label>Adresse de livraison</mat-label>
-                      <input matInput formControlName="delivery_address" placeholder="Ex: Plateau, Avenue Champs de Mars">
+                      <mat-label>{{ deliveryAddressLabel }}</mat-label>
+                      <input matInput formControlName="delivery_address" [placeholder]="deliveryAddressPlaceholder">
                       <mat-error *ngIf="locationsForm.get('delivery_address')?.hasError('required')">
                         L'adresse est requise
                       </mat-error>
@@ -362,15 +364,20 @@ interface CategoryConfig {
                   <mat-label>Valeur de la marchandise (XOF)</mat-label>
                   <input matInput type="number" min="1000" [(ngModel)]="merchandiseValue"
                     [ngModelOptions]="{standalone: true}" (ngModelChange)="refreshDepositPreview()" />
-                  <mat-hint>Caution prestataire basée sur cette valeur (colis, achats, médicaments…)</mat-hint>
+                  <mat-hint>Caution prestataire basée sur cette valeur (colis, médicaments…)</mat-hint>
                 </mat-form-field>
 
                 <div class="deposit-preview" *ngIf="showDepositPreview()">
                   <mat-icon>security</mat-icon>
                   Caution prestataire estimée : <strong>{{ estimatedDepositPreview | number:'1.0-0' }} XOF</strong>
+                  <span *ngIf="apiRules?.deposit_mode === 'fixed'"> (fixe, restituée en fin de mission)</span>
                 </div>
                 <p class="deposit-hint" *ngIf="requiresMerchandiseValue && !merchandiseValue">
                   Saisissez la valeur de la marchandise pour calculer la caution (équivalent au prix confié).
+                </p>
+                <p class="deposit-hint" *ngIf="clientFundsPurchase">
+                  Le montant des courses (champ ci-dessous) est bloqué par vous à la création ;
+                  le prestataire avance les achats et est remboursé à la livraison, en plus du budget mission.
                 </p>
 
                 <!-- Render custom fields from category schema -->
@@ -551,20 +558,28 @@ interface CategoryConfig {
 
                     <div class="summary-lines">
                       <div class="summary-line">
-                        <span>Montant mission</span>
+                        <span>Budget mission (service)</span>
                         <strong>{{ paymentBudget | number:'1.0-0' }} FCFA</strong>
                       </div>
+                      <div class="summary-line" *ngIf="clientFundsPurchase && paymentShoppingAdvance > 0">
+                        <span>Courses bloquées (remboursement achats)</span>
+                        <strong>{{ paymentShoppingAdvance | number:'1.0-0' }} FCFA</strong>
+                      </div>
                       <div class="summary-line muted">
-                        <span>Frais plateforme (5 %)</span>
+                        <span>Frais plateforme (5 % du service)</span>
                         <strong>{{ paymentPlatformFee | number:'1.0-0' }} FCFA</strong>
                       </div>
                       <div class="summary-line muted">
-                        <span>Net prestataire (après validation)</span>
+                        <span>Net service prestataire</span>
                         <strong>{{ paymentProviderNet | number:'1.0-0' }} FCFA</strong>
+                      </div>
+                      <div class="summary-line muted" *ngIf="clientFundsPurchase && paymentShoppingAdvance > 0">
+                        <span>+ Remboursement courses</span>
+                        <strong>{{ paymentShoppingAdvance | number:'1.0-0' }} FCFA</strong>
                       </div>
                       <div class="summary-line total">
                         <span>Total débité Mobile Money</span>
-                        <strong>{{ paymentBudget | number:'1.0-0' }} FCFA</strong>
+                        <strong>{{ paymentTotalDebited | number:'1.0-0' }} FCFA</strong>
                       </div>
                     </div>
 
@@ -655,7 +670,7 @@ interface CategoryConfig {
                   <mat-spinner diameter="20" *ngIf="isSubmitting"></mat-spinner>
                   <span *ngIf="!isSubmitting">
                     <mat-icon>payments</mat-icon>
-                    Payer {{ paymentBudget | number:'1.0-0' }} FCFA et créer
+                    Payer {{ paymentTotalDebited | number:'1.0-0' }} FCFA et créer
                   </span>
                 </button>
               </div>
@@ -684,7 +699,10 @@ interface CategoryConfig {
     .create-mission-container {
       padding: 28px 24px 48px;
       max-width: 760px;
+      width: 100%;
       margin: 0 auto;
+      box-sizing: border-box;
+      overflow-x: clip;
     }
 
     .page-intro {
@@ -722,6 +740,8 @@ interface CategoryConfig {
       background: #ffffff;
       overflow: visible;
       border: 1px solid #e2e8f0;
+      max-width: 100%;
+      box-sizing: border-box;
 
       mat-card-header {
         margin-bottom: 0;
@@ -732,6 +752,9 @@ interface CategoryConfig {
 
       mat-card-content {
         padding: 24px 28px 28px;
+        max-width: 100%;
+        box-sizing: border-box;
+        overflow-x: clip;
       }
 
       .header-content {
@@ -1525,12 +1548,15 @@ interface CategoryConfig {
     }
 
     /* Payment / Checkout */
-    .checkout-step { padding: 0; }
+    .checkout-step { padding: 0; max-width: 100%; min-width: 0; }
     .checkout-layout {
       display: grid;
-      grid-template-columns: minmax(280px, 340px) 1fr;
+      grid-template-columns: minmax(0, 340px) minmax(0, 1fr);
       gap: 24px;
       align-items: start;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
     }
     .checkout-summary {
       background: linear-gradient(160deg, #0f172a 0%, #1e293b 100%);
@@ -1540,6 +1566,9 @@ interface CategoryConfig {
       position: sticky;
       top: 80px;
       box-shadow: 0 12px 40px rgba(15, 23, 42, 0.25);
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
     }
     .summary-header {
       display: flex; gap: 12px; align-items: flex-start; margin-bottom: 20px;
@@ -1578,6 +1607,9 @@ interface CategoryConfig {
       border-radius: 16px;
       padding: 24px;
       box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+      min-width: 0;
+      max-width: 100%;
+      box-sizing: border-box;
     }
     .secure-banner {
       display: flex; gap: 14px; align-items: flex-start;
@@ -1609,14 +1641,22 @@ interface CategoryConfig {
       &.selected.moov { border-color: #0066cc; box-shadow: 0 0 0 3px rgba(0,102,204,0.15); }
     }
     .field-error { color: #dc2626; font-size: 12px; margin: 0 0 16px; }
-    .phone-checkout { display: flex; gap: 12px; align-items: flex-start; margin-bottom: 20px; }
+    .phone-checkout {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-start;
+      margin-bottom: 20px;
+      min-width: 0;
+      max-width: 100%;
+    }
     .country-chip {
       display: flex; flex-direction: column; align-items: center; justify-content: center;
       min-width: 72px; padding: 12px 10px; background: #f3f4f6; border-radius: 12px; border: 1px solid #e5e7eb;
       span { font-size: 20px; }
       strong { font-size: 13px; color: #374151; margin-top: 4px; }
     }
-    .phone-field { flex: 1; width: 100%; }
+    .phone-field { flex: 1 1 180px; width: 100%; min-width: 0; }
     .otp-box { margin-bottom: 16px; }
     .otp-field { width: 100%; }
     .trust-badges {
@@ -1628,7 +1668,12 @@ interface CategoryConfig {
     }
     .checkout-actions { padding-top: 20px; border-top: 1px solid #f3f4f6; margin-top: 8px; }
     .pay-submit-btn {
-      min-width: 280px; padding: 0 28px !important; height: 48px !important; font-size: 15px !important;
+      min-width: min(280px, 100%);
+      max-width: 100%;
+      width: auto;
+      padding: 0 28px !important;
+      height: 48px !important;
+      font-size: 15px !important;
       mat-icon { margin-right: 8px; }
     }
 
@@ -1930,9 +1975,14 @@ interface CategoryConfig {
       }
     }
 
-    @media (max-width: 640px) {
+    @media (max-width: 960px) {
       .create-mission-container {
-        padding: 16px;
+        padding: 12px 12px 32px;
+        max-width: 100%;
+      }
+
+      .page-intro h1 {
+        font-size: 22px;
       }
 
       .checkout-layout {
@@ -1954,11 +2004,11 @@ interface CategoryConfig {
 
       .form-card {
         mat-card-header {
-          padding: 20px 20px 16px;
+          padding: 16px;
         }
 
         mat-card-content {
-          padding: 20px;
+          padding: 16px;
         }
       }
 
@@ -1973,6 +2023,31 @@ interface CategoryConfig {
 
       .location-section {
         padding: 16px;
+      }
+
+      ::ng-deep {
+        .mat-horizontal-stepper-header-container {
+          overflow-x: auto;
+          -webkit-overflow-scrolling: touch;
+        }
+
+        .mat-step-header {
+          padding: 8px 10px;
+        }
+
+        .mat-step-label {
+          display: none;
+        }
+
+        .mat-step-header .mat-step-icon {
+          margin-right: 0;
+        }
+      }
+    }
+
+    @media (max-width: 640px) {
+      .create-mission-container {
+        padding: 10px 8px 28px;
       }
     }
 
@@ -2138,12 +2213,59 @@ export class CreateMissionComponent implements OnInit {
     return parseFloat(this.missionDetailsForm.value.budget) || 0;
   }
 
+  get clientFundsPurchase(): boolean {
+    return !!this.apiRules?.client_funds_purchase;
+  }
+
+  get paymentShoppingAdvance(): number {
+    if (!this.clientFundsPurchase) return 0;
+    const raw = this.customData?.['estimated_amount'];
+    const n = typeof raw === 'number' ? raw : parseFloat(String(raw ?? ''));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }
+
+  get paymentTotalDebited(): number {
+    return this.paymentBudget + this.paymentShoppingAdvance;
+  }
+
   get paymentPlatformFee(): number {
     return this.paymentService.calculateFees(this.paymentBudget).platformFee;
   }
 
   get paymentProviderNet(): number {
     return Math.max(0, this.paymentBudget - this.paymentPlatformFee);
+  }
+
+  get isCoursesCategory(): boolean {
+    return this.selectedCategory?.slug === 'courses-achats';
+  }
+
+  get pickupSectionTitle(): string {
+    return this.isCoursesCategory ? 'Magasin' : 'Point de départ';
+  }
+
+  get pickupAddressLabel(): string {
+    return this.isCoursesCategory ? 'Adresse du magasin' : 'Adresse de retrait';
+  }
+
+  get pickupAddressPlaceholder(): string {
+    return this.isCoursesCategory
+      ? 'Ex: Super U ACI 2000, Bamako'
+      : 'Ex: Cocody, Rue des Jardins';
+  }
+
+  get deliverySectionTitle(): string {
+    return this.isCoursesCategory ? 'Livraison chez vous' : "Point d'arrivée";
+  }
+
+  get deliveryAddressLabel(): string {
+    return this.isCoursesCategory ? 'Adresse de livraison' : 'Adresse de livraison';
+  }
+
+  get deliveryAddressPlaceholder(): string {
+    return this.isCoursesCategory
+      ? 'Ex: Badalabougou, Bamako'
+      : 'Ex: Plateau, Avenue Champs de Mars';
   }
 
   private missionsBasePath(): string {
@@ -2583,8 +2705,10 @@ export class CreateMissionComponent implements OnInit {
       };
     }
 
-    // Calculate fees
-    const fees = this.paymentService.calculateFees(parseFloat(this.missionDetailsForm.value.budget));
+    // Calculate fees (sur le budget service uniquement ; courses = avance client)
+    const fees = this.paymentService.calculateFees(parseFloat(this.missionDetailsForm.value.budget) || 0);
+    const shoppingAdvance = this.paymentShoppingAdvance;
+    const totalDebited = (parseFloat(this.missionDetailsForm.value.budget) || 0) + shoppingAdvance;
 
     const missionData = {
       title: this.missionDetailsForm.value.title,
@@ -2598,7 +2722,7 @@ export class CreateMissionComponent implements OnInit {
       requires_photo: this.requirements.requires_photo,
       requires_signature: this.requirements.requires_signature,
       requires_id_verification: this.requires_id_verification,
-      merchandise_value: this.merchandiseValue || undefined,
+      merchandise_value: this.requiresMerchandiseValue ? (this.merchandiseValue || undefined) : undefined,
       special_instructions: this.special_instructions,
       estimated_duration: estimatedDuration,
       start_time: startTime || null,
@@ -2610,7 +2734,7 @@ export class CreateMissionComponent implements OnInit {
       operator: this.paymentForm.value.operator,
       // Escrow fields
       escrow_enabled: true,
-      escrow_amount: fees.escrowAmount,
+      escrow_amount: totalDebited,
       platform_fee: fees.platformFee,
       // Custom data from category schema (texte uniquement ; fichiers uploadés après création)
       custom_data: this.buildSerializableCustomData(),

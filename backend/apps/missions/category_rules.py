@@ -38,6 +38,8 @@ class CategoryRule:
     deposit_floor: float = 2000
     deposit_cap: float | None = None
     requires_merchandise_value: bool = False
+    # Client bloque aussi le montant des achats (ex. courses) en plus du budget mission
+    client_funds_purchase: bool = False
     requires_vehicle: bool = False
     requires_photo: bool = False
     requires_signature: bool = False
@@ -188,16 +190,27 @@ CATEGORY_RULES: dict[str, CategoryRule] = {
     ),
     'courses-achats': _rule(
         slug='courses-achats', label='Courses & Achats',
-        deposit_mode='merchandise_value', deposit_floor=5000,
-        requires_merchandise_value=True, requires_vehicle=True, requires_photo=True,
+        deposit_mode='fixed', deposit_fixed=1000, deposit_floor=1000,
+        requires_merchandise_value=False, client_funds_purchase=True,
+        requires_vehicle=True, requires_photo=True,
         requires_gps_tracking=True, show_contacts=True, mission_type='delivery',
-        deposit_reason='Caution = montant des achats confiés au prestataire.',
-        requirement_labels=['Véhicule', 'Photo ticket', 'GPS', 'Montant achats'],
+        location_label='Magasin & livraison',
+        deposit_reason=(
+            'Caution prestataire fixe 1 000 XOF (restituée à la fin). '
+            'Le client bloque séparément le montant des courses ; '
+            'le prestataire avance les achats et est remboursé à la livraison.'
+        ),
+        requirement_labels=['Véhicule', 'Photo ticket', 'GPS', 'Montant courses bloqué', 'Caution 1 000 XOF'],
         enabled_blocks=['localisation', 'planification', 'medias', 'securite', 'financier', 'validation'],
         custom_fields=[
             FieldDefinition('shopping_list', 'textarea', 'Liste des articles', True),
             FieldDefinition('store_name', 'text', 'Magasin', True),
-            FieldDefinition('estimated_amount', 'number', 'Montant estimé (XOF)', True, validation={'min': 0}),
+            FieldDefinition(
+                'estimated_amount', 'number',
+                'Montant des courses à bloquer (XOF)', True,
+                help_text='Somme bloquée par le client pour rembourser les achats du prestataire.',
+                validation={'min': 1000},
+            ),
             FieldDefinition('receipt_required', 'boolean', 'Ticket obligatoire ?', True, default=True),
         ],
     ),
@@ -870,6 +883,19 @@ def calculate_category_deposit(mission, provider=None) -> Decimal:
     return amount.quantize(Decimal('1'))
 
 
+def get_purchase_advance_amount(requirements: dict | None, rule: CategoryRule | None = None) -> Decimal:
+    """Montant des achats bloqué par le client (courses, etc.)."""
+    if rule is not None and not rule.client_funds_purchase:
+        return Decimal('0')
+    raw = (requirements or {}).get('estimated_amount')
+    if raw is None or raw == '':
+        return Decimal('0')
+    try:
+        return max(Decimal(str(raw)), Decimal('0'))
+    except Exception:
+        return Decimal('0')
+
+
 def estimate_deposit_preview(budget: float, merchandise_value: float | None, category) -> dict:
     """Aperçu caution pour le formulaire de création."""
     from types import SimpleNamespace
@@ -890,8 +916,10 @@ def estimate_deposit_preview(budget: float, merchandise_value: float | None, cat
         'requires_deposit': rule.requires_deposit and rule.deposit_mode != 'none',
         'estimated_deposit': float(amount),
         'deposit_mode': rule.deposit_mode,
+        'deposit_fixed': rule.deposit_fixed,
         'deposit_reason': rule.deposit_reason,
         'requires_merchandise_value': rule.requires_merchandise_value,
+        'client_funds_purchase': rule.client_funds_purchase,
     }
 
 def looks_mojibake_label(value: str) -> bool:
