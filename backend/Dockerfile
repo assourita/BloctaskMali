@@ -23,4 +23,4 @@ RUN mkdir -p /app/logs && chmod 777 /app/logs
 EXPOSE 8000
 
 # Run migrations, collect static and start server
-CMD ["sh", "-c", "mkdir -p /app/logs && python manage.py migrate && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"]
+CMD ["sh", "-c", "mkdir -p /app/logs && python manage.py migrate && python manage.py seed_landing_slides && python manage.py collectstatic --noinput && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT"]

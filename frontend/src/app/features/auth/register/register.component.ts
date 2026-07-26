@@ -9,9 +9,11 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatStepperModule } from '@angular/material/stepper';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatSnackBar, MatSnackBarModule } from '@angular/material/snack-bar';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 
 import { AuthService } from '../../../core/services/auth.service';
 import { GoogleSignInButtonComponent } from '../../../shared/components/google-sign-in/google-sign-in.component';
+import { LogoPreviewDialogComponent } from '../../landing/logo-preview-dialog/logo-preview-dialog.component';
 
 @Component({
   selector: 'app-register',
@@ -27,6 +29,7 @@ import { GoogleSignInButtonComponent } from '../../../shared/components/google-s
     MatStepperModule,
     MatProgressSpinnerModule,
     MatSnackBarModule,
+    MatDialogModule,
     GoogleSignInButtonComponent,
   ],
   template: `
@@ -37,7 +40,9 @@ import { GoogleSignInButtonComponent } from '../../../shared/components/google-s
         </button>
         <div class="brand-content">
           <div class="logo">
-            <img src="assets/images/logo-blocktask-mali.png" alt="BlockTask" class="logo-img" />
+            <button type="button" class="logo-btn" (click)="openLogoPreview()" aria-label="Voir le logo BlockTask">
+              <img src="assets/images/logo-blocktask-header.png" alt="BlockTask" class="logo-img" />
+            </button>
             <span class="logo-text">BlockTask</span>
           </div>
           <h1>Rejoignez-nous</h1>
@@ -249,12 +254,23 @@ import { GoogleSignInButtonComponent } from '../../../shared/components/google-s
     }
 
     .logo-img {
-      width: 72px;
-      height: 72px;
-      object-fit: contain;
-      border-radius: 16px;
+      width: 76px;
+      height: 76px;
+      object-fit: cover;
+      object-position: center 18%;
+      border-radius: 50%;
       background: rgba(255, 255, 255, 0.95);
       box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      display: block;
+    }
+
+    .logo-btn {
+      border: none;
+      padding: 0;
+      background: transparent;
+      cursor: pointer;
+      border-radius: 50%;
+      line-height: 0;
     }
 
     .logo-icon { font-size: 32px; }
@@ -550,7 +566,8 @@ export class RegisterComponent implements OnInit {
     private authService: AuthService,
     private router: Router,
     private route: ActivatedRoute,
-    private snackBar: MatSnackBar
+    private snackBar: MatSnackBar,
+    private dialog: MatDialog,
   ) {
     this.accountTypeForm = this.fb.group({
       user_type: ['', Validators.required]
@@ -568,6 +585,15 @@ export class RegisterComponent implements OnInit {
       password: ['', [Validators.required, Validators.minLength(8)]],
       password_confirm: ['', Validators.required]
     }, { validators: this.passwordMatchValidator });
+  }
+
+  openLogoPreview(): void {
+    this.dialog.open(LogoPreviewDialogComponent, {
+      data: { src: 'assets/images/logo-blocktask-header.png', title: 'BlockTask' },
+      maxWidth: '95vw',
+      autoFocus: false,
+      panelClass: 'logo-preview-dialog',
+    });
   }
 
   ngOnInit(): void {

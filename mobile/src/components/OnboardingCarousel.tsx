@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from 'react';
 import {
   Dimensions,
   FlatList,
+  Image,
   NativeScrollEvent,
   NativeSyntheticEvent,
   Pressable,
@@ -115,7 +116,11 @@ export function OnboardingCarousel() {
     <View style={[styles.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
       <View style={styles.topBar}>
         <View style={styles.logoRow}>
-          <View style={styles.logoDot} />
+          <Image
+            source={require('../../assets/logo-blocktask-header.png')}
+            style={styles.logoImg}
+            accessibilityLabel="BlockTask"
+          />
           <Text style={styles.logoText}>BlockTask</Text>
         </View>
         {!isLast ? (
@@ -193,6 +198,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.sm,
   },
   logoRow: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  logoImg: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+  },
   logoDot: { width: 12, height: 12, borderRadius: 3, backgroundColor: colors.primary },
   logoText: { fontSize: 18, fontWeight: '800', color: colors.primary },
   skip: { color: colors.textMuted, fontWeight: '600', fontSize: 14 },

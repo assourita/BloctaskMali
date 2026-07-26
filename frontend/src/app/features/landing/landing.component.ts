@@ -1,4 +1,4 @@
-import { Component, HostListener, OnInit } from '@angular/core';
+import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { RouterModule, Router } from '@angular/router';
 import { FormsModule } from '@angular/forms';
@@ -33,6 +33,8 @@ import {
   EnterprisesListDialogComponent,
 } from './enterprises-list-dialog/enterprises-list-dialog.component';
 import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mission-dialog.component';
+import { ServiceCategoryDialogComponent } from './service-category-dialog/service-category-dialog.component';
+import { LogoPreviewDialogComponent } from './logo-preview-dialog/logo-preview-dialog.component';
 
 @Component({
   selector: 'app-landing',
@@ -54,34 +56,81 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
       <!-- Garden Grid Style Header -->
       <nav class="gg-navbar" [class.scrolled]="isScrolled">
         <div class="nav-container">
-          <div class="logo" routerLink="/">
-            <span class="logo-text">BlockTask</span>
-          </div>
-          <div class="nav-center">
-            <a href="#services">Services</a>
-            <a href="#missions">Missions</a>
-            <a href="#taskers">Prestataires</a>
-            <a href="#enterprises">Entreprises</a>
-            <a href="#how-it-works">Comment ça marche</a>
-          </div>
-          <div class="nav-actions" *ngIf="currentUser$ | async as user; else guestActions">
-            <button mat-button (click)="goToMySpace()" class="nav-btn">
-              <span>Mon Espace</span>
+          <div class="logo">
+            <button type="button" class="logo-btn" (click)="openLogoPreview($event)" aria-label="Voir le logo BlockTask">
+              <img
+                src="assets/images/logo-blocktask-header.png"
+                alt=""
+                class="logo-img" />
             </button>
-            <button mat-raised-button class="nav-btn-primary" (click)="logout()">
-              Déconnexion
-            </button>
+            <a class="logo-text" routerLink="/" aria-label="BlockTask — accueil">BlockTask</a>
           </div>
-          <ng-template #guestActions>
-            <div class="nav-actions">
-              <button mat-button routerLink="/login" class="nav-btn">Connexion</button>
-              <button mat-raised-button routerLink="/register" class="nav-btn-primary">Inscription</button>
+
+          <div class="nav-right">
+            <!-- Menu sections -->
+            <div class="nav-dd" [class.open]="menuOpen">
+              <button type="button" class="nav-menu-btn" (click)="toggleMenu($event)">
+                <mat-icon>menu</mat-icon>
+                <span>Menu</span>
+                <mat-icon class="chevron">expand_more</mat-icon>
+              </button>
+              <div class="nav-dd-panel" *ngIf="menuOpen" (click)="$event.stopPropagation()">
+                <a href="#services" (click)="closeNavDropdowns()">Services</a>
+                <a href="#missions" (click)="closeNavDropdowns()">Missions</a>
+                <a href="#taskers" (click)="closeNavDropdowns()">Prestataires</a>
+                <a href="#enterprises" (click)="closeNavDropdowns()">Entreprises</a>
+                <a href="#how-it-works" (click)="closeNavDropdowns()">Comment ça marche</a>
+              </div>
             </div>
-          </ng-template>
+
+            <!-- Auth: profil connecté / Connexion invité -->
+            <ng-container *ngIf="currentUser$ | async as user; else guestAuth">
+              <div class="nav-dd profile-dd" [class.open]="profileOpen">
+                <button type="button" class="avatar-btn" (click)="toggleProfile($event)" [attr.aria-label]="'Profil ' + user.first_name">
+                  <img *ngIf="user.profile_picture; else landingInitials"
+                       [src]="user.profile_picture" class="avatar-img" [alt]="user.first_name" />
+                  <ng-template #landingInitials>
+                    <span class="avatar-initials">
+                      {{ ((user.first_name?.[0] || '') + (user.last_name?.[0] || '')) | uppercase }}
+                    </span>
+                  </ng-template>
+                </button>
+                <div class="nav-dd-panel profile-panel" *ngIf="profileOpen" (click)="$event.stopPropagation()">
+                  <div class="dp-user-info">
+                    <div class="dp-avatar">
+                      {{ ((user.first_name?.[0] || '') + (user.last_name?.[0] || '')) | uppercase }}
+                    </div>
+                    <div class="dp-user-text">
+                      <div class="dp-name">{{ user.first_name }} {{ user.last_name }}</div>
+                      <div class="dp-role">Espace {{ roleLabel(user) }}</div>
+                      <div class="dp-email">{{ user.email }}</div>
+                    </div>
+                  </div>
+                  <div class="dp-divider"></div>
+                  <button type="button" class="dp-item" (click)="goToMySpace(); closeNavDropdowns()">
+                    <mat-icon>dashboard</mat-icon>
+                    <span>Mon espace</span>
+                  </button>
+                  <a class="dp-item" [routerLink]="['/', spaceOf(user), 'profile']" (click)="closeNavDropdowns()">
+                    <mat-icon>manage_accounts</mat-icon>
+                    <span>Mon profil</span>
+                  </a>
+                  <div class="dp-divider"></div>
+                  <button type="button" class="dp-item dp-logout" (click)="logout(); closeNavDropdowns()">
+                    <mat-icon>logout</mat-icon>
+                    <span>Déconnexion</span>
+                  </button>
+                </div>
+              </div>
+            </ng-container>
+            <ng-template #guestAuth>
+              <button mat-raised-button routerLink="/login" class="nav-btn-primary">Connexion</button>
+            </ng-template>
+          </div>
         </div>
       </nav>
 
-      <!-- Hero Section - Garden Grid Style -->
+      <!-- Hero -->
       <section class="gg-hero">
         <div class="hero-container">
           <div class="hero-content">
@@ -89,82 +138,83 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
               <span class="hero-title-line">Tout faire,</span>
               <span class="hero-title-line hero-title-line--accent">sans bouger</span>
             </h1>
-            <p class="hero-subtitle" *ngIf="stats; else defaultSubtitle">
-              {{ stats.total_providers }} prestataire{{ stats.total_providers > 1 ? 's' : '' }} de confiance
-              · {{ stats.open_missions }} mission{{ stats.open_missions > 1 ? 's' : '' }} ouverte{{ stats.open_missions > 1 ? 's' : '' }}
-              · {{ stats.completed_missions }} terminée{{ stats.completed_missions > 1 ? 's' : '' }}
+            <p class="hero-subtitle">
+              Des prestataires de confiance pour vos missions au Mali — paiement sécurisé par escrow.
             </p>
-            <ng-template #defaultSubtitle>
-              <p class="hero-subtitle">Des prestataires de confiance pour vos missions quotidiennes au Mali</p>
-            </ng-template>
 
             <div class="hero-stats" *ngIf="stats">
               <div class="hero-stat">
                 <span class="hero-stat-value">{{ stats.total_providers }}</span>
                 <span class="hero-stat-label">Prestataires</span>
               </div>
+              <div class="hero-stat-divider" aria-hidden="true"></div>
               <div class="hero-stat">
                 <span class="hero-stat-value">{{ stats.open_missions }}</span>
                 <span class="hero-stat-label">Missions ouvertes</span>
               </div>
+              <div class="hero-stat-divider" aria-hidden="true"></div>
               <div class="hero-stat">
                 <span class="hero-stat-value">{{ stats.completed_missions }}</span>
                 <span class="hero-stat-label">Missions réalisées</span>
               </div>
             </div>
-            
-            <!-- Search Bar -->
+
             <div class="search-box">
               <mat-icon class="search-icon">search</mat-icon>
               <input
                 type="text"
                 [(ngModel)]="searchQuery"
                 (keyup.enter)="onSearch()"
-                placeholder="De quoi avez-vous besoin ? (Livraison, déménagement, réparation...)" />
+                placeholder="Livraison, déménagement, réparation…" />
               <button mat-raised-button class="search-btn" (click)="onSearch()">Rechercher</button>
             </div>
-            
-            <!-- Popular Searches -->
+
             <div class="popular-searches" *ngIf="popularCategories.length">
-              <span>Populaire :</span>
+              <span class="popular-label">Suggestions</span>
               <a
-                *ngFor="let cat of popularCategories"
+                *ngFor="let cat of popularCategories | slice:0:4"
                 href="#missions"
                 (click)="searchByCategory(cat); $event.preventDefault()">{{ cat }}</a>
             </div>
           </div>
 
-          <!-- Hero Visual -->
           <div class="hero-visual">
-            <div class="hero-card">
-              <div class="card-header">
-                <span class="badge">Mission en cours</span>
-                <span class="amount">25 000 XOF</span>
+            <div class="hero-carousel" (mouseenter)="pauseCarousel()" (mouseleave)="resumeCarousel()">
+              <button type="button" class="carousel-nav prev" (click)="prevSlide($event)" aria-label="Précédent">
+                <mat-icon>chevron_left</mat-icon>
+              </button>
+
+              <div class="carousel-viewport">
+                <div
+                  class="carousel-track"
+                  [style.transform]="'translateX(-' + carouselIndex * 100 + '%)'">
+                  <button
+                    type="button"
+                    class="carousel-slide"
+                    *ngFor="let slide of heroSlides; let i = index"
+                    (click)="onHeroSlideClick(slide)">
+                    <img [src]="slide.src" [alt]="slide.title" loading="lazy" />
+                  </button>
+                </div>
               </div>
-              <div class="card-body">
-                <h4>Livraison colis urgent</h4>
-                <div class="location">
-                  <mat-icon>place</mat-icon>
-                  Cocody → Plateau
+
+              <button type="button" class="carousel-nav next" (click)="nextSlide($event)" aria-label="Suivant">
+                <mat-icon>chevron_right</mat-icon>
+              </button>
+
+              <div class="carousel-meta">
+                <div class="carousel-meta-text">
+                  <span class="carousel-index">{{ carouselIndex + 1 }} / {{ heroSlides.length }}</span>
+                  <h4>{{ heroSlides[carouselIndex].title }}</h4>
                 </div>
-                <div class="progress">
-                  <div class="progress-bar">
-                    <div class="progress-fill" style="width: 65%"></div>
-                  </div>
-                  <span>65% complété</span>
-                </div>
-              </div>
-              <div class="card-footer">
-                <div class="provider">
-                  <div class="avatar">KM</div>
-                  <div class="info">
-                    <span class="name">Koumadi M.</span>
-                    <span class="rating"><mat-icon class="inline-star">star</mat-icon> 4.8</span>
-                  </div>
-                </div>
-                <div class="escrow-badge">
-                  <mat-icon>shield</mat-icon>
-                  Escrow actif
+                <div class="carousel-dots">
+                  <button
+                    type="button"
+                    class="dot"
+                    *ngFor="let slide of heroSlides; let i = index"
+                    [class.active]="i === carouselIndex"
+                    (click)="goToSlide(i, $event)"
+                    [attr.aria-label]="slide.title"></button>
                 </div>
               </div>
             </div>
@@ -183,7 +233,7 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
             <div
               class="service-card"
               *ngFor="let service of categories; let i = index"
-              (click)="searchByCategory(service.name)">
+              (click)="openServiceDetails(service, i)">
               <div class="service-icon" [style.background]="getCategoryColor(i)">
                 <mat-icon>{{ service.icon || 'category' }}</mat-icon>
               </div>
@@ -561,31 +611,36 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
   `,
   styles: [`
     .landing-container {
-      font-family: system-ui, -apple-system, sans-serif;
-      color: #111827;
+      font-family: 'Segoe UI', 'Avenir Next', 'Helvetica Neue', sans-serif;
+      color: #0f172a;
+      --bt-green: #15803d;
+      --bt-green-bright: #16a34a;
+      --bt-ink: #0f172a;
+      --bt-muted: #64748b;
     }
 
-    /* Garden Grid Navbar */
+    /* Navbar */
     .gg-navbar {
       position: fixed;
       top: 0;
       left: 0;
       right: 0;
       z-index: 1000;
-      padding: 1.5rem 5%;
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+      padding: 1.15rem 5%;
+      transition: background 0.3s ease, box-shadow 0.3s ease, padding 0.3s ease;
       background: transparent;
 
       &.scrolled {
-        background: rgba(255, 255, 255, 0.95);
-        backdrop-filter: blur(10px);
-        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        padding: 1rem 5%;
+        background: rgba(255, 255, 255, 0.88);
+        backdrop-filter: blur(14px);
+        -webkit-backdrop-filter: blur(14px);
+        box-shadow: 0 1px 0 rgba(15, 23, 42, 0.06);
+        padding: 0.85rem 5%;
       }
     }
 
     .nav-container {
-      max-width: 1400px;
+      max-width: 1180px;
       margin: 0 auto;
       display: flex;
       align-items: center;
@@ -595,62 +650,238 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
     .logo {
       display: flex;
       align-items: center;
-      text-decoration: none;
+      gap: 0.65rem;
+      line-height: 1;
+    }
+
+    .logo-btn {
+      border: none;
+      padding: 0;
+      background: transparent;
       cursor: pointer;
+      line-height: 0;
+      border-radius: 50%;
+    }
+
+    .logo-btn:hover .logo-img {
+      transform: scale(1.05);
+      box-shadow: 0 0 0 2px rgba(21, 128, 61, 0.35);
+    }
+
+    .logo-img {
+      height: 46px;
+      width: 46px;
+      display: block;
+      object-fit: cover;
+      object-position: center 18%;
+      border-radius: 50%;
+      background: #0f172a;
+      box-shadow: 0 0 0 2px rgba(21, 128, 61, 0.15);
+      flex-shrink: 0;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
     }
 
     .logo-text {
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       font-weight: 800;
-      color: #111827;
-    }
-
-    .nav-center {
-      display: flex;
-      gap: 2rem;
-    }
-
-    .nav-center a {
-      color: #6b7280;
+      letter-spacing: -0.03em;
+      color: var(--bt-green);
       text-decoration: none;
-      font-weight: 500;
-      font-size: 0.875rem;
-      transition: color 0.2s ease;
-      position: relative;
-
-      &::after {
-        content: '';
-        position: absolute;
-        bottom: -0.25rem;
-        left: 0;
-        width: 0;
-        height: 2px;
-        background: linear-gradient(90deg, #16a34a, #0d9488);
-        transition: width 0.3s ease;
-      }
-
-      &:hover {
-        color: #111827;
-
-        &::after {
-          width: 100%;
-        }
-      }
     }
 
-    .nav-actions {
+    .logo-text:hover {
+      color: #166534;
+    }
+
+    .nav-right {
       display: flex;
-      gap: 0.75rem;
+      align-items: center;
+      gap: 0.65rem;
     }
 
-    .nav-btn {
-      height: 2.5rem;
-      padding: 0 1.25rem;
+    .nav-dd {
+      position: relative;
+    }
+
+    .nav-menu-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.3rem;
+      height: 2.4rem;
+      padding: 0 0.85rem;
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.75);
+      color: #334155;
       font-size: 0.875rem;
       font-weight: 600;
-      border-radius: 0.5rem;
-      color: #6b7280;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s, color 0.2s;
     }
+
+    .nav-menu-btn mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+    }
+
+    .nav-menu-btn .chevron {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: #94a3b8;
+      transition: transform 0.2s;
+    }
+
+    .nav-dd.open .nav-menu-btn .chevron {
+      transform: rotate(180deg);
+    }
+
+    .nav-menu-btn:hover {
+      border-color: var(--bt-green-bright);
+      color: var(--bt-green);
+      background: #fff;
+    }
+
+    .nav-dd-panel {
+      position: absolute;
+      top: calc(100% + 10px);
+      right: 0;
+      min-width: 220px;
+      background: #fff;
+      border-radius: 12px;
+      box-shadow: 0 8px 28px rgba(0, 0, 0, 0.14);
+      border: 1px solid #e5e7eb;
+      padding: 0.4rem 0;
+      z-index: 1100;
+      animation: navFadeIn 0.15s ease;
+    }
+
+    @keyframes navFadeIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .nav-dd-panel > a {
+      display: block;
+      padding: 0.7rem 1.1rem;
+      color: #374151;
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: background 0.15s, color 0.15s;
+    }
+
+    .nav-dd-panel > a:hover {
+      background: #f0fdf4;
+      color: #15803d;
+    }
+
+    .avatar-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      border: 2px solid #e5e7eb;
+      padding: 0;
+      cursor: pointer;
+      overflow: hidden;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.2s;
+    }
+
+    .avatar-btn:hover { border-color: #16a34a; }
+
+    .avatar-img {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .avatar-initials {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #16a34a;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 13px;
+    }
+
+    .profile-panel {
+      min-width: 270px;
+      padding: 0;
+      overflow: hidden;
+    }
+
+    .dp-user-info {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 16px;
+      background: #f9fafb;
+    }
+
+    .dp-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: #16a34a;
+      color: #fff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 700;
+      font-size: 15px;
+      flex-shrink: 0;
+    }
+
+    .dp-name { font-weight: 700; font-size: 14px; color: #111827; }
+    .dp-role { font-size: 11px; color: #16a34a; font-weight: 600; text-transform: uppercase; margin-top: 2px; }
+    .dp-email { font-size: 12px; color: #9ca3af; margin-top: 2px; word-break: break-all; }
+    .dp-divider { height: 1px; background: #f0f0f0; margin: 4px 0; }
+
+    .dp-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 11px 16px;
+      font-size: 14px;
+      font-weight: 500;
+      color: #333;
+      text-decoration: none;
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      width: 100%;
+      text-align: left;
+      transition: background 0.15s;
+    }
+
+    .dp-item mat-icon {
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
+      color: #666;
+    }
+
+    .dp-item:hover {
+      background: #f0faf4;
+      color: #15803d;
+    }
+
+    .dp-item:hover mat-icon { color: #16a34a; }
+
+    .dp-logout { color: #e53935; }
+    .dp-logout mat-icon { color: #e53935; }
+    .dp-logout:hover { background: #ffebee; color: #c62828; }
 
     .nav-btn-primary {
       height: 2.5rem;
@@ -660,56 +891,43 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
       border-radius: 0.5rem;
       background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
       color: #ffffff;
-      box-shadow: 0 4px 6px -1px rgba(99, 102, 241, 0.3);
+      box-shadow: 0 4px 6px -1px rgba(22, 163, 74, 0.25);
 
       &:hover {
         background: linear-gradient(135deg, #15803d 0%, #14532d 100%);
-        box-shadow: 0 6px 8px -1px rgba(99, 102, 241, 0.4);
       }
     }
 
-    /* Garden Grid Hero */
+    /* Hero */
     .gg-hero {
       min-height: 100vh;
-      padding: 8rem 5% 4rem;
-      background: linear-gradient(135deg, #dcfce7 0%, #ecfdf5 50%, #bbf7d0 100%);
+      padding: 7.5rem 5% 4.5rem;
       position: relative;
       overflow: hidden;
+      background:
+        radial-gradient(ellipse 80% 55% at 85% 15%, rgba(74, 222, 128, 0.28), transparent 55%),
+        radial-gradient(ellipse 60% 50% at 10% 80%, rgba(21, 128, 61, 0.12), transparent 50%),
+        linear-gradient(165deg, #f0fdf4 0%, #ecfdf5 42%, #dcfce7 100%);
 
       &::before {
         content: '';
         position: absolute;
-        top: -50%;
-        right: -20%;
-        width: 80%;
-        height: 200%;
-        background: radial-gradient(circle, rgba(34, 197, 94, 0.1) 0%, transparent 70%);
-        animation: float 20s ease-in-out infinite;
+        inset: 0;
+        background-image:
+          linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(15, 23, 42, 0.03) 1px, transparent 1px);
+        background-size: 48px 48px;
+        mask-image: linear-gradient(180deg, rgba(0,0,0,0.35), transparent 75%);
+        pointer-events: none;
       }
-
-      &::after {
-        content: '';
-        position: absolute;
-        bottom: -50%;
-        left: -20%;
-        width: 80%;
-        height: 200%;
-        background: radial-gradient(circle, rgba(168, 85, 247, 0.1) 0%, transparent 70%);
-        animation: float 25s ease-in-out infinite reverse;
-      }
-    }
-
-    @keyframes float {
-      0%, 100% { transform: translate(0, 0) rotate(0deg); }
-      50% { transform: translate(50px, 50px) rotate(5deg); }
     }
 
     .hero-container {
-      max-width: 1400px;
+      max-width: 1180px;
       margin: 0 auto;
       display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 4rem;
+      grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+      gap: 3.5rem;
       align-items: center;
       position: relative;
       z-index: 1;
@@ -718,15 +936,26 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
     .hero-content {
       display: flex;
       flex-direction: column;
-      gap: 2rem;
+      gap: 1.35rem;
+      animation: heroIn 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+    }
+
+    @keyframes heroIn {
+      from { opacity: 0; transform: translateY(18px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .hero-kicker {
+      display: none;
     }
 
     .hero-title {
-      font-size: 3rem;
-      font-weight: 800;
-      line-height: 1.1;
-      letter-spacing: -0.02em;
-      color: #111827;
+      font-family: Georgia, 'Iowan Old Style', 'Palatino Linotype', 'Times New Roman', serif;
+      font-size: clamp(2.6rem, 5.2vw, 3.75rem);
+      font-weight: 700;
+      line-height: 1.05;
+      letter-spacing: -0.025em;
+      color: var(--bt-ink);
       margin: 0;
     }
 
@@ -735,279 +964,286 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
     }
 
     .hero-title-line--accent {
-      background: linear-gradient(135deg, #16a34a 0%, #4ade80 100%);
-      -webkit-background-clip: text;
-      -webkit-text-fill-color: transparent;
-      background-clip: text;
+      color: var(--bt-green-bright);
+      font-style: italic;
     }
 
     .hero-subtitle {
-      font-size: 1.125rem;
-      line-height: 1.625;
-      color: #6b7280;
+      font-size: 1.05rem;
+      line-height: 1.55;
+      color: var(--bt-muted);
       margin: 0;
+      max-width: 34rem;
     }
 
     .hero-stats {
       display: flex;
-      gap: 3rem;
+      align-items: stretch;
+      gap: 0;
+      margin-top: 0.35rem;
+      padding: 1rem 0;
+      border-top: 1px solid rgba(15, 23, 42, 0.08);
+      border-bottom: 1px solid rgba(15, 23, 42, 0.08);
     }
 
     .hero-stat {
+      flex: 1;
       display: flex;
       flex-direction: column;
-      gap: 0.25rem;
+      gap: 0.15rem;
+      min-width: 0;
+      padding: 0 0.25rem;
+    }
+
+    .hero-stat-divider {
+      width: 1px;
+      background: rgba(15, 23, 42, 0.1);
+      margin: 0.15rem 0.85rem;
+      flex-shrink: 0;
     }
 
     .hero-stat-value {
-      font-size: 1.875rem;
+      font-size: 1.65rem;
       font-weight: 800;
-      color: #15803d;
+      letter-spacing: -0.03em;
+      color: var(--bt-green);
+      line-height: 1.1;
     }
 
     .hero-stat-label {
-      font-size: 0.875rem;
-      color: #9ca3af;
+      font-size: 0.78rem;
+      color: var(--bt-muted);
       font-weight: 500;
     }
 
     .search-box {
       display: flex;
       align-items: center;
-      gap: 1rem;
-      background: #ffffff;
-      padding: 0.75rem 1rem;
-      border-radius: 1rem;
-      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-      border: 2px solid #e5e7eb;
-      transition: all 0.3s ease;
+      gap: 0.65rem;
+      background: #fff;
+      padding: 0.45rem 0.45rem 0.45rem 1rem;
+      border-radius: 14px;
+      border: 1px solid rgba(15, 23, 42, 0.1);
+      box-shadow: 0 10px 30px -18px rgba(15, 23, 42, 0.35);
+      transition: border-color 0.2s, box-shadow 0.2s;
+      margin-top: 0.25rem;
 
       &:focus-within {
-        border-color: #16a34a;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
+        border-color: var(--bt-green-bright);
+        box-shadow: 0 0 0 3px rgba(22, 163, 74, 0.15);
       }
     }
 
     .search-icon {
-      color: #9ca3af;
+      color: #94a3b8;
       font-size: 1.25rem;
+      flex-shrink: 0;
     }
 
     .search-box input {
       flex: 1;
       border: none;
       outline: none;
-      font-size: 1rem;
-      color: #111827;
+      font-size: 0.98rem;
+      color: var(--bt-ink);
       background: transparent;
-      font-family: system-ui, -apple-system, sans-serif;
+      font-family: inherit;
+      min-width: 0;
 
       &::placeholder {
-        color: #9ca3af;
+        color: #94a3b8;
       }
     }
 
     .search-btn {
-      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
-      color: #ffffff;
+      background: var(--bt-green) !important;
+      color: #fff !important;
       border: none;
-      border-radius: 0.75rem;
-      padding: 0.75rem 1.5rem;
-      font-weight: 600;
+      border-radius: 10px !important;
+      padding: 0.7rem 1.25rem !important;
+      font-weight: 700;
       font-size: 0.875rem;
-      cursor: pointer;
-      transition: all 0.2s ease;
+      white-space: nowrap;
+      box-shadow: none !important;
 
       &:hover {
-        background: linear-gradient(135deg, #15803d 0%, #14532d 100%);
-        box-shadow: 0 6px 8px -1px rgba(99, 102, 241, 0.4);
+        background: #166534 !important;
       }
     }
 
     .popular-searches {
       display: flex;
       align-items: center;
-      gap: 1rem;
+      gap: 0.85rem;
       flex-wrap: wrap;
       font-size: 0.875rem;
+      margin-top: -0.15rem;
+    }
 
-      > span {
-        color: #9ca3af;
-        font-weight: 500;
-      }
+    .popular-label {
+      color: #94a3b8;
+      font-weight: 600;
+      font-size: 0.78rem;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
 
-      a {
-        color: #15803d;
-        text-decoration: none;
-        font-weight: 500;
-        padding: 0.375rem 0.875rem;
-        background: #dcfce7;
-        border-radius: 9999px;
-        transition: all 0.2s ease;
+    .popular-searches a {
+      color: var(--bt-green);
+      text-decoration: none;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(21, 128, 61, 0.25);
+      padding-bottom: 1px;
+      transition: color 0.15s, border-color 0.15s;
 
-        &:hover {
-          background: #bbf7d0;
-          color: #14532d;
-        }
+      &:hover {
+        color: #14532d;
+        border-color: #14532d;
       }
     }
 
-    /* Hero Visual */
+    /* Carrousel */
     .hero-visual {
       display: flex;
       justify-content: center;
       align-items: center;
+      min-width: 0;
+      animation: heroIn 0.85s 0.08s cubic-bezier(0.22, 1, 0.36, 1) both;
     }
 
-    .hero-card {
-      background: #ffffff;
-      border-radius: 1.5rem;
-      padding: 1.5rem;
+    .hero-carousel {
+      position: relative;
       width: 100%;
-      max-width: 400px;
-      box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
-      border: 1px solid #e5e7eb;
-      animation: slideUp 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+      max-width: 340px;
     }
 
-    @keyframes slideUp {
-      from {
-        opacity: 0;
-        transform: translateY(2rem);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
-
-    .card-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-bottom: 1rem;
-    }
-
-    .badge {
-      background: #dcfce7;
-      color: #14532d;
-      padding: 0.25rem 0.75rem;
-      border-radius: 9999px;
-      font-size: 0.75rem;
-      font-weight: 600;
-    }
-
-    .amount {
-      font-size: 1.125rem;
-      font-weight: 800;
-      color: #16a34a;
-    }
-
-    .card-body h4 {
-      font-size: 1.125rem;
-      font-weight: 600;
-      color: #111827;
-      margin: 0 0 0.75rem;
-    }
-
-    .location {
-      display: flex;
-      align-items: center;
-      gap: 0.5rem;
-      color: #9ca3af;
-      font-size: 0.875rem;
-      margin-bottom: 1rem;
-
-      mat-icon {
-        font-size: 1rem;
-        width: 1rem;
-        height: 1rem;
-      }
-    }
-
-    .progress {
-      margin-top: 1rem;
-    }
-
-    .progress-bar {
-      height: 0.5rem;
-      background: #e5e7eb;
-      border-radius: 9999px;
+    .carousel-viewport {
       overflow: hidden;
-      margin-bottom: 0.5rem;
+      border-radius: 18px;
+      background: #e2e8f0;
+      aspect-ratio: 4 / 4.6;
+      box-shadow:
+        0 1px 0 rgba(255, 255, 255, 0.6) inset,
+        0 18px 36px -24px rgba(15, 23, 42, 0.4);
     }
 
-    .progress-fill {
+    .carousel-track {
+      display: flex;
       height: 100%;
-      background: linear-gradient(90deg, #16a34a, #4ade80);
-      border-radius: 9999px;
-      transition: width 0.3s ease;
+      transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+      will-change: transform;
     }
 
-    .progress span {
-      font-size: 0.75rem;
-      color: #9ca3af;
-      font-weight: 500;
+    .carousel-slide {
+      flex: 0 0 100%;
+      width: 100%;
+      height: 100%;
+      position: relative;
+      border: none;
+      padding: 0;
+      margin: 0;
+      cursor: pointer;
+      background: #dcfce7;
+      overflow: hidden;
     }
 
-    .card-footer {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin-top: 1.25rem;
-      padding-top: 1rem;
-      border-top: 1px solid #e5e7eb;
+    .carousel-slide img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.6s ease;
     }
 
-    .provider {
-      display: flex;
-      align-items: center;
-      gap: 0.75rem;
+    .carousel-slide:hover img {
+      transform: scale(1.03);
     }
 
-    .avatar {
-      width: 2.5rem;
-      height: 2.5rem;
-      background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
-      border-radius: 9999px;
+    .carousel-nav {
+      position: absolute;
+      top: calc(50% - 1.6rem);
+      transform: translateY(-50%);
+      z-index: 2;
+      width: 2.4rem;
+      height: 2.4rem;
+      border-radius: 50%;
+      border: 1px solid rgba(15, 23, 42, 0.08);
+      background: rgba(255, 255, 255, 0.95);
+      color: var(--bt-green);
+      box-shadow: 0 8px 20px -10px rgba(15, 23, 42, 0.4);
+      cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
-      color: #ffffff;
-      font-weight: 600;
-      font-size: 0.875rem;
+      transition: background 0.2s, transform 0.2s;
     }
 
-    .info {
-      display: flex;
-      flex-direction: column;
-      gap: 0.125rem;
+    .carousel-nav:hover {
+      background: #fff;
+      transform: translateY(-50%) scale(1.06);
     }
 
-    .name {
-      font-weight: 600;
-      font-size: 0.875rem;
-      color: #111827;
+    .carousel-nav.prev { left: 0.7rem; }
+    .carousel-nav.next { right: 0.7rem; }
+
+    .carousel-nav mat-icon {
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
     }
 
-    .rating {
-      font-size: 0.75rem;
-      color: #9ca3af;
-    }
-
-    .escrow-badge {
+    .carousel-meta {
       display: flex;
       align-items: center;
-      gap: 0.25rem;
-      color: #16a34a;
-      font-size: 0.75rem;
-      font-weight: 600;
+      justify-content: space-between;
+      gap: 1rem;
+      margin-top: 1rem;
+      padding: 0 0.15rem;
+    }
 
-      mat-icon {
-        font-size: 1rem;
-        width: 1rem;
-        height: 1rem;
-      }
+    .carousel-meta-text {
+      min-width: 0;
+    }
+
+    .carousel-index {
+      display: block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #94a3b8;
+      margin-bottom: 0.2rem;
+    }
+
+    .carousel-meta h4 {
+      margin: 0;
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--bt-ink);
+      letter-spacing: -0.02em;
+    }
+
+    .carousel-dots {
+      display: flex;
+      justify-content: flex-end;
+      gap: 0.35rem;
+      flex-shrink: 0;
+    }
+
+    .carousel-dots .dot {
+      width: 0.45rem;
+      height: 0.45rem;
+      border-radius: 9999px;
+      border: none;
+      padding: 0;
+      background: #cbd5e1;
+      cursor: pointer;
+      transition: width 0.25s, background 0.25s;
+    }
+
+    .carousel-dots .dot.active {
+      width: 1.15rem;
+      background: var(--bt-green-bright);
     }
 
     /* Services Section */
@@ -1906,12 +2142,35 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
     }
 
     @media (max-width: 640px) {
-      .nav-center {
+      .gg-navbar {
+        padding: 0.75rem 4%;
+      }
+
+      .logo-img {
+        height: 40px;
+        width: 40px;
+      }
+
+      .logo-text {
+        font-size: 1.2rem;
+      }
+
+      .nav-menu-btn > span {
         display: none;
       }
 
+      .nav-menu-btn .chevron {
+        display: none;
+      }
+
+      .nav-menu-btn {
+        width: 2.5rem;
+        padding: 0;
+        justify-content: center;
+      }
+
       .gg-hero {
-        padding: 5.5rem 1rem 2.5rem;
+        padding: 5.75rem 1.15rem 2.75rem;
       }
 
       .hero-container {
@@ -1922,6 +2181,54 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
       .hero-visual {
         order: -1;
         max-width: 100%;
+      }
+
+      .hero-carousel {
+        max-width: 100%;
+      }
+
+      .hero-container {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+      }
+
+      .hero-stats {
+        gap: 0;
+      }
+
+      .hero-stat-divider {
+        margin: 0.15rem 0.5rem;
+      }
+
+      .carousel-viewport {
+        aspect-ratio: 16 / 12;
+        max-height: 240px;
+      }
+
+      .carousel-nav {
+        top: 50%;
+      }
+
+      .carousel-nav.prev { left: 0.5rem; }
+      .carousel-nav.next { right: 0.5rem; }
+
+      .search-box {
+        flex-wrap: wrap;
+        padding: 0.65rem;
+      }
+
+      .search-box input {
+        flex: 1 1 100%;
+        order: 1;
+        padding: 0.35rem 0.4rem;
+      }
+
+      .search-icon { order: 0; }
+
+      .search-btn {
+        flex: 1 1 100%;
+        order: 2;
+        width: 100%;
       }
 
       .hero-title {
@@ -1965,7 +2272,7 @@ import { AssignMissionDialogComponent } from './assign-mission-dialog/assign-mis
   `]
 })
 
-export class LandingComponent implements OnInit {
+export class LandingComponent implements OnInit, OnDestroy {
   currentUser$: Observable<User | null>;
   loading = true;
   stats: LandingStats | null = null;
@@ -1977,6 +2284,23 @@ export class LandingComponent implements OnInit {
   searchQuery = '';
   totalProviders = 0;
   totalEnterprises = 0;
+
+  readonly defaultHeroSlides = [
+    { src: 'assets/images/carousel/aidemeanagere.webp', title: 'Aide ménagère', query: 'Aide ménagère' },
+    { src: 'assets/images/carousel/coursesetachats.webp', title: 'Courses et achats', query: 'Courses' },
+    { src: 'assets/images/carousel/demenagement.webp', title: 'Déménagement', query: 'Déménagement' },
+    { src: 'assets/images/carousel/gardiennage.webp', title: 'Gardiennage', query: 'Gardiennage' },
+    { src: 'assets/images/carousel/jardinage.webp', title: 'Jardinage', query: 'Jardinage' },
+    { src: 'assets/images/carousel/livraisondecolis.webp', title: 'Livraison de colis', query: 'Livraison' },
+    { src: 'assets/images/carousel/livraisonmedicale.webp', title: 'Livraison médicale', query: 'Livraison médicale' },
+    { src: 'assets/images/carousel/reparation.webp', title: 'Réparation', query: 'Réparation' },
+  ];
+
+  heroSlides = [...this.defaultHeroSlides];
+
+  carouselIndex = 0;
+  private carouselTimer: ReturnType<typeof setInterval> | null = null;
+  private carouselPaused = false;
 
   private readonly categoryColors = [
     '#3CB371', '#4ECDC4', '#FF6B6B', '#FFE66D',
@@ -1991,6 +2315,8 @@ export class LandingComponent implements OnInit {
   ];
 
   isScrolled = false;
+  menuOpen = false;
+  profileOpen = false;
   howItWorksTab: 'client' | 'provider' | 'enterprise' = 'client';
 
   readonly clientSteps = [
@@ -2025,6 +2351,53 @@ export class LandingComponent implements OnInit {
 
   ngOnInit(): void {
     this.loadLandingData();
+    this.startCarousel();
+  }
+
+  ngOnDestroy(): void {
+    this.stopCarousel();
+  }
+
+  startCarousel(): void {
+    this.stopCarousel();
+    this.carouselTimer = setInterval(() => {
+      if (!this.carouselPaused) this.nextSlide();
+    }, 4200);
+  }
+
+  stopCarousel(): void {
+    if (this.carouselTimer) {
+      clearInterval(this.carouselTimer);
+      this.carouselTimer = null;
+    }
+  }
+
+  pauseCarousel(): void {
+    this.carouselPaused = true;
+  }
+
+  resumeCarousel(): void {
+    this.carouselPaused = false;
+  }
+
+  nextSlide(event?: Event): void {
+    event?.stopPropagation();
+    this.carouselIndex = (this.carouselIndex + 1) % this.heroSlides.length;
+  }
+
+  prevSlide(event?: Event): void {
+    event?.stopPropagation();
+    this.carouselIndex =
+      (this.carouselIndex - 1 + this.heroSlides.length) % this.heroSlides.length;
+  }
+
+  goToSlide(index: number, event?: Event): void {
+    event?.stopPropagation();
+    this.carouselIndex = index;
+  }
+
+  onHeroSlideClick(slide: { title: string; query: string }): void {
+    this.searchByCategory(slide.query);
   }
 
   loadLandingData(): void {
@@ -2039,6 +2412,18 @@ export class LandingComponent implements OnInit {
         this.totalProviders = data.stats.total_providers;
         this.totalEnterprises = data.stats.total_enterprises;
         this.popularCategories = data.popular_categories;
+        if (data.slides?.length) {
+          this.heroSlides = data.slides
+            .filter((s) => !!s.image_url)
+            .map((s) => ({
+              src: s.image_url,
+              title: s.title,
+              query: s.query || s.title,
+            }));
+          this.carouselIndex = 0;
+        } else {
+          this.heroSlides = [...this.defaultHeroSlides];
+        }
         this.loading = false;
       },
       error: () => {
@@ -2055,6 +2440,34 @@ export class LandingComponent implements OnInit {
   searchByCategory(name: string): void {
     this.searchQuery = name;
     this.onSearch();
+  }
+
+  openServiceDetails(service: LandingCategory, index: number): void {
+    this.dialog.open(ServiceCategoryDialogComponent, {
+      data: {
+        category: service,
+        accent: this.getCategoryColor(index),
+      },
+      width: '640px',
+      maxWidth: '95vw',
+      maxHeight: '90vh',
+      autoFocus: false,
+      panelClass: 'landing-service-dialog',
+    });
+  }
+
+  openLogoPreview(event?: Event): void {
+    event?.preventDefault();
+    event?.stopPropagation();
+    this.dialog.open(LogoPreviewDialogComponent, {
+      data: {
+        src: 'assets/images/logo-blocktask-header.png',
+        title: 'BlockTask',
+      },
+      maxWidth: '95vw',
+      autoFocus: false,
+      panelClass: 'logo-preview-dialog',
+    });
   }
 
   getCategoryColor(index: number): string {
@@ -2178,6 +2591,43 @@ export class LandingComponent implements OnInit {
 
   logout(): void {
     this.authService.logout();
+  }
+
+  spaceOf(user: User): string {
+    return user.active_role || user.user_type || 'client';
+  }
+
+  roleLabel(user: User): string {
+    const role = this.spaceOf(user);
+    const labels: Record<string, string> = {
+      client: 'Client',
+      provider: 'Prestataire',
+      enterprise: 'Entreprise',
+      admin: 'Admin',
+    };
+    return labels[role] || role;
+  }
+
+  toggleMenu(event: Event): void {
+    event.stopPropagation();
+    this.menuOpen = !this.menuOpen;
+    if (this.menuOpen) this.profileOpen = false;
+  }
+
+  toggleProfile(event: Event): void {
+    event.stopPropagation();
+    this.profileOpen = !this.profileOpen;
+    if (this.profileOpen) this.menuOpen = false;
+  }
+
+  closeNavDropdowns(): void {
+    this.menuOpen = false;
+    this.profileOpen = false;
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.closeNavDropdowns();
   }
 
   @HostListener('window:scroll', [])

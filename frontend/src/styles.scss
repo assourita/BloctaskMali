@@ -1169,11 +1169,21 @@ a:hover {
 }
 
 .landing-provider-dialog .mat-mdc-dialog-container,
-.landing-provider-dialog .mdc-dialog__surface {
+.landing-provider-dialog .mdc-dialog__surface,
+.landing-service-dialog .mat-mdc-dialog-container,
+.landing-service-dialog .mdc-dialog__surface {
   padding: 0;
   border-radius: 16px;
   overflow: hidden;
   box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+}
+
+.logo-preview-dialog .mat-mdc-dialog-container,
+.logo-preview-dialog .mdc-dialog__surface {
+  padding: 0;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #0b1220;
 }
 
 .landing-providers-list-dialog .mat-mdc-dialog-container,

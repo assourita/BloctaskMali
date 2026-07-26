@@ -10,7 +10,7 @@ from apps.missions.category_rules import display_category_name, display_category
 from apps.users.models import EnterpriseProfile
 from apps.users.enterprise_helpers import enterprise_profile_defaults
 from .africa_config import get_market_config, get_operators_for_country
-from .models import PlatformSettings
+from .models import PlatformSettings, LandingSlide
 from .serializers import PlatformSettingsSerializer
 
 User = get_user_model()
@@ -249,6 +249,17 @@ def landing_data(request):
                 'created_at': mission.created_at.isoformat(),
             }
             for mission in featured_missions
+        ],
+        'slides': [
+            {
+                'id': slide.id,
+                'title': slide.title,
+                'query': slide.search_query or slide.title,
+                'image_url': request.build_absolute_uri(slide.image.url) if slide.image else None,
+                'order': slide.order,
+            }
+            for slide in LandingSlide.objects.filter(is_active=True).order_by('order', 'title')
+            if slide.image
         ],
         'popular_categories': [
             _category_display_name(cat)

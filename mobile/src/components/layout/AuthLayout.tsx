@@ -36,9 +36,9 @@ export function AuthLayout({ title, subtitle, children }: AuthLayoutProps) {
         <View style={styles.brandPanel}>
           <View style={styles.brandMark}>
             <Image
-              source={require('../../../assets/logo-blocktask-mali.png')}
+              source={require('../../../assets/logo-blocktask-header.png')}
               style={styles.logoImg}
-              resizeMode="contain"
+              resizeMode="cover"
               accessibilityLabel="Logo BlockTask"
             />
             <Text style={styles.logoText}>BlockTask</Text>
@@ -69,9 +69,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   logoImg: {
-    width: 64,
-    height: 64,
-    borderRadius: 14,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     backgroundColor: 'rgba(255,255,255,0.95)',
   },
   logoText: {

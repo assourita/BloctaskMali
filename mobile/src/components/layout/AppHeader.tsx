@@ -91,6 +91,11 @@ export function AppHeader({ title }: { title?: string }) {
           <Text style={styles.hamburger}>☰</Text>
         </Pressable>
         <Pressable style={styles.logo} onPress={() => router.push(user ? '/(tabs)' : '/')}>
+          <Image
+            source={require('../../../assets/logo-blocktask-header.png')}
+            style={styles.logoImg}
+            accessibilityLabel="BlockTask"
+          />
           <Text style={styles.logoText}>BlockTask</Text>
         </Pressable>
       </View>
@@ -199,6 +204,12 @@ const styles = StyleSheet.create({
   iconBtn: { padding: 4 },
   hamburger: { fontSize: 23, color: colors.text },
   logo: { flexDirection: 'row', alignItems: 'center', gap: 7 },
+  logoImg: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#fff',
+  },
   logoDot: { width: 12, height: 12, borderRadius: 3, backgroundColor: colors.primary },
   logoText: { fontSize: 18, fontWeight: '800', color: colors.primary },
   headerTitle: { fontSize: 14, fontWeight: '700', color: colors.text, maxWidth: 120 },

@@ -13,10 +13,15 @@ def forwards(apps, schema_editor):
         walk_fix_json,
     )
 
+    from django.db import connection
+
+    existing_tables = set(connection.introspection.table_names())
     for model in django_apps.get_models():
         app_config = django_apps.get_app_config(model._meta.app_label)
         module = getattr(app_config, 'name', '') or ''
         if not module.startswith('apps.'):
+            continue
+        if model._meta.db_table not in existing_tables:
             continue
 
         text_fields = []

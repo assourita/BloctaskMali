@@ -13,11 +13,17 @@ def forwards(apps, schema_editor):
     from django.apps import apps as django_apps
     from django.db import models
 
+    from django.db import connection
+
+    existing_tables = set(connection.introspection.table_names())
     local_prefixes = ('apps.',)
     for model in django_apps.get_models():
         app_config = django_apps.get_app_config(model._meta.app_label)
         module = getattr(app_config, 'name', '') or ''
         if not module.startswith(local_prefixes):
+            continue
+        # Skip models whose table is not created yet (e.g. LandingSlide before 0005)
+        if model._meta.db_table not in existing_tables:
             continue
 
         text_fields = []

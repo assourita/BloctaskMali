@@ -62,6 +62,14 @@ export interface LandingMission {
   created_at: string;
 }
 
+export interface LandingSlide {
+  id: number;
+  title: string;
+  query: string;
+  image_url: string;
+  order?: number;
+}
+
 export interface LandingData {
   stats: LandingStats;
   categories: LandingCategory[];
@@ -69,6 +77,7 @@ export interface LandingData {
   featured_enterprises: LandingEnterprise[];
   featured_missions: LandingMission[];
   popular_categories: string[];
+  slides?: LandingSlide[];
 }
 
 @Injectable({ providedIn: 'root' })

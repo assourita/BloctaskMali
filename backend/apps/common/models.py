@@ -27,3 +27,24 @@ class PlatformSettings(models.Model):
     def get_solo(cls) -> 'PlatformSettings':
         obj, _ = cls.objects.get_or_create(pk='default')
         return obj
+
+
+class LandingSlide(models.Model):
+    """Slides du carrousel de la landing (images en media / R2)."""
+
+    title = models.CharField(max_length=120)
+    search_query = models.CharField(max_length=120, blank=True)
+    image = models.ImageField(upload_to='landing/carousel/')
+    order = models.PositiveIntegerField(default=0)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        db_table = 'landing_slides'
+        ordering = ['order', 'title']
+        verbose_name = 'Slide landing'
+        verbose_name_plural = 'Slides landing'
+
+    def __str__(self):
+        return self.title
