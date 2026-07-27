@@ -762,7 +762,8 @@ import { LogoPreviewDialogComponent } from './logo-preview-dialog/logo-preview-d
       to { opacity: 1; transform: translateY(0); }
     }
 
-    .nav-dd-panel > a {
+    /* Liens des menus (Services, etc.) — pas les items profil (.dp-item) */
+    .nav-dd-panel > a:not(.dp-item) {
       display: block;
       padding: 0.7rem 1.1rem;
       color: #374151;
@@ -772,7 +773,7 @@ import { LogoPreviewDialogComponent } from './logo-preview-dialog/logo-preview-d
       transition: background 0.15s, color 0.15s;
     }
 
-    .nav-dd-panel > a:hover {
+    .nav-dd-panel > a:not(.dp-item):hover {
       background: #f0fdf4;
       color: #15803d;
     }
@@ -853,12 +854,16 @@ import { LogoPreviewDialogComponent } from './logo-preview-dialog/logo-preview-d
       align-items: center;
       gap: 12px;
       padding: 11px 16px;
+      margin: 0;
+      box-sizing: border-box;
       font-size: 14px;
       font-weight: 500;
+      font-family: inherit;
       color: #333;
       text-decoration: none;
       background: transparent;
       border: none;
+      border-radius: 0;
       cursor: pointer;
       width: 100%;
       text-align: left;
@@ -869,6 +874,7 @@ import { LogoPreviewDialogComponent } from './logo-preview-dialog/logo-preview-d
       font-size: 20px;
       width: 20px;
       height: 20px;
+      flex-shrink: 0;
       color: #666;
     }
 
