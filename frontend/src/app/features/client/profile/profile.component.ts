@@ -97,7 +97,7 @@ import { TwoFactorSettingsComponent } from '../../../shared/components/two-facto
                 <div class="field-wrap" [class.field-missing]="isMissing('phone_number')" data-profile-field="phone_number">
                   <label class="field-label">Téléphone <span class="req" *ngIf="isMissing('phone_number')">*</span></label>
                   <div class="field-input-icon">
-                    <input class="field-input" formControlName="phone_number" placeholder="+229..."/>
+                    <input class="field-input" formControlName="phone_number" placeholder="+223..."/>
                     <mat-icon class="field-icon">phone</mat-icon>
                   </div>
                 </div>
@@ -115,7 +115,7 @@ import { TwoFactorSettingsComponent } from '../../../shared/components/two-facto
                   <label class="field-label">Ville <span class="req">*</span></label>
                   <div class="native-select-wrap">
                     <select class="native-select" formControlName="city" [disabled]="!infoForm.get('country')?.value">
-                      <option value="" disabled selected>{{ availableCities.length ? 'Sélectionnez une ville' : 'Choisissez d\'abord un pays' }}</option>
+                      <option value="" disabled selected>{{ citySelectPlaceholder }}</option>
                       <option *ngFor="let city of availableCities" [value]="city">{{ city }}</option>
                     </select>
                     <mat-icon class="select-arrow">expand_more</mat-icon>
@@ -540,6 +540,7 @@ export class ClientProfileComponent implements OnInit {
       new_password_confirm: ['', Validators.required],
     }, { validators: this.passwordMatch });
 
+    this.updateAvailableCities('ML');
     this.loadProfile();
     this.loadStats();
 
@@ -553,6 +554,11 @@ export class ClientProfileComponent implements OnInit {
   get initials(): string {
     if (!this.user) return '?';
     return ((this.user.first_name?.[0] || '') + (this.user.last_name?.[0] || '')).toUpperCase() || this.user.email?.[0]?.toUpperCase() || '?';
+  }
+
+  /** Évite les apostrophes dans le template Angular (casse l’interpolation). */
+  get citySelectPlaceholder(): string {
+    return this.availableCities.length ? 'Sélectionnez une ville' : 'Choisissez d’abord un pays';
   }
 
   private h(): HttpHeaders {
@@ -626,7 +632,10 @@ export class ClientProfileComponent implements OnInit {
     const v = this.infoForm.value;
     if (v.first_name !== undefined) payload.first_name = v.first_name;
     if (v.last_name !== undefined) payload.last_name = v.last_name;
-    if (v.phone_number !== undefined) payload.phone_number = v.phone_number || null;
+    if (v.phone_number !== undefined) {
+      const phone = String(v.phone_number || '').replace(/[\s.-]/g, '').trim();
+      payload.phone_number = phone || null;
+    }
     if (v.city !== undefined) payload.city = v.city;
     // Convertir le code pays en nom de pays pour le backend
     if (v.country !== undefined) {
@@ -642,7 +651,21 @@ export class ClientProfileComponent implements OnInit {
         this.snack.open('Profil mis à jour ✓', 'Fermer', { duration: 3000, panelClass: ['snack-success'] });
         this.afterProfileSave();
       },
-      error: () => { this.savingInfo = false; this.snack.open('Erreur lors de la mise à jour', 'Fermer', { duration: 3000 }); }
+      error: (e) => {
+        this.savingInfo = false;
+        const err = e?.error;
+        let msg = 'Erreur lors de la mise à jour';
+        if (typeof err === 'string') msg = err;
+        else if (err?.phone_number) msg = Array.isArray(err.phone_number) ? err.phone_number[0] : String(err.phone_number);
+        else if (err?.detail) msg = err.detail;
+        else if (err?.error) msg = err.error;
+        else if (err && typeof err === 'object') {
+          const first = Object.values(err).flat?.() ?? Object.values(err);
+          const m = Array.isArray(first) ? first[0] : first;
+          if (m) msg = String(m);
+        }
+        this.snack.open(msg, 'Fermer', { duration: 5000 });
+      }
     });
   }
 
