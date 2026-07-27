@@ -240,7 +240,9 @@ export class EnterpriseTrackingComponent implements OnInit, AfterViewInit, OnDes
   private refreshSub?: Subscription;
   private ws?: WebSocket;
   private wsFailed = false;
-  private readonly wsBase = environment.wsUrl;
+  private readonly wsBase = (environment.wsUrl || '')
+    .replace(/\/$/, '')
+    .replace(/\/ws$/i, '');
   private liveByUser = new Map<string, LiveGpsLocation>();
 
   get filteredEmployees(): MapEmployee[] {

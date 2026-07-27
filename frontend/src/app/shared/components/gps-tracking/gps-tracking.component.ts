@@ -353,7 +353,9 @@ export class GpsTrackingComponent implements OnInit, OnDestroy, OnChanges, After
   @ViewChild('mapContainer') mapContainer!: ElementRef;
   
   private apiUrl = environment.apiUrl;
-  private wsBase = (environment.wsUrl || environment.apiUrl.replace('/api', '').replace(/^http/, 'ws')).replace(/\/$/, '');
+  private wsBase = (environment.wsUrl || environment.apiUrl.replace('/api', '').replace(/^http/, 'ws'))
+    .replace(/\/$/, '')
+    .replace(/\/ws$/i, '');
   private map?: L.Map;
   private markersLayer?: L.LayerGroup;
   private pathLine?: L.Polyline;

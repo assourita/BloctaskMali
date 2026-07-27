@@ -240,7 +240,7 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
             <mat-card class="section-card" id="proofs-section" *ngIf="mission.status === 'in_progress'">
               <mat-card-header>
                 <mat-card-title><mat-icon>photo_camera</mat-icon> Preuves de mission</mat-card-title>
-                <mat-card-subtitle>Ajoutez des photos puis finalisez pour soumettre au client</mat-card-subtitle>
+                <mat-card-subtitle>Ajoutez des photos, cliquez Envoyer, puis Finaliser pour soumettre au client</mat-card-subtitle>
               </mat-card-header>
               <mat-card-content>
                 <input type="file" accept="image/*" #fileInput (change)="onFileSelected($event)" hidden>
@@ -248,14 +248,20 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
                   <button mat-stroked-button (click)="fileInput.click()" [disabled]="actionLoading">
                     <mat-icon>add_a_photo</mat-icon> Ajouter une photo
                   </button>
-                  <span class="file-hint" *ngIf="selectedFile">{{ selectedFile.name }}</span>
+                  <span class="file-hint" *ngIf="selectedFile">{{ selectedFile.name }} (pas encore envoyée)</span>
                   <button mat-raised-button color="accent" (click)="uploadProof()" [disabled]="!selectedFile || actionLoading">
                     Envoyer
                   </button>
-                  <button mat-raised-button color="primary" (click)="finalizeProofs()" [disabled]="actionLoading">
+                  <button mat-raised-button color="primary" (click)="finalizeProofs()" [disabled]="actionLoading || (!uploadedProofs.length && !selectedFile)">
                     <mat-icon>task_alt</mat-icon> Finaliser et soumettre
                   </button>
                 </div>
+                <ul class="uploaded-proofs" *ngIf="uploadedProofs.length">
+                  <li *ngFor="let p of uploadedProofs">
+                    <mat-icon>check_circle</mat-icon>
+                    {{ p.title || p.file_name || p.proof_type }} — enregistrée
+                  </li>
+                </ul>
               </mat-card-content>
             </mat-card>
 
@@ -702,7 +708,17 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
     .alert-card p { margin: 4px 0 0; font-size: 14px; }
 
     .proof-actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
-    .file-hint { font-size: 13px; color: #6b7280; }
+    .file-hint { font-size: 13px; color: #b45309; font-weight: 500; }
+    .uploaded-proofs {
+      list-style: none; margin: 14px 0 0; padding: 0;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .uploaded-proofs li {
+      display: flex; align-items: center; gap: 8px;
+      font-size: 13px; color: #166534; background: #f0fdf4;
+      border-radius: 8px; padding: 8px 12px;
+    }
+    .uploaded-proofs mat-icon { font-size: 18px; width: 18px; height: 18px; color: #16a34a; }
 
     .history-list { display: flex; flex-direction: column; gap: 16px; }
     .history-item { display: flex; gap: 12px; }
@@ -833,6 +849,7 @@ export class ProviderMissionDetailComponent implements OnInit {
   pageLoading = true;
   actionLoading = false;
   selectedFile: File | null = null;
+  uploadedProofs: Array<{ id: string; title?: string; file_name?: string; proof_type: string }> = [];
   applyMessage = '';
   employees: EnterpriseEmployee[] = [];
   teams: EnterpriseTeam[] = [];
@@ -885,6 +902,7 @@ export class ProviderMissionDetailComponent implements OnInit {
         }
         this.buildTimeline();
         this.pageLoading = false;
+        this.loadUploadedProofs();
         const section = this.route.snapshot.queryParamMap.get('section');
         if (section) {
           setTimeout(() => this.scrollToSection(section), 150);
@@ -901,6 +919,20 @@ export class ProviderMissionDetailComponent implements OnInit {
           this.router.navigate(['/provider/missions']);
         }
       },
+    });
+  }
+
+  private loadUploadedProofs(): void {
+    this.proofService.getProofs(this.missionId).subscribe({
+      next: (list) => {
+        this.uploadedProofs = (list || []).map((p: any) => ({
+          id: p.id,
+          title: p.title,
+          file_name: p.file_name,
+          proof_type: p.proof_type,
+        }));
+      },
+      error: () => { this.uploadedProofs = []; },
     });
   }
 
@@ -1357,16 +1389,39 @@ export class ProviderMissionDetailComponent implements OnInit {
       next: () => {
         this.actionLoading = false;
         this.selectedFile = null;
-        this.snackBar.open('Preuve envoyée', 'Fermer', { duration: 3000 });
+        this.loadUploadedProofs();
+        this.snackBar.open('Preuve enregistrée', 'Fermer', { duration: 3000 });
       },
-      error: () => {
+      error: (e) => {
         this.actionLoading = false;
-        this.snackBar.open('Erreur envoi preuve', 'Fermer', { duration: 3000 });
+        const msg = e?.error?.error || e?.error?.detail || 'Échec de l’envoi de la preuve';
+        this.snackBar.open(msg, 'Fermer', { duration: 5000 });
       },
     });
   }
 
   finalizeProofs(): void {
+    // Si une photo est sélectionnée mais pas encore envoyée, l’uploader d’abord.
+    if (this.selectedFile) {
+      this.actionLoading = true;
+      this.proofService.uploadProof(this.missionId, this.selectedFile, 'photo_after', 'Preuve mission').subscribe({
+        next: () => {
+          this.selectedFile = null;
+          this.loadUploadedProofs();
+          this.submitProofsToClient();
+        },
+        error: (e) => {
+          this.actionLoading = false;
+          const msg = e?.error?.error || e?.error?.detail || 'Impossible d’envoyer la photo avant finalisation';
+          this.snackBar.open(msg, 'Fermer', { duration: 5000 });
+        },
+      });
+      return;
+    }
+    this.submitProofsToClient();
+  }
+
+  private submitProofsToClient(): void {
     this.actionLoading = true;
     this.missionService.submitProof(this.missionId).subscribe({
       next: () => {
@@ -1379,7 +1434,11 @@ export class ProviderMissionDetailComponent implements OnInit {
       },
       error: (e) => {
         this.actionLoading = false;
-        this.snackBar.open(e.error?.error || 'Ajoutez au moins une preuve', 'Fermer', { duration: 4000 });
+        this.snackBar.open(
+          e.error?.error || 'Ajoutez au moins une photo et cliquez Envoyer avant de finaliser',
+          'Fermer',
+          { duration: 5000 },
+        );
       },
     });
   }

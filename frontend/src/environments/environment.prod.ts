@@ -1,7 +1,8 @@
 export const environment = {
   production: true,
   apiUrl: 'https://bloctaskmali.onrender.com/api',
-  wsUrl: 'wss://bloctaskmali.onrender.com/ws',
+  // Base host only — les clients ajoutent déjà /ws/tracking/...
+  wsUrl: 'wss://bloctaskmali.onrender.com',
 
   // Blockchain — Sepolia (ancrage escrow / démo)
   ethereum: {

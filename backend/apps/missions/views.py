@@ -1048,7 +1048,12 @@ class MissionViewSet(viewsets.ModelViewSet):
         proof_count = MissionProof.objects.filter(mission=mission).count()
         if proof_count == 0 and not request.data.get('force'):
             return Response(
-                {'error': 'Ajoutez au moins une preuve via POST /api/proofs/proofs/'},
+                {
+                    'error': (
+                        'Aucune preuve enregistrée. Cliquez d’abord sur « Envoyer » '
+                        'après avoir choisi une photo, puis sur « Finaliser et soumettre ».'
+                    )
+                },
                 status=status.HTTP_400_BAD_REQUEST
             )
 

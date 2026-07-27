@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { map } from 'rxjs/operators';
 import { environment } from '../../../environments/environment';
 
 export interface MissionProof {
@@ -9,6 +10,7 @@ export interface MissionProof {
   proof_type: string;
   title?: string;
   file: string;
+  file_name?: string;
   verification_status: string;
   created_at: string;
 }
@@ -41,9 +43,13 @@ export class ProofService {
   }
 
   getProofs(missionId: string): Observable<MissionProof[]> {
-    return this.http.get<MissionProof[]>(
-      `${this.apiUrl}/proofs/?mission=${missionId}`,
-      { headers: this.headers() }
-    );
+    return this.http
+      .get<MissionProof[] | { results: MissionProof[] }>(
+        `${this.apiUrl}/proofs/?mission=${missionId}`,
+        { headers: this.headers() }
+      )
+      .pipe(
+        map((res) => (Array.isArray(res) ? res : res?.results || []))
+      );
   }
 }

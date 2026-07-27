@@ -2,12 +2,15 @@
 
 
 def user_is_mission_executor(user, mission) -> bool:
-    """True si l'utilisateur est le provider (chef) ou un membre affecté non refusé."""
+    """True si l'utilisateur est le provider, l'entreprise assignée, ou un employé affecté."""
     if not user or not getattr(user, 'is_authenticated', False):
         return False
     if getattr(user, 'is_staff', False) or getattr(user, 'user_type', '') == 'admin':
         return True
     if mission.provider_id and mission.provider_id == user.id:
+        return True
+    ent = getattr(mission, 'assigned_enterprise', None)
+    if ent is not None and getattr(ent, 'user_id', None) == user.id:
         return True
     from apps.enterprises.models import EmployeeAssignment
     return EmployeeAssignment.objects.filter(
