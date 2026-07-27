@@ -673,20 +673,41 @@ def toggle_gps_tracking(request):
 @api_view(['POST'])
 @permission_classes([permissions.IsAuthenticated])
 def activate_provider_role(request):
-    """Active le rôle secondaire prestataire pour un client"""
+    """Active le rôle secondaire prestataire pour un client."""
     user = request.user
+
+    # Déjà prestataire (primaire ou secondaire) → idempotent
+    if (
+        user.user_type == User.UserType.PROVIDER
+        or user.secondary_role == User.UserType.PROVIDER
+    ):
+        ProviderProfile.objects.get_or_create(user=user)
+        return Response({
+            'message': 'Profil prestataire déjà activé.',
+            'secondary_role': user.secondary_role or user.user_type,
+            'user': UserSerializer(user).data,
+        })
+
     if user.user_type != User.UserType.CLIENT:
-        return Response({'error': 'Seuls les clients peuvent activer un profil prestataire.'}, status=status.HTTP_400_BAD_REQUEST)
-    if user.secondary_role == User.UserType.PROVIDER:
-        return Response({'message': 'Profil prestataire déjà activé.', 'secondary_role': user.secondary_role})
+        return Response(
+            {
+                'error': (
+                    'Seuls les comptes client peuvent activer un profil prestataire. '
+                    f'Type actuel : {user.get_user_type_display()}.'
+                )
+            },
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
     with transaction.atomic():
         user.secondary_role = User.UserType.PROVIDER
         user.save(update_fields=['secondary_role'])
         ProviderProfile.objects.get_or_create(user=user)
+
     return Response({
         'message': 'Profil prestataire activé avec succès.',
         'secondary_role': user.secondary_role,
-        'user': UserSerializer(user).data
+        'user': UserSerializer(user).data,
     })
 
 

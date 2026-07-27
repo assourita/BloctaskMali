@@ -1393,9 +1393,19 @@ export class ProviderProfileComponent implements OnInit {
     }
     (window as any).ethereum.request({ method: 'eth_requestAccounts' }).then((accounts: string[]) => {
       const wallet_address = accounts[0];
-      this.http.post(`${this.apiUrl}/users/wallet/connect/`, { wallet_address, signature: 'pending' }, { headers: this.h() }).subscribe({
-        next: () => { this.user = { ...this.user, wallet_address }; },
-        error: () => { this.user = { ...this.user, wallet_address }; },
+      this.http.post(`${this.apiUrl}/users/wallet/connect/`, {
+        wallet_address,
+        signature: 'pending',
+        message: 'Connect wallet to BlockTask',
+      }, { headers: this.h() }).subscribe({
+        next: () => {
+          this.user = { ...this.user, wallet_address };
+          this.snack.open('Wallet connecté ✓', 'Fermer', { duration: 3000 });
+        },
+        error: (e) => {
+          const msg = e?.error?.wallet_address?.[0] || e?.error?.error || 'Impossible de lier le wallet';
+          this.snack.open(msg, 'Fermer', { duration: 5000 });
+        },
       });
     });
   }

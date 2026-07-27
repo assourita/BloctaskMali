@@ -228,7 +228,7 @@ import { TwoFactorSettingsComponent } from '../../../shared/components/two-facto
 
             <h3 class="section-title"><mat-icon>swap_horiz</mat-icon> Espace Prestataire</h3>
             <div class="provider-activation-section">
-              <div *ngIf="user?.secondary_role === 'provider'" class="provider-active-box">
+              <div *ngIf="hasProviderSpace" class="provider-active-box">
                 <mat-icon class="provider-active-icon">check_circle</mat-icon>
                 <div>
                   <p class="provider-active-label">Espace prestataire activé</p>
@@ -238,7 +238,7 @@ import { TwoFactorSettingsComponent } from '../../../shared/components/two-facto
                   <mat-icon>open_in_new</mat-icon> Accéder
                 </button>
               </div>
-              <div *ngIf="user?.secondary_role !== 'provider'" class="provider-inactive-box">
+              <div *ngIf="canActivateProviderRole" class="provider-inactive-box">
                 <mat-icon>work_outline</mat-icon>
                 <div>
                   <p class="provider-inactive-title">Devenez prestataire</p>
@@ -561,6 +561,14 @@ export class ClientProfileComponent implements OnInit {
     return this.availableCities.length ? 'Sélectionnez une ville' : 'Choisissez d’abord un pays';
   }
 
+  get hasProviderSpace(): boolean {
+    return this.user?.user_type === 'provider' || this.user?.secondary_role === 'provider';
+  }
+
+  get canActivateProviderRole(): boolean {
+    return this.user?.user_type === 'client' && this.user?.secondary_role !== 'provider';
+  }
+
   private h(): HttpHeaders {
     return new HttpHeaders({ Authorization: `Bearer ${localStorage.getItem('access_token')}` });
   }
@@ -730,9 +738,22 @@ export class ClientProfileComponent implements OnInit {
     }
     (window as any).ethereum.request({ method: 'eth_requestAccounts' }).then((accounts: string[]) => {
       const wallet_address = accounts[0];
-      this.http.post(`${this.apiUrl}/users/connect-wallet/`, { wallet_address, signature: 'pending', message: 'BlockTask' }, { headers: this.h() }).subscribe({
-        next: () => { this.user = { ...this.user, wallet_address }; this.snack.open('Wallet connecté ✓', 'Fermer', { duration: 3000 }); },
-        error: () => { this.user = { ...this.user, wallet_address }; this.snack.open('Wallet connecté ✓', 'Fermer', { duration: 3000 }); }
+      this.http.post(
+        `${this.apiUrl}/users/wallet/connect/`,
+        { wallet_address, signature: 'pending', message: 'Connect wallet to BlockTask' },
+        { headers: this.h() },
+      ).subscribe({
+        next: () => {
+          this.user = { ...this.user, wallet_address };
+          this.snack.open('Wallet connecté ✓', 'Fermer', { duration: 3000 });
+        },
+        error: (e) => {
+          const msg = e?.error?.wallet_address?.[0]
+            || e?.error?.error
+            || e?.error?.detail
+            || 'Impossible de lier le wallet';
+          this.snack.open(msg, 'Fermer', { duration: 5000 });
+        },
       });
     }).catch(() => this.snack.open('Connexion MetaMask annulée', 'Fermer', { duration: 3000 }));
   }
