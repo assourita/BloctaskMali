@@ -195,37 +195,58 @@ interface Conversation {
     </div>
   `,
   styles: [`
+    :host {
+      display: block;
+      width: 100%;
+      max-width: 100%;
+      min-width: 0;
+      height: 100%;
+      box-sizing: border-box;
+    }
+
     .chat-container {
-      display: flex; height: calc(100vh - 64px); background: #f5f5f5;
-      min-width: 0; max-width: 100%; width: 100%; overflow: hidden;
+      display: flex;
+      height: calc(100dvh - 64px);
+      height: calc(100vh - 64px);
+      background: #f5f5f5;
+      min-width: 0;
+      max-width: 100%;
+      width: 100%;
+      overflow: hidden;
       box-sizing: border-box;
 
       &.embedded {
-        height: 420px;
-        max-height: min(60vh, 520px);
+        height: 100%;
+        min-height: 280px;
+        max-height: none;
         border-radius: 0 0 12px 12px;
       }
       
       .conversations-sidebar {
-        width: 320px; background: #fff; border-right: 1px solid #e0e0e0;
-        display: flex; flex-direction: column;
+        width: min(320px, 100%);
+        flex-shrink: 0;
+        background: #fff;
+        border-right: 1px solid #e0e0e0;
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
         
         .sidebar-header {
-          padding: 20px; border-bottom: 1px solid #e0e0e0;
-          h2 { margin: 0; display: flex; align-items: center; gap: 12px; font-size: 20px; }
+          padding: 16px 20px; border-bottom: 1px solid #e0e0e0;
+          h2 { margin: 0; display: flex; align-items: center; gap: 12px; font-size: clamp(16px, 4vw, 20px); }
         }
         
         .conversations-list {
-          flex: 1; overflow-y: auto;
+          flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch;
           .conversation-item {
             display: flex; align-items: center; gap: 12px;
-            padding: 16px 20px; cursor: pointer; transition: background 0.2s;
+            padding: 14px 16px; cursor: pointer; transition: background 0.2s;
             &:hover { background: #f5f5f5; }
             &.active { background: #e3f2fd; }
             &.unread { background: #fff3e0; }
             
             .avatar {
-              width: 48px; height: 48px; border-radius: 50%;
+              width: 44px; height: 44px; border-radius: 50%;
               background: linear-gradient(135deg, #6C5CE7, #a29bfe);
               display: flex; align-items: center; justify-content: center;
               color: #fff; font-weight: 600; overflow: hidden; flex-shrink: 0;
@@ -234,13 +255,13 @@ interface Conversation {
             
             .conversation-info {
               flex: 1; min-width: 0;
-              h4 { margin: 0 0 4px; font-size: 15px; }
+              h4 { margin: 0 0 4px; font-size: 15px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
               .last-message { margin: 0; font-size: 13px; color: #666; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-              .mission-ref { margin: 4px 0 0; font-size: 12px; color: #999; }
+              .mission-ref { margin: 4px 0 0; font-size: 12px; color: #999; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             }
             
             .meta {
-              display: flex; flex-direction: column; align-items: flex-end; gap: 4px;
+              display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0;
               .time { font-size: 11px; color: #999; }
               .unread-badge {
                 background: #ef4444; color: #fff; font-size: 11px; font-weight: 600;
@@ -251,19 +272,19 @@ interface Conversation {
         }
         
         .empty-sidebar {
-          text-align: center; padding: 40px; color: #999;
+          text-align: center; padding: 40px 16px; color: #999;
           mat-icon { font-size: 48px; width: 48px; height: 48px; margin-bottom: 16px; }
         }
       }
       
       .chat-area {
         flex: 1; display: flex; flex-direction: column;
-        min-width: 0; max-width: 100%; overflow: hidden;
+        min-width: 0; max-width: 100%; min-height: 0; overflow: hidden;
         
         .chat-header {
           display: flex; align-items: center; gap: 12px;
-          padding: 12px 16px; background: #fff; border-bottom: 1px solid #e0e0e0;
-          min-width: 0;
+          padding: 10px 14px; background: #fff; border-bottom: 1px solid #e0e0e0;
+          min-width: 0; flex-shrink: 0;
           
           &.placeholder { color: #999; }
           
@@ -277,47 +298,48 @@ interface Conversation {
               color: #fff; font-weight: 600;
               img { width: 100%; height: 100%; object-fit: cover; display: block; }
             }
-            h4 { margin: 0 0 2px; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+            h4 { margin: 0 0 2px; font-size: clamp(14px, 3.5vw, 16px); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
             .mission-title { font-size: 12px; color: #666; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; }
           }
         }
         
         .messages-container {
-          flex: 1; overflow-y: auto; overflow-x: hidden; padding: 16px;
-          min-width: 0;
+          flex: 1; overflow-y: auto; overflow-x: hidden; padding: 12px 14px;
+          min-width: 0; min-height: 0; -webkit-overflow-scrolling: touch;
           .loading-messages { display: flex; justify-content: center; padding: 40px; }
           
           .messages-list {
-            display: flex; flex-direction: column; gap: 16px;
+            display: flex; flex-direction: column; gap: 12px;
             
             .message {
-              display: flex; gap: 12px;
+              display: flex; gap: 10px;
               &.own { flex-direction: row-reverse; }
               &.system { justify-content: center; }
               
               .message-avatar {
-                width: 36px; height: 36px; border-radius: 50%;
+                width: 32px; height: 32px; border-radius: 50%;
                 background: linear-gradient(135deg, #6C5CE7, #a29bfe);
                 display: flex; align-items: center; justify-content: center;
-                color: #fff; font-size: 12px; font-weight: 600; overflow: hidden; flex-shrink: 0;
+                color: #fff; font-size: 11px; font-weight: 600; overflow: hidden; flex-shrink: 0;
                 img { width: 100%; height: 100%; object-fit: cover; }
               }
               
               .message-content {
-                max-width: min(70%, 100%);
+                max-width: min(78%, 520px);
                 min-width: 0;
                 word-break: break-word;
+                overflow-wrap: anywhere;
                 .bubble {
-                  background: #fff; padding: 12px 16px; border-radius: 18px;
+                  background: #fff; padding: 10px 14px; border-radius: 18px;
                   box-shadow: 0 1px 2px rgba(0,0,0,0.1);
                   &.image { padding: 4px; overflow: hidden; }
-                  img { max-width: 100%; max-height: 240px; object-fit: contain; border-radius: 14px; cursor: pointer; display: block; }
-                  p { margin: 0; line-height: 1.5; }
+                  img { max-width: 100%; max-height: min(40vh, 240px); width: auto; object-fit: contain; border-radius: 14px; cursor: pointer; display: block; }
+                  p { margin: 0; line-height: 1.5; font-size: clamp(13px, 3.5vw, 15px); }
                   
                   .location-message {
                     display: flex; align-items: center; gap: 8px;
                     background: #e3f2fd; padding: 8px 12px; border-radius: 12px;
-                    mat-icon { color: #2196f3; }
+                    mat-icon { color: #2196f3; flex-shrink: 0; }
                   }
                   
                   .system-text {
@@ -338,20 +360,21 @@ interface Conversation {
         
         .no-conversation {
           flex: 1; display: flex; flex-direction: column;
-          align-items: center; justify-content: center; color: #999;
+          align-items: center; justify-content: center; color: #999; padding: 24px; text-align: center;
           mat-icon { font-size: 64px; width: 64px; height: 64px; margin-bottom: 16px; }
         }
         
         .input-area {
-          padding: 12px 16px; background: #fff; border-top: 1px solid #e0e0e0;
-          min-width: 0; max-width: 100%; box-sizing: border-box;
+          padding: 10px 12px; background: #fff; border-top: 1px solid #e0e0e0;
+          min-width: 0; max-width: 100%; box-sizing: border-box; flex-shrink: 0;
+          padding-bottom: max(10px, env(safe-area-inset-bottom));
 
           .chat-closed {
             text-align: center; color: #6b7280; font-size: 13px; margin: 0;
           }
           
           .input-container {
-            display: flex; align-items: center; gap: 8px;
+            display: flex; align-items: center; gap: 6px;
             min-width: 0; width: 100%;
             
             .attach-btn { color: #666; flex-shrink: 0; }
@@ -376,15 +399,27 @@ interface Conversation {
     }
     
     @media (max-width: 768px) {
+      .chat-container {
+        height: calc(100dvh - 56px);
+        height: calc(100vh - 56px);
+      }
       .chat-container:not(.sidebar-open) .conversations-sidebar { display: none; }
       .chat-container.sidebar-open .chat-area { display: none; }
-      .conversations-sidebar { width: 100% !important; }
+      .conversations-sidebar { width: 100% !important; border-right: none; }
       .chat-container.embedded {
-        height: 360px;
-        max-height: 50vh;
+        height: 100%;
+        min-height: 260px;
       }
-      .chat-container .input-area { padding: 10px 12px; }
-      .chat-container .messages-container { padding: 12px; }
+      .chat-container .message .message-content { max-width: 88%; }
+      .chat-container .message .message-avatar { display: none; }
+      .chat-container .input-area { padding: 8px 10px; padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+      .chat-container .messages-container { padding: 10px; }
+      .chat-container .send-btn { width: 40px; height: 40px; }
+    }
+
+    @media (max-width: 420px) {
+      .chat-container .chat-header { padding: 8px 10px; }
+      .chat-container .message .message-content { max-width: 92%; }
     }
   `]
 })

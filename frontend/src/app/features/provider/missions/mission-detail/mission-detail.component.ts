@@ -795,12 +795,20 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
 
     .chat-wrap {
       padding: 0;
-      min-height: 320px;
-      max-height: 520px;
+      min-height: clamp(280px, 45vh, 520px);
+      height: clamp(280px, 50vh, 560px);
+      max-height: min(560px, 70dvh);
       overflow: hidden;
       border-radius: 0 0 12px 12px;
       min-width: 0;
       max-width: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-wrap app-chat {
+      flex: 1;
+      min-height: 0;
+      height: 100%;
     }
 
     .success-banner { display: flex; align-items: center; gap: 8px; padding: 12px; background: #ecfdf5; border-radius: 8px; color: #065f46; font-size: 14px; margin-bottom: 8px; }
@@ -827,7 +835,11 @@ import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking
       .proof-actions { flex-direction: column; align-items: stretch; }
       .full-width, button.full-width { width: 100%; }
       .section-card { margin-bottom: 14px; }
-      .chat-wrap { min-height: 280px; max-height: 420px; }
+      .chat-wrap {
+        min-height: 260px;
+        height: min(55dvh, 420px);
+        max-height: 55dvh;
+      }
       .info-banner, .success-banner, .applied-banner {
         align-items: flex-start;
         line-height: 1.4;

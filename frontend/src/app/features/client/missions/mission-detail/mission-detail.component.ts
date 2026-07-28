@@ -699,12 +699,20 @@ import { environment } from '../../../../../environments/environment';
     .escrow-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6; font-size: 14px; }
     .escrow-row .ok { color: #059669; }
     .chat-wrap {
-      min-height: 300px;
-      max-height: 520px;
+      min-height: clamp(280px, 45vh, 520px);
+      height: clamp(280px, 50vh, 560px);
+      max-height: min(560px, 70dvh);
       overflow: hidden;
       padding: 0;
       min-width: 0;
       max-width: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    .chat-wrap app-chat {
+      flex: 1;
+      min-height: 0;
+      height: 100%;
     }
 
     @media (max-width: 960px) {
@@ -722,7 +730,11 @@ import { environment } from '../../../../../environments/environment';
       .detail-row { grid-template-columns: 1fr; gap: 4px; }
       .media-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .section-card { margin-bottom: 14px; }
-      .chat-wrap { min-height: 280px; max-height: 420px; }
+      .chat-wrap {
+        min-height: 260px;
+        height: min(55dvh, 420px);
+        max-height: 55dvh;
+      }
       .expiry-actions { flex-direction: column; align-items: stretch; }
       .full-width, button.full-width { width: 100%; }
       .history-item { min-width: 0; }
