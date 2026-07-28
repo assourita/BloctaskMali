@@ -2147,6 +2147,45 @@ import { LogoPreviewDialogComponent } from './logo-preview-dialog/logo-preview-d
       }
     }
 
+    @media (max-width: 900px) {
+      .hero-container {
+        grid-template-columns: 1fr;
+        gap: 1.75rem;
+        justify-items: center;
+      }
+
+      .hero-content {
+        width: 100%;
+        max-width: 36rem;
+        align-items: center;
+        text-align: center;
+      }
+
+      .hero-visual {
+        order: -1;
+        width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+      }
+
+      .hero-carousel {
+        width: min(100%, 320px);
+        max-width: 320px;
+        margin-left: auto;
+        margin-right: auto;
+      }
+
+      .hero-stats,
+      .popular-searches {
+        justify-content: center;
+      }
+
+      .search-box {
+        width: 100%;
+      }
+    }
+
     @media (max-width: 640px) {
       .gg-navbar {
         padding: 0.75rem 4%;
@@ -2182,41 +2221,69 @@ import { LogoPreviewDialogComponent } from './logo-preview-dialog/logo-preview-d
       .hero-container {
         grid-template-columns: 1fr;
         gap: 1.5rem;
+        justify-items: center;
       }
 
       .hero-visual {
         order: -1;
+        width: 100%;
         max-width: 100%;
+        display: flex;
+        justify-content: center;
+        align-items: center;
       }
 
       .hero-carousel {
-        max-width: 100%;
-      }
-
-      .hero-container {
-        grid-template-columns: 1fr;
-        gap: 2rem;
-      }
-
-      .hero-stats {
-        gap: 0;
-      }
-
-      .hero-stat-divider {
-        margin: 0.15rem 0.5rem;
+        width: min(92vw, 300px);
+        max-width: 300px;
+        margin-left: auto;
+        margin-right: auto;
       }
 
       .carousel-viewport {
-        aspect-ratio: 16 / 12;
-        max-height: 240px;
+        aspect-ratio: 1 / 1.05;
+        max-height: none;
+        width: 100%;
+        margin: 0 auto;
+      }
+
+      .carousel-slide img {
+        object-fit: cover;
+        object-position: center center;
       }
 
       .carousel-nav {
         top: 50%;
       }
 
-      .carousel-nav.prev { left: 0.5rem; }
-      .carousel-nav.next { right: 0.5rem; }
+      .carousel-nav.prev { left: 0.4rem; }
+      .carousel-nav.next { right: 0.4rem; }
+
+      .carousel-meta {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        gap: 0.65rem;
+      }
+
+      .carousel-meta-text {
+        align-items: center;
+        text-align: center;
+      }
+
+      .carousel-dots {
+        justify-content: center;
+        width: 100%;
+      }
+
+      .hero-stats {
+        gap: 0;
+        justify-content: center;
+      }
+
+      .hero-stat-divider {
+        margin: 0.15rem 0.5rem;
+      }
 
       .search-box {
         flex-wrap: wrap;
