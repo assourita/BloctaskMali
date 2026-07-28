@@ -406,6 +406,12 @@ export class ClientDisputesComponent implements OnInit {
       if (params['id']) {
         this.openDispute({ id: params['id'] } as Dispute);
       }
+      if (params['mission'] || params['open'] === '1') {
+        this.showForm = true;
+        if (params['mission']) {
+          this.form.patchValue({ mission_id: params['mission'] });
+        }
+      }
     });
   }
 

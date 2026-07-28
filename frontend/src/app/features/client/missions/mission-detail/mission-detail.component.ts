@@ -326,7 +326,7 @@ import { environment } from '../../../../../environments/environment';
               <mat-card-header>
                 <mat-card-title><mat-icon>photo_camera</mat-icon> Preuves du prestataire</mat-card-title>
                 <mat-card-subtitle *ngIf="mission.status === 'submitted'">
-                  Vérifiez ces preuves avant de valider et libérer le paiement
+                  Vérifiez les preuves, puis validez le paiement ou ouvrez un litige
                 </mat-card-subtitle>
               </mat-card-header>
               <mat-card-content>
@@ -334,34 +334,61 @@ import { environment } from '../../../../../environments/environment';
                   <mat-progress-spinner diameter="32" mode="indeterminate"></mat-progress-spinner>
                 </div>
                 <ng-container *ngIf="!proofsLoading">
-                  <div class="media-grid" *ngIf="proofs.length; else noProofs">
+                  <div class="proofs-grid" *ngIf="proofs.length; else noProofs">
                     <a
-                      class="media-item proof-item"
+                      class="proof-tile"
                       *ngFor="let p of proofs"
                       [href]="proofFileUrl(p)"
                       target="_blank"
                       rel="noopener"
                     >
                       <img *ngIf="isProofImage(p)" [src]="proofFileUrl(p)" [alt]="p.title || p.file_name || 'Preuve'" />
-                      <div class="media-doc" *ngIf="!isProofImage(p)">
+                      <div class="proof-doc" *ngIf="!isProofImage(p)">
                         <mat-icon>description</mat-icon>
                         <span>{{ p.file_name || p.title || 'Document' }}</span>
                       </div>
-                      <span class="media-caption">
-                        {{ p.title || proofTypeLabel(p.proof_type) }}
-                        <small *ngIf="p.created_at"> · {{ p.created_at | date:'dd/MM HH:mm' }}</small>
-                      </span>
+                      <div class="proof-meta">
+                        <strong>{{ p.title || proofTypeLabel(p.proof_type) }}</strong>
+                        <span *ngIf="p.created_at">{{ p.created_at | date:'dd/MM/yyyy HH:mm' }}</span>
+                      </div>
                     </a>
                   </div>
                   <ng-template #noProofs>
                     <p class="empty-proofs">Aucune preuve disponible pour le moment.</p>
                   </ng-template>
                 </ng-container>
-                <div class="proofs-actions" *ngIf="mission.status === 'submitted' && proofs.length">
-                  <button mat-raised-button color="primary" (click)="validateMission()" [disabled]="validating">
-                    <mat-icon>check_circle</mat-icon>
-                    {{ validating ? 'Validation…' : 'Valider et libérer le paiement' }}
-                  </button>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="section-card decision-card" *ngIf="mission.status === 'submitted'" id="decision-section">
+              <mat-card-header>
+                <mat-card-title><mat-icon>gavel</mat-icon> Décision client</mat-card-title>
+                <mat-card-subtitle>
+                  Valider libère 95 % au prestataire. Un litige bloque le paiement jusqu’à résolution.
+                </mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content class="decision-actions">
+                <button mat-raised-button color="primary" class="decision-btn"
+                  (click)="validateMission()" [disabled]="validating || !proofs.length">
+                  <mat-icon>check_circle</mat-icon>
+                  {{ validating ? 'Validation…' : 'Valider et libérer le paiement' }}
+                </button>
+                <button mat-stroked-button color="warn" class="decision-btn" (click)="openDispute()">
+                  <mat-icon>report_problem</mat-icon>
+                  Ouvrir un litige
+                </button>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="section-card dispute-banner" *ngIf="mission.status === 'disputed'">
+              <mat-card-content>
+                <mat-icon>pause_circle</mat-icon>
+                <div>
+                  <strong>Litige en cours — paiement bloqué</strong>
+                  <p>Les fonds restent en escrow jusqu’à la résolution du litige par l’administration.</p>
+                  <a mat-button color="primary" [routerLink]="['/client/disputes']" [queryParams]="{ mission: missionId }">
+                    Suivre le litige
+                  </a>
                 </div>
               </mat-card-content>
             </mat-card>
@@ -431,13 +458,24 @@ import { environment } from '../../../../../environments/environment';
                   *ngIf="!mission.provider && mission.status === 'funded'">
                   <mat-icon>send</mat-icon> Sollicitations envoyées
                 </a>
-                <button mat-raised-button color="primary" class="full-width"
-                  *ngIf="mission.status === 'submitted'"
-                  (click)="scrollToProofsOrValidate()"
-                  [disabled]="validating">
-                  <mat-icon>check_circle</mat-icon>
-                  {{ validating ? 'Validation…' : (proofs.length ? 'Valider le paiement' : 'Voir les preuves') }}
-                </button>
+
+                <div class="side-decision" *ngIf="mission.status === 'submitted'">
+                  <p class="side-decision-hint">Preuves à vérifier</p>
+                  <button mat-stroked-button class="full-width" type="button" (click)="scrollToDecision()">
+                    <mat-icon>photo_camera</mat-icon>
+                    Voir preuves et décider
+                  </button>
+                  <p class="side-decision-note">
+                    Validez pour payer le prestataire, ou ouvrez un litige pour bloquer le paiement.
+                  </p>
+                </div>
+
+                <a mat-stroked-button class="full-width"
+                  *ngIf="mission.status === 'disputed'"
+                  [routerLink]="['/client/disputes']" [queryParams]="{ mission: missionId }">
+                  <mat-icon>gavel</mat-icon> Suivre le litige
+                </a>
+
                 <button mat-raised-button color="accent" class="full-width" *ngIf="mission.status === 'completed' && mission.provider && !rated" (click)="openRating()">
                   <mat-icon>star</mat-icon> Noter le prestataire
                 </button>
@@ -537,8 +575,8 @@ import { environment } from '../../../../../environments/environment';
       background: linear-gradient(135deg, #f5f3ff 0%, #f0fdf4 100%);
       border: 1px solid #e9d5ff;
       border-radius: 16px;
-      padding: 28px 32px;
-      margin-bottom: 20px;
+      padding: 20px 24px;
+      margin-bottom: 16px;
     }
     .hero-badges { margin-bottom: 12px; }
     .category-badge {
@@ -547,9 +585,9 @@ import { environment } from '../../../../../environments/environment';
       background: white; border: 1px solid #e5e7eb;
     }
     .category-badge mat-icon { font-size: 14px; width: 14px; height: 14px; }
-    .hero h1 { font-size: 28px; font-weight: 700; margin: 0 0 8px; color: #111827; }
-    .hero-desc { color: #4b5563; line-height: 1.6; margin: 0; }
-    .hero-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-top: 20px; }
+    .hero h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 8px; color: #111827; }
+    .hero-desc { color: #4b5563; line-height: 1.55; margin: 0; }
+    .hero-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 10px; margin-top: 14px; }
     .stat-card { background: white; border-radius: 12px; padding: 14px 16px; border: 1px solid #e5e7eb; }
     .stat-card.highlight { border-color: #6C5CE7; background: #faf5ff; }
     .stat-label { display: block; font-size: 11px; text-transform: uppercase; color: #6b7280; margin-bottom: 4px; }
@@ -557,7 +595,7 @@ import { environment } from '../../../../../environments/environment';
     .stat-card.overdue { border-color: #f59e0b; background: #fffbeb; }
     .stat-overdue { display: block; font-size: 11px; font-weight: 700; color: #d97706; margin-top: 4px; }
 
-    .timeline-card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 20px; margin-bottom: 24px; overflow-x: auto; }
+    .timeline-card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; overflow-x: auto; }
 
     .expiry-alert {
       margin-bottom: 24px;
@@ -590,12 +628,13 @@ import { environment } from '../../../../../environments/environment';
 
     .layout {
       display: grid;
-      grid-template-columns: minmax(0, 1fr) 320px;
-      gap: 24px;
+      grid-template-columns: minmax(0, 1.45fr) minmax(260px, 300px);
+      gap: 18px;
       min-width: 0;
+      align-items: start;
     }
     .section-card {
-      margin-bottom: 20px;
+      margin-bottom: 14px;
       border-radius: 12px;
       max-width: 100%;
       min-width: 0;
@@ -603,7 +642,7 @@ import { environment } from '../../../../../environments/environment';
     }
     .section-card mat-card-title { display: flex; align-items: center; gap: 8px; font-size: 16px; }
     .section-card mat-card-title mat-icon { color: #16a34a; }
-    .route { background: #f9fafb; border-radius: 12px; padding: 16px; }
+    .route { background: #f9fafb; border-radius: 12px; padding: 12px 14px; }
     .route-point { display: flex; gap: 12px; }
     .route-icon {
       width: 36px; height: 36px; border-radius: 50%;
@@ -641,8 +680,67 @@ import { environment } from '../../../../../environments/environment';
     .proofs-card mat-card-subtitle { margin-top: 4px; color: #0f766e; font-weight: 500; }
     .proofs-loading { display: flex; justify-content: center; padding: 24px; }
     .empty-proofs { margin: 0; color: #6b7280; font-size: 14px; }
-    .proofs-actions { margin-top: 16px; display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
-    .proof-item small { display: inline; color: #9ca3af; }
+    .proofs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 14px;
+    }
+    .proof-tile {
+      display: flex; flex-direction: column; gap: 8px;
+      text-decoration: none; color: inherit;
+      border: 1px solid #e5e7eb; border-radius: 12px; overflow: hidden;
+      background: #fff; transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .proof-tile:hover { border-color: #16a34a; box-shadow: 0 4px 14px rgba(22, 163, 74, 0.12); }
+    .proof-tile img {
+      width: 100%; height: 160px; object-fit: cover; display: block; background: #f3f4f6;
+    }
+    .proof-doc {
+      height: 160px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 8px; padding: 12px; text-align: center; background: #f9fafb; color: #4b5563; font-size: 13px;
+    }
+    .proof-meta { padding: 0 12px 12px; display: flex; flex-direction: column; gap: 2px; }
+    .proof-meta strong { font-size: 13px; color: #111827; }
+    .proof-meta span { font-size: 12px; color: #6b7280; }
+
+    .decision-card {
+      border: 1px solid #a7f3d0;
+      background: linear-gradient(180deg, #f0fdf4 0%, #fff 48%);
+    }
+    .decision-card mat-card-subtitle { color: #166534; margin-top: 4px; line-height: 1.4; }
+    .decision-actions {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 4px;
+    }
+    .decision-btn {
+      width: 100%;
+      height: auto !important;
+      min-height: 48px;
+      white-space: normal;
+      line-height: 1.3;
+      padding: 10px 14px !important;
+    }
+    .dispute-banner mat-card-content {
+      display: flex; gap: 14px; align-items: flex-start; padding-top: 8px !important;
+    }
+    .dispute-banner mat-icon { color: #d97706; font-size: 32px; width: 32px; height: 32px; flex-shrink: 0; }
+    .dispute-banner strong { display: block; color: #92400e; margin-bottom: 4px; }
+    .dispute-banner p { margin: 0 0 8px; color: #92400e; font-size: 14px; line-height: 1.45; }
+
+    .side-decision {
+      display: flex; flex-direction: column; gap: 10px;
+      padding: 12px; border-radius: 10px; background: #f0fdf4; border: 1px solid #bbf7d0;
+    }
+    .side-decision-hint { margin: 0; font-size: 12px; font-weight: 700; color: #166534; text-transform: uppercase; letter-spacing: 0.03em; }
+    .side-decision-note { margin: 0; font-size: 12px; color: #3f6212; line-height: 1.4; }
+    .counterparty-profile p {
+      display: flex; align-items: center; gap: 8px; margin: 6px 0; font-size: 13px; color: #374151;
+      word-break: break-word;
+    }
+    .counterparty-profile mat-icon { font-size: 16px; width: 16px; height: 16px; color: #6b7280; flex-shrink: 0; }
+    .counterparty-profile .bio { display: block; margin-top: 8px; color: #6b7280; font-size: 13px; line-height: 1.4; }
     .stat-value.schedule { font-size: 15px; }
     .enterprise-progress .ep-steps { display: flex; flex-direction: column; gap: 10px; }
     .ep-step { display: flex; align-items: center; gap: 10px; color: #94a3b8; font-size: 14px; padding: 8px 12px; border-radius: 8px; background: #f9fafb; }
@@ -730,6 +828,8 @@ import { environment } from '../../../../../environments/environment';
       .detail-row { grid-template-columns: 1fr; gap: 4px; }
       .media-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       .section-card { margin-bottom: 14px; }
+      .decision-actions { grid-template-columns: 1fr; }
+      .proofs-grid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
       .chat-wrap {
         min-height: 260px;
         height: min(55dvh, 420px);
@@ -807,7 +907,7 @@ export class MissionDetailComponent implements OnInit {
         this.loading = false;
         this.loadProofs();
         if (this.route.snapshot.queryParamMap.get('section') === 'proofs') {
-          setTimeout(() => this.scrollToProofs(), 200);
+          setTimeout(() => this.scrollToDecision(), 200);
         }
       },
       error: () => {
@@ -867,13 +967,15 @@ export class MissionDetailComponent implements OnInit {
     document.getElementById('proofs-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  scrollToProofsOrValidate(): void {
-    if (!this.proofs.length) {
-      this.scrollToProofs();
-      this.snackBar.open('Aucune preuve à afficher pour le moment', 'Fermer', { duration: 3000 });
-      return;
-    }
-    this.validateMission();
+  scrollToDecision(): void {
+    const el = document.getElementById('decision-section') || document.getElementById('proofs-section');
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  openDispute(): void {
+    this.router.navigate(['/client/disputes'], {
+      queryParams: { mission: this.missionId, open: '1' },
+    });
   }
 
   private buildTimeline(): void {
