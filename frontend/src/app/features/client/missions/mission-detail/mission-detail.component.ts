@@ -14,10 +14,12 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MissionService, Mission } from '../../../../core/services/mission.service';
 import { PaymentService } from '../../../../core/services/payment.service';
+import { ProofService, MissionProof } from '../../../../core/services/proof.service';
 import { MissionApplicationsComponent } from '../mission-applications/mission-applications.component';
 import { ChatComponent } from '../../../../shared/components/chat/chat.component';
 import { GpsTrackingComponent } from '../../../../shared/components/gps-tracking/gps-tracking.component';
 import { RatingDialogComponent } from '../../../../shared/components/rating/rating-dialog.component';
+import { environment } from '../../../../../environments/environment';
 
 @Component({
   selector: 'app-mission-detail',
@@ -319,6 +321,51 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
               (applicationAccepted)="loadMission()">
             </app-mission-applications>
 
+            <mat-card class="section-card proofs-card" id="proofs-section"
+              *ngIf="showProofsSection">
+              <mat-card-header>
+                <mat-card-title><mat-icon>photo_camera</mat-icon> Preuves du prestataire</mat-card-title>
+                <mat-card-subtitle *ngIf="mission.status === 'submitted'">
+                  Vérifiez ces preuves avant de valider et libérer le paiement
+                </mat-card-subtitle>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="proofs-loading" *ngIf="proofsLoading">
+                  <mat-progress-spinner diameter="32" mode="indeterminate"></mat-progress-spinner>
+                </div>
+                <ng-container *ngIf="!proofsLoading">
+                  <div class="media-grid" *ngIf="proofs.length; else noProofs">
+                    <a
+                      class="media-item proof-item"
+                      *ngFor="let p of proofs"
+                      [href]="proofFileUrl(p)"
+                      target="_blank"
+                      rel="noopener"
+                    >
+                      <img *ngIf="isProofImage(p)" [src]="proofFileUrl(p)" [alt]="p.title || p.file_name || 'Preuve'" />
+                      <div class="media-doc" *ngIf="!isProofImage(p)">
+                        <mat-icon>description</mat-icon>
+                        <span>{{ p.file_name || p.title || 'Document' }}</span>
+                      </div>
+                      <span class="media-caption">
+                        {{ p.title || proofTypeLabel(p.proof_type) }}
+                        <small *ngIf="p.created_at"> · {{ p.created_at | date:'dd/MM HH:mm' }}</small>
+                      </span>
+                    </a>
+                  </div>
+                  <ng-template #noProofs>
+                    <p class="empty-proofs">Aucune preuve disponible pour le moment.</p>
+                  </ng-template>
+                </ng-container>
+                <div class="proofs-actions" *ngIf="mission.status === 'submitted' && proofs.length">
+                  <button mat-raised-button color="primary" (click)="validateMission()" [disabled]="validating">
+                    <mat-icon>check_circle</mat-icon>
+                    {{ validating ? 'Validation…' : 'Valider et libérer le paiement' }}
+                  </button>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
             <mat-card class="section-card" *ngIf="showGps()">
               <mat-card-header>
                 <mat-card-title><mat-icon>gps_fixed</mat-icon> Suivi en direct</mat-card-title>
@@ -384,8 +431,12 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
                   *ngIf="!mission.provider && mission.status === 'funded'">
                   <mat-icon>send</mat-icon> Sollicitations envoyées
                 </a>
-                <button mat-raised-button color="primary" class="full-width" *ngIf="mission.status === 'submitted'" (click)="validateMission()">
-                  <mat-icon>check_circle</mat-icon> Valider et libérer le paiement
+                <button mat-raised-button color="primary" class="full-width"
+                  *ngIf="mission.status === 'submitted'"
+                  (click)="scrollToProofsOrValidate()"
+                  [disabled]="validating">
+                  <mat-icon>check_circle</mat-icon>
+                  {{ validating ? 'Validation…' : (proofs.length ? 'Valider le paiement' : 'Voir les preuves') }}
                 </button>
                 <button mat-raised-button color="accent" class="full-width" *ngIf="mission.status === 'completed' && mission.provider && !rated" (click)="openRating()">
                   <mat-icon>star</mat-icon> Noter le prestataire
@@ -587,6 +638,11 @@ import { RatingDialogComponent } from '../../../../shared/components/rating/rati
       padding: 8px; text-align: center; font-size: 12px; color: #4b5563;
     }
     .media-caption { font-size: 12px; color: #6b7280; }
+    .proofs-card mat-card-subtitle { margin-top: 4px; color: #0f766e; font-weight: 500; }
+    .proofs-loading { display: flex; justify-content: center; padding: 24px; }
+    .empty-proofs { margin: 0; color: #6b7280; font-size: 14px; }
+    .proofs-actions { margin-top: 16px; display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; }
+    .proof-item small { display: inline; color: #9ca3af; }
     .stat-value.schedule { font-size: 15px; }
     .enterprise-progress .ep-steps { display: flex; flex-direction: column; gap: 10px; }
     .ep-step { display: flex; align-items: center; gap: 10px; color: #94a3b8; font-size: 14px; padding: 8px 12px; border-radius: 8px; background: #f9fafb; }
@@ -705,6 +761,9 @@ export class MissionDetailComponent implements OnInit {
   minDeadlineLocal = '';
   expiryLoading = false;
   timelineSteps: Array<{ key: string; label: string; done: boolean; active: boolean }> = [];
+  proofs: MissionProof[] = [];
+  proofsLoading = false;
+  validating = false;
 
   constructor(
     private route: ActivatedRoute,
@@ -712,12 +771,18 @@ export class MissionDetailComponent implements OnInit {
     private missionService: MissionService,
     private snackBar: MatSnackBar,
     private paymentService: PaymentService,
+    private proofService: ProofService,
     private dialog: MatDialog,
   ) {}
 
   ngOnInit(): void {
     this.missionId = this.route.snapshot.paramMap.get('id') || '';
     this.loadMission();
+  }
+
+  get showProofsSection(): boolean {
+    const s = this.mission?.status || '';
+    return ['in_progress', 'submitted', 'completed', 'disputed'].includes(s);
   }
 
   loadMission(): void {
@@ -728,12 +793,75 @@ export class MissionDetailComponent implements OnInit {
         this.rated = !!(m as { rated?: boolean }).rated;
         this.buildTimeline();
         this.loading = false;
+        this.loadProofs();
+        if (this.route.snapshot.queryParamMap.get('section') === 'proofs') {
+          setTimeout(() => this.scrollToProofs(), 200);
+        }
       },
       error: () => {
         this.snackBar.open('Erreur chargement mission', 'Fermer', { duration: 3000 });
         this.loading = false;
       },
     });
+  }
+
+  private loadProofs(): void {
+    if (!this.showProofsSection) {
+      this.proofs = [];
+      return;
+    }
+    this.proofsLoading = true;
+    this.proofService.getProofs(this.missionId).subscribe({
+      next: (list) => {
+        this.proofs = list || [];
+        this.proofsLoading = false;
+      },
+      error: () => {
+        this.proofs = [];
+        this.proofsLoading = false;
+      },
+    });
+  }
+
+  proofFileUrl(p: MissionProof): string {
+    const file = p.file || '';
+    if (!file) return '#';
+    if (/^https?:\/\//i.test(file)) return file;
+    const base = environment.apiUrl.replace(/\/api\/?$/, '');
+    return file.startsWith('/') ? `${base}${file}` : `${base}/${file}`;
+  }
+
+  isProofImage(p: MissionProof): boolean {
+    const name = (p.file_name || p.file || '').toLowerCase();
+    return /\.(jpe?g|png|gif|webp|bmp)$/i.test(name) || /image\//i.test(name);
+  }
+
+  proofTypeLabel(type: string): string {
+    const labels: Record<string, string> = {
+      photo_before: 'Photo avant',
+      photo_during: 'Photo pendant',
+      photo_after: 'Photo après',
+      video: 'Vidéo',
+      signature_client: 'Signature client',
+      signature_provider: 'Signature prestataire',
+      receipt: 'Reçu',
+      document: 'Document',
+      qr_code: 'QR code',
+    };
+    return labels[type] || type || 'Preuve';
+  }
+
+  scrollToProofs(): void {
+    document.getElementById('proofs-section')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  scrollToProofsOrValidate(): void {
+    if (!this.proofs.length) {
+      this.scrollToProofs();
+      this.snackBar.open('Aucune preuve à afficher pour le moment', 'Fermer', { duration: 3000 });
+      return;
+    }
+    this.validateMission();
   }
 
   private buildTimeline(): void {
@@ -1023,14 +1151,19 @@ export class MissionDetailComponent implements OnInit {
   }
 
   validateMission(): void {
+    this.validating = true;
     this.missionService.validateMission(this.missionId).subscribe({
       next: () => {
         if (this.mission) this.mission.status = 'completed';
         this.buildTimeline();
-        this.snackBar.open('Mission validée !', 'Fermer', { duration: 3000 });
+        this.validating = false;
+        this.snackBar.open('Mission validée — paiement libéré', 'Fermer', { duration: 3000 });
         this.loadMission();
       },
-      error: () => this.snackBar.open('Erreur validation', 'Fermer', { duration: 3000 }),
+      error: (e) => {
+        this.validating = false;
+        this.snackBar.open(e?.error?.error || 'Erreur validation', 'Fermer', { duration: 4000 });
+      },
     });
   }
 

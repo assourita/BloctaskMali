@@ -121,8 +121,8 @@ import { MissionApplicationsComponent } from '../missions/mission-applications/m
 
               <div class="dash-row__actions" *ngIf="mission.status === 'submitted'">
                 <button mat-flat-button color="primary" (click)="validateMission(mission)">
-                  <mat-icon>check</mat-icon>
-                  Valider et payer
+                  <mat-icon>photo_camera</mat-icon>
+                  Voir preuves / Valider
                 </button>
                 <button mat-button color="warn" (click)="openDispute(mission)">
                   Litige
@@ -264,13 +264,7 @@ export class ClientDashboardComponent implements OnInit {
   }
 
   validateMission(mission: { id: string; title: string }): void {
-    this.missionService.validateMission(mission.id).subscribe({
-      next: () => {
-        this.snackBar.open('Mission validée', 'Fermer', { duration: 3000 });
-        this.loadDashboard();
-      },
-      error: () => this.snackBar.open('Erreur de validation', 'Fermer', { duration: 3000 })
-    });
+    this.router.navigate(['/client/missions', mission.id], { queryParams: { section: 'proofs' } });
   }
 
   openDispute(mission: { id: string }): void {

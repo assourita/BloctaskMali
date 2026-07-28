@@ -257,8 +257,8 @@ interface Mission {
                 <span>Annuler</span>
               </button>
               <button mat-menu-item *ngIf="isMissionSubmitted(mission)" (click)="validateMission(mission, $event)">
-                <mat-icon>check_circle</mat-icon>
-                <span>Valider</span>
+                <mat-icon>photo_camera</mat-icon>
+                <span>Voir preuves / Valider</span>
               </button>
             </mat-menu>
           </div>
@@ -1091,14 +1091,8 @@ export class ClientMissionsComponent implements OnInit {
 
   validateMission(mission: Mission, event: Event): void {
     event.stopPropagation();
-    this.http.post(`${this.apiUrl}/missions/${mission.id}/validate/`, {}, { headers: this.h() }).subscribe({
-      next: () => {
-        mission.status = 'completed';
-        this.updateStats();
-        this.snackBar.open('Mission validée !', 'Fermer', { duration: 3000 });
-      },
-      error: () => this.snackBar.open('Erreur validation', 'Fermer', { duration: 3000 })
-    });
+    // Le client doit voir les preuves avant de valider le paiement
+    this.router.navigate(['/client/missions', mission.id], { queryParams: { section: 'proofs' } });
   }
 
   stopPropagation(event: Event): void {
